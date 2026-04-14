@@ -373,8 +373,18 @@ fn gluing_compute(
     xy_k2_8: &ThetaCoupleJacPoint,
     verify: bool,
 ) -> bool {
-    #[cfg(debug_assertions)]
-    {
+    // On the verify path the kernel is derived from attacker-controlled
+    // signature data, so a wrong-order point means "reject", not "panic".
+    // The C reference does `#ifndef NDEBUG assert(...)` here (debug crash).
+    if verify {
+        if test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3) == 0
+            || test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3) == 0
+            || test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3) == 0
+            || test_jac_order_twof(&xy_k2_8.p2, &e12.e2, 3) == 0
+        {
+            return false;
+        }
+    } else {
         debug_assert!(test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3) != 0);
         debug_assert!(test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3) != 0);
         debug_assert!(test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3) != 0);
@@ -954,9 +964,14 @@ fn theta_chain_compute_impl(
 
     let extra: u32 = if extra_torsion { HD_EXTRA_TORSION } else { 0 };
 
-    #[cfg(debug_assertions)]
-    {
-        debug_assert!(extra == 0 || extra == 2);
+    debug_assert!(extra == 0 || extra == 2);
+    if verify {
+        if test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32) == 0
+            || test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32) == 0
+        {
+            return 0;
+        }
+    } else {
         debug_assert!(test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32) != 0);
         debug_assert!(test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32) != 0);
     }

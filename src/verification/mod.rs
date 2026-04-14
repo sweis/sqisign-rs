@@ -575,6 +575,27 @@ mod tests {
     }
 
     #[test]
+    fn reject_wrong_order_kernel() {
+        // Fuzzer-found regression: a signature whose basis-change matrix
+        // produces kernel points without the expected 2³-torsion order
+        // previously hit a debug_assert in `gluing_compute`. Must reject
+        // gracefully (also in debug builds), not panic. The C reference
+        // crashes here in debug mode (`#ifndef NDEBUG assert(...)`).
+        let pk: [u8; PUBLICKEY_BYTES] = hex_literal(
+            b"1584B4356B7B4E181EDCF26987F87BE2AC278594EFE19F4A19B2B64E35D93000\
+              93FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E461CC68F749B60102",
+        );
+        let sig: [u8; SIGNATURE_BYTES] = hex_literal(
+            b"E0B82F57B5E76BCCE7CD8EC810AF242BE46BF0289726C9E962E1D1B21CDCEE02\
+              69019AD486AE5C386201EFEB356409EDC6D83B94DB5443BD7A2BD83415623701\
+              00014E35D9300093FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E4\
+              61CC68F749B60102E0B82F57B5E76BCCE7CDD26E57E315332ADA8EDDB914D0A7\
+              A3470D1EC18F38E6DF5EBE2D0FE37E1D6B030B0B",
+        );
+        assert!(!sqisign_verify(b"", &sig, &pk));
+    }
+
+    #[test]
     fn reject_adversarial_backtracking() {
         // Regression test for the DoS/panic at backtracking ≥ 128 (negative
         // shift wraps to ~4e9 in `multiple_mp_shiftl`; see PORTING.md). All

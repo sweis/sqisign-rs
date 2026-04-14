@@ -201,8 +201,13 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
 }
 
 /// Find smallest n ≥ start with x(P) = n·A on-curve; returns hint n (or 0 on overflow).
+///
+/// The C reference asserts `!is_square(A)` here. That holds on the signing
+/// path (caller picks the branch by `is_square(A)`), but on the verify path
+/// `from_hint` reaches this with attacker-chosen A and hint, so we drop the
+/// assert; the post-hoc validation in `ec_curve_to_basis_2f_from_hint`
+/// rejects the resulting basis if it is malformed.
 fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
-    debug_assert!(fp2_is_square(&curve.a) == 0);
     let mut n = start;
     if n == 1 {
         fp2_copy(x, &curve.a);
