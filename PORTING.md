@@ -60,6 +60,13 @@ Each item analysed against the SQIsign Round-2 spec (2025-07-07) and call-site u
 - `quaternion/dpe.rs`: clean-room `round` used ties-to-even; C `round()` is half-away-from-zero. This single tie-case at LLL step 1102 (`u=4.5`) desynchronized the entire KAT-0 keygen.
 - `quaternion/normeq.rs`: used spec-correct `rem_euclid(4)` instead of C's truncating `%`, breaking DRBG sync.
 
+## Findings worth raising upstream
+
+- **DoS via `backtracking ≥ 128`**: negative shift → C undefined behavior / Rust 18ms burn. Fixed in Rust with early reject.
+- **Signature malleability (universal)**: bit `SQIsign_response_length + 1 − backtracking` of every basis-change-matrix entry is malleable for *every* honest signature, giving ≥ 2⁴ valid encodings each (more at lvl3/lvl5, where additional value-dependent bits are also malleable). The bit passes the canonical-bound check (`< 2^(RL+2−bt)`) and is the top bit consumed by `xDBLMUL`, but doesn't affect the result because the basis has order exactly `2^(RL+2−bt)`. Confirmed against the C reference (`tools/c_malleability_check.c`). EUF-CMA unaffected; breaks sBUF-CMA. Fix: tighten the canonical bound to `2^(RL+1−bt)`.
+- **Debug-assert reachable from attacker input**: `gluing_compute` torsion-order asserts and `find_na_x_coord` is_square assert fire on crafted signatures in C `assert()` builds. Rust now gracefully rejects on the verify path.
+- See also the `quat_sampling_random_ideal_O0_given_norm` clobbered-`found` flag and the `normeq.c % 4` sign issue in the table above.
+
 ## Security hardening (Rust improvements over C)
 
 | Area | Finding | Status |
