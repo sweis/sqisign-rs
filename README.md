@@ -6,8 +6,8 @@ digital signature scheme based on isogenies of supersingular elliptic curves.
 Ported from the [C reference implementation](https://github.com/SQIsign/the-sqisign)
 and validated against the official NIST KAT test vectors.
 
-> **Warning:** SQIsign is a NIST PQC Round 2 candidate and this port has not
-> been independently audited. Do not use in production.
+> **Warning:** SQIsign is a NIST PQC Round 2 candidate and `sqisign-rs` is AI generated. It
+> has not been independently audited. Do not use in production.
 
 ## Status
 
