@@ -20,3 +20,4 @@ C-ref-sysGMP,2026-04-14T19:05:00Z,verify=49.34M-instr,keygen=682.1M-instr,sign=1
 # Ratios Rust/C: verify 1.06, keygen 0.50, sign 0.54.
 # The 2x keygen/sign win is AES-NI (Rust `aes` crate auto-detect) vs C ref's bitsliced
 # software AES (br_aes_ct64_* = 52% of C keygen profile). Verify (no DRBG/GMP) is at parity.
+2a443e4,2026-04-14T19:22:57Z,verify=2.995ms,keygen=22.790ms,sign=53.178ms,post-hardening-quiet-system

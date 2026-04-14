@@ -14,11 +14,15 @@ and validated against the official NIST KAT test vectors.
 | Level | Prime | Verify | Sign / Keygen | KAT |
 |-------|-------|--------|---------------|-----|
 | lvl1  | 5·2²⁴⁸ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
-| lvl3  | 65·2³⁷⁶ − 1 | — | — | pending |
-| lvl5  | 27·2⁵⁰⁰ − 1 | — | — | pending |
+| lvl3  | 65·2³⁷⁶ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
+| lvl5  | 27·2⁵⁰⁰ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
 
-See [PORTING.md](PORTING.md) for module status, C-vs-spec discrepancies found
-during the port, and design decisions.
+Performance is at parity with the C `ref` build on identical workloads (verify
+~3 ms, sign ~53 ms at lvl1; see PORTING.md § Performance for the controlled
+instruction-count comparison).
+
+See [PORTING.md](PORTING.md) for C-vs-spec discrepancies found during the port,
+security hardening notes, and mutation-testing results.
 
 ## Building
 
@@ -83,6 +87,18 @@ cargo run --release --features lvl1,sign --example sign_verify
 - `sign` — enable key generation and signing. Pulls in `rug` (GMP). Without
   this flag the crate builds verification only, matching the C reference's
   `ENABLE_SIGN=OFF` mode.
+- `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
+  replays. Do not enable in production.
+
+## Benchmarking
+
+```sh
+tools/record_bench.sh "my-change"
+```
+
+appends a `[commit, timestamp, verify, keygen, sign, note]` row to
+[`BENCH_HISTORY.csv`](BENCH_HISTORY.csv). For a controlled C-vs-Rust comparison
+see `tools/perf/README.md`.
 
 ## Fuzzing
 

@@ -1,32 +1,32 @@
-# SQIsign C→Rust Porting Status
+# SQIsign C→Rust Porting Notes
 
-Tracking the port from <https://github.com/SQIsign/the-sqisign> (reference impl).
+Port of <https://github.com/SQIsign/the-sqisign> (reference impl).
 
-## Module status (lvl1)
+**Status: full keygen/sign/verify parity with the C reference at all three
+security levels.** All 100 NIST KAT sign and 100 verify vectors pass byte-for-byte
+at lvl1, lvl3, and lvl5. 146 unit tests + 4 KAT integration tests at lvl1.
 
-| Module | C LOC | Status | Notes |
-|--------|-------|--------|-------|
-| common | 4557 | **done** | SHAKE256 via `sha3`, AES-CTR-DRBG via `aes`; 6 tests |
-| mp | 445 | **done** | fixed-precision limb arithmetic; 13 tests |
-| gf | 15182 | **done** | fp_p5248_64 (5-limb unsaturated) + fp2; 27 tests, C-cross-checked |
-| precomp (verify) | ~12K | **done** | constants for verification path |
-| ec | 4766 | **done** | x-only/Jacobian/isog/basis (biextension stubbed); 10 tests |
-| hd | 2042 | **done** | theta isogenies; 4 tests |
-| verification | 740 | **done** | **all 100 KAT verify vectors pass** (0.55s) + tamper-reject |
-| nistapi | 193 | **done** | crypto_sign_open works |
-| quaternion (core) | ~2400 | **done** | intbig/dim/algebra/integers via `rug`; 30 tests |
-| quaternion (adv) | ~2200 | **done** | HNF/LLL/lattice/ideal/normeq; clean-room DPE; 26 tests |
-| precomp (sign) | ~263K | **done** | scripted port via `tools/gen_precomp_sign.py`; 8 tests |
-| ec (biextension) | 770 | **done** | Weil/Tate pairings + dlog; 3 tests |
-| id2iso | 2594 | **done** | id2iso + dim2id2iso (find_uv, clapotis); 2 tests |
-| signature | 1370 | **done** | **all 100 KAT sign vectors pass** (8s release) |
+## Module map
 
-**Status: full lvl1 keygen/sign/verify parity with C reference.** 131 unit tests + 4 KAT integration tests (200 vectors total exercised).
+| Module | C LOC | Notes |
+|--------|-------|-------|
+| common | 4557 | SHAKE256 via `sha3`, AES-CTR-DRBG via `aes` |
+| mp | 445 | fixed-precision limb arithmetic |
+| gf | 15182 | per-prime backends (`fp_p5248`/`fp_p65376`/`fp_p27500`) + level-generic `fp`/`fp2` layer; C-cross-checked |
+| precomp | ~21K + ~263K data | level-cfg constants; signing data scripted via `tools/gen_precomp_sign.py` |
+| ec | 4766 | x-only/Jacobian/isogeny chains/basis/pairings |
+| hd | 2042 | theta isogenies |
+| quaternion | ~4600 | intbig (rug), HNF, LLL (clean-room DPE float), lattice/ideal/normeq |
+| id2iso | 2594 | id2iso + dim2id2iso (find_uv, clapotis) |
+| verification | 740 | encode/decode, hash-to-challenge, protocols_verify |
+| signature | 1370 | keygen, sign, sk encode |
+| nistapi | 193 | thin wrapper |
 
 ## Test vectors
 
-- KAT files copied to `KAT/` from C repo (100 vectors per level).
-- `tests/kat.rs` parses .rsp files; verify/sign tests are `#[ignore]` until impl lands.
+- `KAT/*.rsp` copied from the C repo (100 vectors per level), SHA-256-identical.
+- `tests/kat.rs` runs `kat_verify` (all 100), `kat_sign` (all 100, or
+  `KAT_SIGN_LIMIT=n`), and `kat_verify_reject_tampered`.
 
 ## C oddities flagged for spec cross-check
 
@@ -44,7 +44,7 @@ Each item analysed against the SQIsign Round-2 spec (2025-07-07) and call-site u
 | `ibz_div` doc | **No issue** | Header (intbig.h:105) actually says "rounded towards zero" — matches `mpz_tdiv_qr`. Earlier port note was wrong. |
 | `ibz_mat_4x4_is_hnf` `linestart` never updated | **Real bug, debug-only** | hnf.c:37-46: `linestart` stays -1 so `linestart < i` is vacuous. Only used in NDEBUG asserts. Keep faithful. |
 | `quat_sampling_random_ideal_O0_given_norm` clobbers `found` | **Real bug vs spec** | normeq.c:319 resets `found=0` to enter the rerandomize loop, discarding the represent_integer success flag. Spec Alg 3.10 step 10 says "might raise an exception"; C silently proceeds with an invalid `gen`. Unreachable with valid SQIsign parameters (represent_integer succeeds w.h.p.). Keep faithful for KAT; worth upstream issue. |
-| `normeq.c:188` C `%` on signed | **Real bug vs spec; Rust must match C** | Spec Alg 3.12 step 15: `(x−t ≡ 2 mod 4)`. C uses `(ibz_get(x)-ibz_get(t)) % 4 == 2`; for negative differences C gives `-2`, failing the check. Rejects valid samples → extra retry iterations → different DRBG consumption. **The Rust port currently uses `rem_euclid(4)` which is spec-correct but breaks KAT determinism. Must revert to C's truncating `%` for KAT parity.** |
+| `normeq.c:188` C `%` on signed | **Real bug vs spec; Rust matches C** | Spec Alg 3.12 step 15: `(x−t ≡ 2 mod 4)`. C uses `(ibz_get(x)-ibz_get(t)) % 4 == 2`; for negative differences C gives `-2`, failing the check. Rejects valid samples → extra retry iterations → different DRBG consumption. Rust matches C's truncating `%` for KAT parity (with a code comment noting the spec divergence). |
 
 ## Spec discrepancies found (verify.c vs Algorithm 4.9)
 
@@ -105,12 +105,13 @@ Rust on KAT-0 against C `benchmark_lvl1` medians over random instances. Keygen
 and sign have high variance (C's own benchmark: keygen stddev 70.6 Mcyc on a
 117.7 Mcyc median), and KAT-0 happens to be ~2.4× harder than median.
 
-**Wall-clock** (`benches/bench.rs`, release, lvl1, KAT-0, light load):
-verify 3.2 ms · keygen 24.9 ms · sign 58.5 ms · 100× full-KAT (kg+sign+verify) 8.0 s.
+**Wall-clock** (`benches/bench.rs`, release, lvl1, KAT-0, quiet system):
+verify 3.0 ms · keygen 22.8 ms · sign 53.2 ms · 100× full-KAT (kg+sign+verify) 7.8 s.
 
 Optimizations applied: `fp2_*_ip` in-place ops (288 sites) and DRBG key-schedule
-caching (~1% combined improvement; LTO already eliminated most aliasing temps).
-`#[inline(always)]` on the modarith backend was tried and reverted (I-cache bloat).
+caching — 6-9% wall-clock improvement (the saved work is disproportionately memory
+traffic, so instruction counts understate it). `#[inline(always)]` on the modarith
+backend was tried and reverted (I-cache bloat).
 
 Open opportunities:
 - Port the C `broadwell` AVX2 `fp_*` backend (largest remaining win for verify).
