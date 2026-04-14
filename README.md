@@ -6,8 +6,8 @@ digital signature scheme based on isogenies of supersingular elliptic curves.
 Ported from the [C reference implementation](https://github.com/SQIsign/the-sqisign)
 and validated against the official NIST KAT test vectors.
 
-> **Warning:** SQIsign is a NIST PQC Round 2 candidate and this port has not
-> been independently audited. Do not use in production.
+> **Warning:** SQIsign is a NIST PQC Round 2 candidate and `sqisign-rs` is AI generated. It
+> has not been independently audited. Do not use in production.
 
 ## Status
 
@@ -96,7 +96,3 @@ cargo fuzz run fuzz_verify
 Available targets: `fuzz_verify`, `fuzz_decode_sig`, `fuzz_decode_pk`,
 `fuzz_fp2_decode`. A small KAT-derived seed corpus is checked in under
 `fuzz/corpus/fuzz_verify/`; regenerate with `python3 fuzz/seed_corpus.py`.
-
-## License
-
-Apache-2.0. See `LICENSE`.
