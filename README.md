@@ -40,12 +40,19 @@ cargo build --release --no-default-features --features lvl1
 ## Testing
 
 ```sh
-# All unit tests + KAT integration tests (~8s release)
+# Unit tests + KAT + Wycheproof-style edge cases (~11s release at lvl1)
 cargo test --release --features lvl1,sign
 
-# Run only the first N sign vectors (each takes ~80ms)
+# Run only the first N sign vectors
 KAT_SIGN_LIMIT=5 cargo test --features lvl1,sign kat_sign
+
+# Mutation testing
+cargo mutants --no-default-features --features lvl1
 ```
+
+The Wycheproof-style suite (`tests/wycheproof.rs`) generates ~1.8K-3.4K edge
+cases per level (bit-flip sweep, non-canonical encodings, structure boundaries,
+malleability). Export JSON vectors with `WYCHEPROOF_EXPORT=1`.
 
 ## Usage
 
