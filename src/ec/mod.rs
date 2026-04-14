@@ -10,19 +10,19 @@
 
 use crate::gf::*;
 use crate::mp::{self, Digit, LOG2RADIX, RADIX};
-use crate::precomp::{NWORDS_ORDER, BITS};
+use crate::precomp::{BITS, NWORDS_ORDER};
 
-pub mod jac;
-pub mod xisog;
-pub mod isog_chains;
 pub mod basis;
 pub mod biextension;
+pub mod isog_chains;
+pub mod jac;
 mod tests_mutants;
+pub mod xisog;
 
+pub use basis::*;
+pub use isog_chains::*;
 pub use jac::*;
 pub use xisog::*;
-pub use isog_chains::*;
-pub use basis::*;
 
 // ===========================================================================
 // Types (ec.h)
@@ -684,7 +684,10 @@ pub fn ec_dbl(res: &mut EcPoint, p: &EcPoint, curve: &EcCurve) {
         debug_assert!(fp2_is_one(&curve.a24.z) != 0);
         xdbl_a24(res, p, &curve.a24, true);
     } else {
-        let ac = EcPoint { x: curve.a, z: curve.c };
+        let ac = EcPoint {
+            x: curve.a,
+            z: curve.c,
+        };
         xdbl(res, p, &ac);
     }
 }
@@ -706,7 +709,10 @@ pub fn ec_dbl_iter(res: &mut EcPoint, n: i32, p: &EcPoint, curve: &mut EcCurve) 
             xdbl_a24(res, &s, &curve.a24, true);
         }
     } else {
-        let ac = EcPoint { x: curve.a, z: curve.c };
+        let ac = EcPoint {
+            x: curve.a,
+            z: curve.c,
+        };
         xdbl(res, p, &ac);
         for _ in 0..n - 1 {
             let s = *res;
@@ -862,7 +868,10 @@ mod tests {
             a
         }
         fn fp2(&mut self) -> Fp2 {
-            Fp2 { re: self.fp(), im: self.fp() }
+            Fp2 {
+                re: self.fp(),
+                im: self.fp(),
+            }
         }
     }
 
@@ -1042,7 +1051,10 @@ mod tests {
 
         for _ in 0..ITERS {
             let p = ec_random(&mut prng, &curve);
-            let ac = EcPoint { x: curve.a, z: curve.c };
+            let ac = EcPoint {
+                x: curve.a,
+                z: curve.c,
+            };
             let mut r1 = EcPoint::default();
             let mut r2 = EcPoint::default();
             let mut r3 = EcPoint::default();
@@ -1206,16 +1218,36 @@ mod tests {
         let mut q = basis.q;
         for _ in 0..n - 1 {
             let (sp, sq) = (p, q);
-            xdbl_a24(&mut p, &sp, &curve.a24, curve.is_a24_computed_and_normalized);
-            xdbl_a24(&mut q, &sq, &curve.a24, curve.is_a24_computed_and_normalized);
+            xdbl_a24(
+                &mut p,
+                &sp,
+                &curve.a24,
+                curve.is_a24_computed_and_normalized,
+            );
+            xdbl_a24(
+                &mut q,
+                &sq,
+                &curve.a24,
+                curve.is_a24_computed_and_normalized,
+            );
         }
         assert_eq!(ec_is_zero(&p), 0, "P not full order");
         assert_eq!(ec_is_zero(&q), 0, "Q not full order");
         assert_eq!(ec_is_equal(&p, &q), 0, "P,Q dependent");
         assert_ne!(fp2_is_zero(&q.x), 0, "Q not above (0,0)");
         let (sp, sq) = (p, q);
-        xdbl_a24(&mut p, &sp, &curve.a24, curve.is_a24_computed_and_normalized);
-        xdbl_a24(&mut q, &sq, &curve.a24, curve.is_a24_computed_and_normalized);
+        xdbl_a24(
+            &mut p,
+            &sp,
+            &curve.a24,
+            curve.is_a24_computed_and_normalized,
+        );
+        xdbl_a24(
+            &mut q,
+            &sq,
+            &curve.a24,
+            curve.is_a24_computed_and_normalized,
+        );
         assert_ne!(ec_is_zero(&p), 0, "P order != 2^n");
         assert_ne!(ec_is_zero(&q), 0, "Q order != 2^n");
     }
@@ -1241,7 +1273,12 @@ mod tests {
         inner_test_generated_basis(&basis, &curve, TORSION_EVEN_POWER);
 
         let mut basis2 = EcBasis::default();
-        let ok = ec_curve_to_basis_2f_from_hint(&mut basis2, &mut curve, TORSION_EVEN_POWER as i32, hint);
+        let ok = ec_curve_to_basis_2f_from_hint(
+            &mut basis2,
+            &mut curve,
+            TORSION_EVEN_POWER as i32,
+            hint,
+        );
         assert_eq!(ok, 1);
         assert_ne!(ec_is_equal(&basis.p, &basis2.p), 0);
         assert_ne!(ec_is_equal(&basis.q, &basis2.q), 0);

@@ -131,7 +131,11 @@ pub fn randombytes_init_full(
 #[cfg(feature = "bench-internals")]
 #[doc(hidden)]
 pub fn snapshot() -> DrbgState {
-    DRBG_CTX.lock().unwrap().clone().expect("DRBG not initialized")
+    DRBG_CTX
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("DRBG not initialized")
 }
 
 /// Restore the global DRBG state from a snapshot.
@@ -218,9 +222,6 @@ mod tests {
         randombytes_init(&ent);
         let mut s0 = [0u8; 48];
         randombytes(&mut s0);
-        assert_eq!(
-            &s0[..4],
-            &hex::decode("06155023").unwrap()[..],
-        );
+        assert_eq!(&s0[..4], &hex::decode("06155023").unwrap()[..],);
     }
 }

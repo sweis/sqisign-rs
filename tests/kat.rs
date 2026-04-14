@@ -70,8 +70,14 @@ fn kat_file_parses() {
     let vectors = parse_kat_file(kat_path().to_str().unwrap());
     assert_eq!(vectors.len(), 100);
     assert_eq!(vectors[0].seed.len(), 48);
-    assert_eq!(vectors[0].pk.len(), sqisign_rs::params::CRYPTO_PUBLICKEYBYTES);
-    assert_eq!(vectors[0].sk.len(), sqisign_rs::params::CRYPTO_SECRETKEYBYTES);
+    assert_eq!(
+        vectors[0].pk.len(),
+        sqisign_rs::params::CRYPTO_PUBLICKEYBYTES
+    );
+    assert_eq!(
+        vectors[0].sk.len(),
+        sqisign_rs::params::CRYPTO_SECRETKEYBYTES
+    );
 }
 
 #[test]
@@ -92,12 +98,20 @@ fn kat_verify_reject_tampered() {
         // Flip one signature byte; verification must fail.
         let mut sm = v.sm.clone();
         sm[10] ^= 0x01;
-        assert!(nistapi::crypto_sign_open(&sm, &v.pk).is_err(), "count {}", v.count);
+        assert!(
+            nistapi::crypto_sign_open(&sm, &v.pk).is_err(),
+            "count {}",
+            v.count
+        );
         // Flip one message byte; verification must fail.
         let mut sm = v.sm.clone();
         let last = sm.len() - 1;
         sm[last] ^= 0x01;
-        assert!(nistapi::crypto_sign_open(&sm, &v.pk).is_err(), "count {}", v.count);
+        assert!(
+            nistapi::crypto_sign_open(&sm, &v.pk).is_err(),
+            "count {}",
+            v.count
+        );
     }
 }
 

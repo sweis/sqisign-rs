@@ -263,11 +263,7 @@ pub fn copy_bases_to_kernel(ker: &mut ThetaKernelCouplePoints, b1: &EcBasis, b2:
 }
 
 /// Debug helper: tests both components of a couple point have order exactly 2ᵗ.
-pub fn test_couple_point_order_twof(
-    t: &ThetaCouplePoint,
-    e: &ThetaCoupleCurve,
-    tw: i32,
-) -> u32 {
+pub fn test_couple_point_order_twof(t: &ThetaCouplePoint, e: &ThetaCoupleCurve, tw: i32) -> u32 {
     test_point_order_twof(&t.p1, &e.e1, tw) & test_point_order_twof(&t.p2, &e.e2, tw)
 }
 
@@ -482,7 +478,9 @@ mod tests {
         fp2_set_one(&mut one);
         let p = EcPoint { x: one, z: one };
         let mut b1 = EcBasis::default();
-        b1.p = p; b1.q = p; b1.pmq = p;
+        b1.p = p;
+        b1.q = p;
+        b1.pmq = p;
         let b2 = EcBasis::default();
         let mut ker = ThetaKernelCouplePoints::default();
         copy_bases_to_kernel(&mut ker, &b1, &b2);

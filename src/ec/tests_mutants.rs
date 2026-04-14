@@ -222,8 +222,18 @@ fn xdbladd_nonnormalized_a24() {
     let mut s1 = EcPoint::default();
     let mut r2 = EcPoint::default();
     let mut s2 = EcPoint::default();
-    xdbladd(&mut r1, &mut s1, &basis.p, &basis.q, &basis.pmq, &e.a24, true);
-    xdbladd(&mut r2, &mut s2, &basis.p, &basis.q, &basis.pmq, &a24_unnorm, false);
+    xdbladd(
+        &mut r1, &mut s1, &basis.p, &basis.q, &basis.pmq, &e.a24, true,
+    );
+    xdbladd(
+        &mut r2,
+        &mut s2,
+        &basis.p,
+        &basis.q,
+        &basis.pmq,
+        &a24_unnorm,
+        false,
+    );
     assert_ne!(ec_is_equal(&r1, &r2), 0);
     assert_ne!(ec_is_equal(&s1, &s2), 0);
 }

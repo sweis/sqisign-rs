@@ -27,7 +27,12 @@ fn select_base_change_matrix(
     for i in 0..4 {
         for j in 0..4 {
             let a = m1.m[i][j];
-            fp2_select(&mut m.m[i][j], &a, &FP2_CONSTANTS[m2.m[i][j] as usize], option);
+            fp2_select(
+                &mut m.m[i][j],
+                &a,
+                &FP2_CONSTANTS[m2.m[i][j] as usize],
+                option,
+            );
         }
     }
 }
@@ -128,7 +133,8 @@ fn base_change_matrix_multiplication(
                 m_ik = m1.m[i][k];
                 let m_kj = m2.m[k][j];
                 fp2_mul_ip(&mut m_ik, &m_kj);
-                let ss = sum; fp2_add(&mut sum, &ss, &m_ik);
+                let ss = sum;
+                fp2_add(&mut sum, &ss, &m_ik);
             }
             tmp.m[i][j] = sum;
         }
@@ -150,12 +156,7 @@ fn base_change(out: &mut ThetaPoint, phi: &ThetaGluing, t: &ThetaCouplePoint) {
     apply_isomorphism(out, &phi.m, &null_point);
 }
 
-fn action_by_translation_z_and_det(
-    z_inv: &mut Fp2,
-    det_inv: &mut Fp2,
-    p4: &EcPoint,
-    p2: &EcPoint,
-) {
+fn action_by_translation_z_and_det(z_inv: &mut Fp2, det_inv: &mut Fp2, p4: &EcPoint, p2: &EcPoint) {
     fp2_copy(z_inv, &p4.z);
     let mut tmp = Fp2::default();
     fp2_mul(det_inv, &p4.x, &p2.z);
@@ -180,7 +181,8 @@ fn action_by_translation_compute_matrix(
     fp2_mul(&mut g.g11, &p2.x, det_inv);
     fp2_mul_ip(&mut g.g11, &p4.z);
 
-    let s = g.g11; fp2_neg(&mut g.g00, &s);
+    let s = g.g11;
+    fp2_neg(&mut g.g00, &s);
 
     fp2_mul(&mut g.g01, &p2.z, det_inv);
     fp2_mul_ip(&mut g.g01, &p4.z);
@@ -192,10 +194,7 @@ fn verify_two_torsion(
     k2_2: &ThetaCouplePoint,
     e12: &ThetaCoupleCurve,
 ) -> bool {
-    if (ec_is_zero(&k1_2.p1)
-        | ec_is_zero(&k1_2.p2)
-        | ec_is_zero(&k2_2.p1)
-        | ec_is_zero(&k2_2.p2))
+    if (ec_is_zero(&k1_2.p1) | ec_is_zero(&k1_2.p2) | ec_is_zero(&k2_2.p1) | ec_is_zero(&k2_2.p2))
         != 0
     {
         return false;
@@ -481,21 +480,29 @@ fn gluing_eval_point(image: &mut ThetaPoint, p: &ThetaCoupleJacPoint, phi: &Thet
     fp2_mul(&mut t1.t, &ac1.w, &ac2.w);
     fp2_add(&mut t2.x, &ac1.u, &ac1.v);
     fp2_add(&mut t2.y, &ac2.u, &ac2.v);
-    let (sx, sy) = (t2.x, t2.y); fp2_mul(&mut t2.x, &sx, &sy);
-    let (s2x, s1x) = (t2.x, t1.x); fp2_sub(&mut t2.x, &s2x, &s1x);
+    let (sx, sy) = (t2.x, t2.y);
+    fp2_mul(&mut t2.x, &sx, &sy);
+    let (s2x, s1x) = (t2.x, t1.x);
+    fp2_sub(&mut t2.x, &s2x, &s1x);
     fp2_mul(&mut t2.y, &ac1.v, &ac2.w);
     fp2_mul(&mut t2.z, &ac1.w, &ac2.v);
     fp2_set_zero(&mut t2.t);
 
-    let s = t1; apply_isomorphism_general(&mut t1, &phi.m, &s, true);
-    let s = t2; apply_isomorphism_general(&mut t2, &phi.m, &s, false);
+    let s = t1;
+    apply_isomorphism_general(&mut t1, &phi.m, &s, true);
+    let s = t2;
+    apply_isomorphism_general(&mut t2, &phi.m, &s, false);
     pointwise_square_ip(&mut t1);
     pointwise_square_ip(&mut t2);
 
-    let (a, b) = (t1.x, t2.x); fp2_sub(&mut t1.x, &a, &b);
-    let (a, b) = (t1.y, t2.y); fp2_sub(&mut t1.y, &a, &b);
-    let (a, b) = (t1.z, t2.z); fp2_sub(&mut t1.z, &a, &b);
-    let (a, b) = (t1.t, t2.t); fp2_sub(&mut t1.t, &a, &b);
+    let (a, b) = (t1.x, t2.x);
+    fp2_sub(&mut t1.x, &a, &b);
+    let (a, b) = (t1.y, t2.y);
+    fp2_sub(&mut t1.y, &a, &b);
+    let (a, b) = (t1.z, t2.z);
+    fp2_sub(&mut t1.z, &a, &b);
+    let (a, b) = (t1.t, t2.t);
+    fp2_sub(&mut t1.t, &a, &b);
     hadamard_ip(&mut t1);
 
     fp2_mul(&mut image.x, &t1.x, &phi.image_k1_8.y);
@@ -726,9 +733,17 @@ fn theta_isogeny_compute_2(
     let s = out.precomputation.x;
     fp2_mul(&mut out.precomputation.y, &s, &out.codomain.null_point.y);
     fp2_mul_ip(&mut out.precomputation.x, &tt2.y);
-    fp2_mul(&mut out.precomputation.z, &tt2.t, &out.codomain.null_point.z);
+    fp2_mul(
+        &mut out.precomputation.z,
+        &tt2.t,
+        &out.codomain.null_point.z,
+    );
     fp2_mul_ip(&mut out.precomputation.z, &tt2.y);
-    fp2_mul(&mut out.precomputation.t, &tt2.z, &out.codomain.null_point.t);
+    fp2_mul(
+        &mut out.precomputation.t,
+        &tt2.z,
+        &out.codomain.null_point.t,
+    );
     fp2_mul_ip(&mut out.precomputation.t, &tt2.y);
 
     if hadamard_bool_2 {
@@ -792,18 +807,16 @@ fn splitting_compute(
         let chi_row = &CHI_EVAL[EVEN_INDEX[i][0] as usize];
         for (t, &chi) in chi_row.iter().enumerate() {
             choose_index_theta_point(&mut t2, t as i32, &a.null_point);
-            choose_index_theta_point(
-                &mut t1,
-                (t as i32) ^ EVEN_INDEX[i][1],
-                &a.null_point,
-            );
+            choose_index_theta_point(&mut t1, (t as i32) ^ EVEN_INDEX[i][1], &a.null_point);
             fp2_mul_ip(&mut t1, &t2);
 
             let ctl = (chi >> 1) as u32;
             debug_assert!(ctl == 0 || ctl == 0xFFFF_FFFF);
 
-            let s = t1; fp2_neg(&mut t2, &s);
-            let s = t1; fp2_select(&mut t1, &s, &t2, ctl);
+            let s = t1;
+            fp2_neg(&mut t2, &s);
+            let s = t1;
+            fp2_select(&mut t1, &s, &t2, ctl);
 
             fp2_add_ip(&mut u_cst, &t1);
         }
@@ -861,9 +874,7 @@ fn theta_product_structure_to_elliptic_product(
     ec_curve_init(&mut e12.e1);
     ec_curve_init(&mut e12.e2);
 
-    if (fp2_is_zero(&a.null_point.x)
-        | fp2_is_zero(&a.null_point.y)
-        | fp2_is_zero(&a.null_point.z))
+    if (fp2_is_zero(&a.null_point.x) | fp2_is_zero(&a.null_point.y) | fp2_is_zero(&a.null_point.z))
         != 0
     {
         return false;
@@ -916,7 +927,8 @@ fn theta_point_to_montgomery_point(
     }
     fp2_mul(&mut p12.p2.x, &a.null_point.y, x);
     fp2_mul(&mut temp, &a.null_point.x, z);
-    let s = p12.p2.x; fp2_sub(&mut p12.p2.z, &temp, &s);
+    let s = p12.p2.x;
+    fp2_sub(&mut p12.p2.z, &temp, &s);
     fp2_add_ip(&mut p12.p2.x, &temp);
 
     let (mut x, mut z) = (&p.x, &p.z);
@@ -926,7 +938,8 @@ fn theta_point_to_montgomery_point(
     }
     fp2_mul(&mut p12.p1.x, &a.null_point.z, x);
     fp2_mul(&mut temp, &a.null_point.x, z);
-    let s = p12.p1.x; fp2_sub(&mut p12.p1.z, &temp, &s);
+    let s = p12.p1.x;
+    fp2_sub(&mut p12.p1.z, &temp, &s);
     fp2_add_ip(&mut p12.p1.x, &temp);
     true
 }
@@ -953,8 +966,16 @@ fn theta_chain_compute_impl(
     let mut xy_t1 = ThetaCoupleJacPoint::default();
     let mut xy_t2 = ThetaCoupleJacPoint::default();
 
-    let mut bas1 = EcBasis { p: ker.t1.p1, q: ker.t2.p1, pmq: ker.t1m2.p1 };
-    let mut bas2 = EcBasis { p: ker.t1.p2, q: ker.t2.p2, pmq: ker.t1m2.p2 };
+    let mut bas1 = EcBasis {
+        p: ker.t1.p1,
+        q: ker.t2.p1,
+        pmq: ker.t1m2.p1,
+    };
+    let mut bas2 = EcBasis {
+        p: ker.t1.p2,
+        q: ker.t2.p2,
+        pmq: ker.t1m2.p2,
+    };
     if lift_basis(&mut xy_t1.p1, &mut xy_t2.p1, &mut bas1, &mut e12.e1) == 0 {
         return 0;
     }
@@ -999,7 +1020,11 @@ fn theta_chain_compute_impl(
         current += 1;
         debug_assert!((current as usize) < space);
         let prev = todo[(current - 1) as usize];
-        let num_dbls: u32 = if prev >= 16 { (prev / 2) as u32 } else { (prev - 1) as u32 };
+        let num_dbls: u32 = if prev >= 16 {
+            (prev / 2) as u32
+        } else {
+            (prev - 1) as u32
+        };
         debug_assert!(num_dbls > 0 && num_dbls < prev as u32);
         let src1 = jac_q1[(current - 1) as usize];
         double_couple_jac_point_iter(&mut jac_q1[current as usize], num_dbls, &src1, e12);
@@ -1072,21 +1097,33 @@ fn theta_chain_compute_impl(
 
         let ret = if i == n - 2 {
             theta_isogeny_compute(
-                &mut step, &theta,
-                &theta_q1[current as usize], &theta_q2[current as usize],
-                false, false, verify,
+                &mut step,
+                &theta,
+                &theta_q1[current as usize],
+                &theta_q2[current as usize],
+                false,
+                false,
+                verify,
             )
         } else if i == n - 1 {
             theta_isogeny_compute(
-                &mut step, &theta,
-                &theta_q1[current as usize], &theta_q2[current as usize],
-                true, false, false,
+                &mut step,
+                &theta,
+                &theta_q1[current as usize],
+                &theta_q2[current as usize],
+                true,
+                false,
+                false,
             )
         } else {
             theta_isogeny_compute(
-                &mut step, &theta,
-                &theta_q1[current as usize], &theta_q2[current as usize],
-                false, true, verify,
+                &mut step,
+                &theta,
+                &theta_q1[current as usize],
+                &theta_q2[current as usize],
+                false,
+                true,
+                verify,
             )
         };
         if !ret {
@@ -1102,8 +1139,10 @@ fn theta_chain_compute_impl(
 
         debug_assert_eq!(todo[current as usize], 1);
         for j in 0..current as usize {
-            let s1 = theta_q1[j]; theta_isogeny_eval(&mut theta_q1[j], &step, &s1);
-            let s2 = theta_q2[j]; theta_isogeny_eval(&mut theta_q2[j], &step, &s2);
+            let s1 = theta_q1[j];
+            theta_isogeny_eval(&mut theta_q1[j], &step, &s1);
+            let s2 = theta_q2[j];
+            theta_isogeny_eval(&mut theta_q2[j], &step, &s2);
             debug_assert!(todo[j] != 0);
             todo[j] -= 1;
         }
@@ -1116,23 +1155,29 @@ fn theta_chain_compute_impl(
 
     if !extra_torsion {
         if n >= 3 {
-            let s1 = theta_q1[0]; theta_isogeny_eval(&mut theta_q1[0], &step, &s1);
-            let s2 = theta_q2[0]; theta_isogeny_eval(&mut theta_q2[0], &step, &s2);
+            let s1 = theta_q1[0];
+            theta_isogeny_eval(&mut theta_q1[0], &step, &s1);
+            let s2 = theta_q2[0];
+            theta_isogeny_eval(&mut theta_q2[0], &step, &s2);
         }
 
         let (q1, q2) = (theta_q1[0], theta_q2[0]);
         theta_isogeny_compute_4(&mut step, &theta, &q1, &q2, false, false);
         for pt in pts.iter_mut().take(num_p) {
-            let s = *pt; theta_isogeny_eval(pt, &step, &s);
+            let s = *pt;
+            theta_isogeny_eval(pt, &step, &s);
         }
         theta = step.codomain;
-        let s1 = theta_q1[0]; theta_isogeny_eval(&mut theta_q1[0], &step, &s1);
-        let s2 = theta_q2[0]; theta_isogeny_eval(&mut theta_q2[0], &step, &s2);
+        let s1 = theta_q1[0];
+        theta_isogeny_eval(&mut theta_q1[0], &step, &s1);
+        let s2 = theta_q2[0];
+        theta_isogeny_eval(&mut theta_q2[0], &step, &s2);
 
         let (q1, q2) = (theta_q1[0], theta_q2[0]);
         theta_isogeny_compute_2(&mut step, &theta, &q1, &q2, true, false);
         for pt in pts.iter_mut().take(num_p) {
-            let s = *pt; theta_isogeny_eval(pt, &step, &s);
+            let s = *pt;
+            theta_isogeny_eval(pt, &step, &s);
         }
         theta = step.codomain;
     }

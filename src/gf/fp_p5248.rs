@@ -34,7 +34,11 @@ pub const ONE: Fp = Fp([
     0x0000_3000_0000_0000,
 ]);
 pub const MINUS_ONE: Fp = Fp([
-    0x7ffffffffffe6, 0x7ffffffffffff, 0x7ffffffffffff, 0x7ffffffffffff, 0x1fffffffffff,
+    0x7ffffffffffe6,
+    0x7ffffffffffff,
+    0x7ffffffffffff,
+    0x7ffffffffffff,
+    0x1fffffffffff,
 ]);
 pub const TWO_INV: Fp = Fp([
     0x0000_0000_0000_000c,

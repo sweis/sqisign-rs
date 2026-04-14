@@ -23,27 +23,43 @@ pub const TWO_P_TOP: u64 = 0x20800000000000;
 pub const PR_WORDS: usize = 6;
 
 pub const ZERO: Fp = Fp([0; NLIMBS]);
-pub const ONE: Fp = Fp([
-    0x0000000000000007, 0, 0, 0, 0, 0, 0x000e400000000000,
-]);
+pub const ONE: Fp = Fp([0x0000000000000007, 0, 0, 0, 0, 0, 0x000e400000000000]);
 pub const MINUS_ONE: Fp = Fp([
-    0x7ffffffffffff8, 0x7fffffffffffff, 0x7fffffffffffff, 0x7fffffffffffff,
-    0x7fffffffffffff, 0x7fffffffffffff, 0x1ffffffffffff,
+    0x7ffffffffffff8,
+    0x7fffffffffffff,
+    0x7fffffffffffff,
+    0x7fffffffffffff,
+    0x7fffffffffffff,
+    0x7fffffffffffff,
+    0x1ffffffffffff,
 ]);
-pub const TWO_INV: Fp = Fp([
-    0x0000000000000003, 0, 0, 0, 0, 0, 0x000f400000000000,
-]);
+pub const TWO_INV: Fp = Fp([0x0000000000000003, 0, 0, 0, 0, 0, 0x000f400000000000]);
 pub const THREE_INV: Fp = Fp([
-    0x0055555555555557, 0x002aaaaaaaaaaaaa, 0x0055555555555555, 0x002aaaaaaaaaaaaa,
-    0x0055555555555555, 0x002aaaaaaaaaaaaa, 0x000f955555555555,
+    0x0055555555555557,
+    0x002aaaaaaaaaaaaa,
+    0x0055555555555555,
+    0x002aaaaaaaaaaaaa,
+    0x0055555555555555,
+    0x002aaaaaaaaaaaaa,
+    0x000f955555555555,
 ]);
 pub const R2: Fp = Fp([
-    0x0007e07e07e07e26, 0x007c0fc0fc0fc0fc, 0x0001f81f81f81f81, 0x003f03f03f03f03f,
-    0x00607e07e07e07e0, 0x000fc0fc0fc0fc0f, 0x000e9f81f81f81f8,
+    0x0007e07e07e07e26,
+    0x007c0fc0fc0fc0fc,
+    0x0001f81f81f81f81,
+    0x003f03f03f03f03f,
+    0x00607e07e07e07e0,
+    0x000fc0fc0fc0fc0f,
+    0x000e9f81f81f81f8,
 ]);
 pub const NRES_C: [u64; NLIMBS] = [
-    0xfc0fc0fc0fc4d, 0x781f81f81f81f8, 0x3f03f03f03f03, 0x7e07e07e07e07e,
-    0x40fc0fc0fc0fc0, 0x1f81f81f81f81f, 0xcff03f03f03f0,
+    0xfc0fc0fc0fc4d,
+    0x781f81f81f81f8,
+    0x3f03f03f03f03,
+    0x7e07e07e07e07e,
+    0x40fc0fc0fc0fc0,
+    0x1f81f81f81f81f,
+    0xcff03f03f03f0,
 ];
 
 #[inline]

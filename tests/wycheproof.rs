@@ -14,7 +14,9 @@
 
 use sqisign_rs::nistapi::crypto_sign_open;
 use sqisign_rs::params::{CRYPTO_ALGNAME, CRYPTO_BYTES, CRYPTO_PUBLICKEYBYTES};
-use sqisign_rs::precomp::{FP2_ENCODED_BYTES, FP_ENCODED_BYTES, SECURITY_BITS, SQISIGN_RESPONSE_LENGTH};
+use sqisign_rs::precomp::{
+    FP2_ENCODED_BYTES, FP_ENCODED_BYTES, SECURITY_BITS, SQISIGN_RESPONSE_LENGTH,
+};
 use sqisign_rs::verification::{signature_from_bytes, signature_to_bytes, Signature};
 
 use std::fs;
@@ -104,7 +106,11 @@ fn load_kats(n: usize) -> Vec<Kat> {
             pk = hex::decode(rest).unwrap();
         } else if let Some(rest) = line.strip_prefix("sm = ") {
             let sm = hex::decode(rest).unwrap();
-            out.push(Kat { msg: msg.clone(), pk: pk.clone(), sm });
+            out.push(Kat {
+                msg: msg.clone(),
+                pk: pk.clone(),
+                sm,
+            });
             if out.len() >= n {
                 break;
             }
@@ -123,11 +129,17 @@ fn prime_p_le() -> [u8; FP_ENCODED_BYTES] {
     // Equivalently: low (FP_ENCODED_BYTES − 1) bytes are 0xFF; top byte is c − 1.
     let mut p = [0xFFu8; FP_ENCODED_BYTES];
     #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
-    { p[FP_ENCODED_BYTES - 1] = 0x04; }
+    {
+        p[FP_ENCODED_BYTES - 1] = 0x04;
+    }
     #[cfg(feature = "lvl3")]
-    { p[FP_ENCODED_BYTES - 1] = 0x40; }
+    {
+        p[FP_ENCODED_BYTES - 1] = 0x40;
+    }
     #[cfg(feature = "lvl5")]
-    { p[FP_ENCODED_BYTES - 1] = 0x1A; }
+    {
+        p[FP_ENCODED_BYTES - 1] = 0x1A;
+    }
     p
 }
 
@@ -160,7 +172,11 @@ fn put_fp2(dst: &mut [u8], off: usize, re: &[u8; FP_ENCODED_BYTES], im: &[u8; FP
 // ===========================================================================
 
 fn build_cases() -> Vec<WycheproofCase> {
-    assert_eq!(SIG_HINT_CHALL + 1, CRYPTO_BYTES, "signature layout mismatch");
+    assert_eq!(
+        SIG_HINT_CHALL + 1,
+        CRYPTO_BYTES,
+        "signature layout mismatch"
+    );
     assert_eq!(PK_HINT + 1, CRYPTO_PUBLICKEYBYTES, "pk layout mismatch");
 
     let kats = load_kats(5);
@@ -174,7 +190,15 @@ fn build_cases() -> Vec<WycheproofCase> {
                     sm: Vec<u8>,
                     expected: Expect| {
         tcid += 1;
-        cases.push(WycheproofCase { tcid, category, comment, flags, pk, sm, expected });
+        cases.push(WycheproofCase {
+            tcid,
+            category,
+            comment,
+            flags,
+            pk,
+            sm,
+            expected,
+        });
     };
 
     // -----------------------------------------------------------------------
@@ -217,7 +241,12 @@ fn build_cases() -> Vec<WycheproofCase> {
             Expect::InvalidFast,
         );
     }
-    for &len in &[0usize, 1, CRYPTO_PUBLICKEYBYTES - 1, CRYPTO_PUBLICKEYBYTES + 1] {
+    for &len in &[
+        0usize,
+        1,
+        CRYPTO_PUBLICKEYBYTES - 1,
+        CRYPTO_PUBLICKEYBYTES + 1,
+    ] {
         let pk = if len <= base.pk.len() {
             base.pk[..len].to_vec()
         } else {
@@ -290,7 +319,11 @@ fn build_cases() -> Vec<WycheproofCase> {
         for bit in 0..8 {
             let mut pk = base.pk.clone();
             pk[byte] ^= 1 << bit;
-            let field = if byte < FP2_ENCODED_BYTES { "pk.curve_A" } else { "pk.hint" };
+            let field = if byte < FP2_ENCODED_BYTES {
+                "pk.curve_A"
+            } else {
+                "pk.hint"
+            };
             push(
                 "BitFlip",
                 format!("flip pk byte {byte} bit {bit} ({field})"),
@@ -326,15 +359,35 @@ fn build_cases() -> Vec<WycheproofCase> {
     let p = prime_p_le();
     let all_ff = [0xFFu8; FP_ENCODED_BYTES];
 
-    let fe_cases: &[(&str, [u8; FP_ENCODED_BYTES], [u8; FP_ENCODED_BYTES], &[&'static str])] = &[
+    let fe_cases: &[(
+        &str,
+        [u8; FP_ENCODED_BYTES],
+        [u8; FP_ENCODED_BYTES],
+        &[&'static str],
+    )] = &[
         ("A = 0 (singular curve)", zero, zero, &["SingularCurve"]),
         ("A = 1", one, zero, &["EdgeCaseA"]),
         ("A = 2 (singular curve)", two, zero, &["SingularCurve"]),
         ("A = -2 (singular curve)", neg_two, zero, &["SingularCurve"]),
         ("A = p-1 (= -1)", p_minus_1, zero, &["EdgeCaseA"]),
-        ("A = p (non-canonical encoding of 0)", p, zero, &["NonCanonicalEncoding"]),
-        ("A.re = all-0xFF (non-canonical, > p)", all_ff, zero, &["NonCanonicalEncoding"]),
-        ("A.im = p (non-canonical)", zero, p, &["NonCanonicalEncoding"]),
+        (
+            "A = p (non-canonical encoding of 0)",
+            p,
+            zero,
+            &["NonCanonicalEncoding"],
+        ),
+        (
+            "A.re = all-0xFF (non-canonical, > p)",
+            all_ff,
+            zero,
+            &["NonCanonicalEncoding"],
+        ),
+        (
+            "A.im = p (non-canonical)",
+            zero,
+            p,
+            &["NonCanonicalEncoding"],
+        ),
         ("A = i (pure imaginary)", zero, one, &["EdgeCaseA"]),
     ];
     for (label, re, im, flags) in fe_cases {
@@ -767,7 +820,11 @@ fn wycheproof_generated() {
         for f in &failures {
             println!("{f}");
         }
-        panic!("{} of {} wycheproof cases failed", failures.len(), cases.len());
+        panic!(
+            "{} of {} wycheproof cases failed",
+            failures.len(),
+            cases.len()
+        );
     }
 }
 
@@ -805,7 +862,9 @@ fn wycheproof_export() {
         "      \"publicKey\": \"{}\",\n",
         hex::encode(&kats[0].pk)
     ));
-    out.push_str(&format!("      \"publicKeySize\": {CRYPTO_PUBLICKEYBYTES},\n"));
+    out.push_str(&format!(
+        "      \"publicKeySize\": {CRYPTO_PUBLICKEYBYTES},\n"
+    ));
     out.push_str(&format!("      \"signatureSize\": {CRYPTO_BYTES},\n"));
     out.push_str("      \"tests\": [\n");
     for (idx, c) in cases.iter().enumerate() {

@@ -23,30 +23,50 @@ pub const TWO_P_TOP: u64 = 0x3600000000000;
 pub const PR_WORDS: usize = 8;
 
 pub const ZERO: Fp = Fp([0; NLIMBS]);
-pub const ONE: Fp = Fp([
-    0x000000000000012f, 0, 0, 0, 0, 0, 0, 0, 0x0000b00000000000,
-]);
+pub const ONE: Fp = Fp([0x000000000000012f, 0, 0, 0, 0, 0, 0, 0, 0x0000b00000000000]);
 pub const MINUS_ONE: Fp = Fp([
-    0x1fffffffffffed0, 0x1ffffffffffffff, 0x1ffffffffffffff, 0x1ffffffffffffff,
-    0x1ffffffffffffff, 0x1ffffffffffffff, 0x1ffffffffffffff, 0x1ffffffffffffff,
+    0x1fffffffffffed0,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
+    0x1ffffffffffffff,
     0xffffffffffff,
 ]);
-pub const TWO_INV: Fp = Fp([
-    0x0000000000000097, 0, 0, 0, 0, 0, 0, 0, 0x0001300000000000,
-]);
+pub const TWO_INV: Fp = Fp([0x0000000000000097, 0, 0, 0, 0, 0, 0, 0, 0x0001300000000000]);
 pub const THREE_INV: Fp = Fp([
-    0x00aaaaaaaaaaab0f, 0x0155555555555555, 0x00aaaaaaaaaaaaaa, 0x0155555555555555,
-    0x00aaaaaaaaaaaaaa, 0x0155555555555555, 0x00aaaaaaaaaaaaaa, 0x0155555555555555,
+    0x00aaaaaaaaaaab0f,
+    0x0155555555555555,
+    0x00aaaaaaaaaaaaaa,
+    0x0155555555555555,
+    0x00aaaaaaaaaaaaaa,
+    0x0155555555555555,
+    0x00aaaaaaaaaaaaaa,
+    0x0155555555555555,
     0x00015aaaaaaaaaaa,
 ]);
 pub const R2: Fp = Fp([
-    0x0012f684bda1e334, 0x01425ed097b425ed, 0x01684bda12f684bd, 0x01ed097b425ed097,
-    0x00bda12f684bda12, 0x0097b425ed097b42, 0x0012f684bda12f68, 0x01425ed097b425ed,
+    0x0012f684bda1e334,
+    0x01425ed097b425ed,
+    0x01684bda12f684bd,
+    0x01ed097b425ed097,
+    0x00bda12f684bda12,
+    0x0097b425ed097b42,
+    0x0012f684bda12f68,
+    0x01425ed097b425ed,
     0x00008bda12f684bd,
 ]);
 pub const NRES_C: [u64; NLIMBS] = [
-    0x25ed097b43c668, 0x84bda12f684bda, 0xd097b425ed097b, 0x1da12f684bda12f,
-    0x17b425ed097b425, 0x12f684bda12f684, 0x25ed097b425ed0, 0x84bda12f684bda,
+    0x25ed097b43c668,
+    0x84bda12f684bda,
+    0xd097b425ed097b,
+    0x1da12f684bda12f,
+    0x17b425ed097b425,
+    0x12f684bda12f684,
+    0x25ed097b425ed0,
+    0x84bda12f684bda,
     0x117b425ed097b,
 ];
 

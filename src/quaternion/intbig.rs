@@ -357,10 +357,7 @@ pub fn ibz_size_in_base(a: &Ibz, base: i32) -> i32 {
     if base == 2 {
         a.significant_bits().max(1) as i32
     } else {
-        a.to_string_radix(base)
-            .trim_start_matches('-')
-            .len()
-            .max(1) as i32
+        a.to_string_radix(base).trim_start_matches('-').len().max(1) as i32
     }
 }
 

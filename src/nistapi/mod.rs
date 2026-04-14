@@ -18,7 +18,8 @@ pub fn crypto_sign_open(sm: &[u8], pk: &[u8]) -> Result<Vec<u8>, ()> {
 }
 
 #[cfg(feature = "sign")]
-pub fn crypto_sign_keypair() -> Result<([u8; CRYPTO_PUBLICKEYBYTES], [u8; CRYPTO_SECRETKEYBYTES]), ()> {
+pub fn crypto_sign_keypair(
+) -> Result<([u8; CRYPTO_PUBLICKEYBYTES], [u8; CRYPTO_SECRETKEYBYTES]), ()> {
     crate::signature::sqisign_keypair()
 }
 

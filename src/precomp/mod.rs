@@ -6,13 +6,18 @@
 
 pub use crate::gf::{Digit, Fp, Fp2};
 
-pub mod level;
 pub mod hd_splitting_transforms;
+pub mod level;
 
-pub use level::*;
 pub use hd_splitting_transforms::*;
+pub use level::*;
 
-#[cfg(all(feature = "sign", feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
+#[cfg(all(
+    feature = "sign",
+    feature = "lvl1",
+    not(feature = "lvl3"),
+    not(feature = "lvl5")
+))]
 #[path = "sign_data_lvl1.rs"]
 pub mod sign_data;
 #[cfg(all(feature = "sign", feature = "lvl3", not(feature = "lvl5")))]

@@ -124,7 +124,11 @@ mod tests {
         let (mut x, mut y) = (Ibz::new(), Ibz::new());
         // n=1: x² + y² = p
         for &(p, ex, ey) in &[(5, 1, 2), (13, 2, 3), (29, 2, 5), (97, 4, 9)] {
-            assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(p)), 1, "p={p}");
+            assert_eq!(
+                ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(p)),
+                1,
+                "p={p}"
+            );
             let xx = x.clone() * x.clone() + y.clone() * y.clone();
             assert_eq!(xx, p);
             // Unordered pair.

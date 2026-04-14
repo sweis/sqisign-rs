@@ -153,7 +153,13 @@ fn is_on_curve(x: &Fp2, curve: &EcCurve) -> u32 {
 #[inline]
 fn clear_cofactor_for_maximal_even_order(p: &mut EcPoint, curve: &mut EcCurve, f: i32) {
     let s = *p;
-    ec_mul(p, &P_COFACTOR_FOR_2F, P_COFACTOR_FOR_2F_BITLENGTH as i32, &s, curve);
+    ec_mul(
+        p,
+        &P_COFACTOR_FOR_2F,
+        P_COFACTOR_FOR_2F_BITLENGTH as i32,
+        &s,
+        curve,
+    );
     for _ in 0..(TORSION_EVEN_POWER as i32 - f) {
         let s = *p;
         xdbl_a24(p, &s, &curve.a24, curve.is_a24_computed_and_normalized);
@@ -197,7 +203,11 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
     fp2_mul_ip(x, &curve.a);
     fp2_neg_ip(x);
 
-    if n <= 128 { (n - 1) as u8 } else { 0 }
+    if n <= 128 {
+        (n - 1) as u8
+    } else {
+        0
+    }
 }
 
 /// Find smallest n ≥ start with x(P) = n·A on-curve; returns hint n (or 0 on overflow).
@@ -218,7 +228,11 @@ fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
         fp2_add_ip(x, &curve.a);
         n = n.wrapping_add(1);
     }
-    if n < 128 { n } else { 0 }
+    if n < 128 {
+        n
+    } else {
+        0
+    }
 }
 
 /// Precomputed E₀ basis specialised for A=0.

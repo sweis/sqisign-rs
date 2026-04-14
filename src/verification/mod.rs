@@ -4,14 +4,14 @@
 
 use crate::common::fips202::Shake256Inc;
 use crate::ec::*;
-use crate::gf::{fp2_decode, fp2_encode, fp2_inv, fp2_is_one, fp2_is_zero, fp2_mul, fp2_set_one, Fp2};
+use crate::gf::{
+    fp2_decode, fp2_encode, fp2_inv, fp2_is_one, fp2_is_zero, fp2_mul, fp2_set_one, Fp2,
+};
 use crate::hd::{
     copy_bases_to_kernel, theta_chain_compute_and_eval_verify, ThetaCoupleCurve,
     ThetaKernelCouplePoints, HD_EXTRA_TORSION,
 };
-use crate::mp::{
-    mp_compare, mp_is_even, mp_mod_2exp, mp_sub, multiple_mp_shiftl, Digit, RADIX,
-};
+use crate::mp::{mp_compare, mp_is_even, mp_mod_2exp, mp_sub, multiple_mp_shiftl, Digit, RADIX};
 use crate::precomp::{
     FP2_ENCODED_BYTES, HASH_ITERATIONS, NWORDS_ORDER, PUBLICKEY_BYTES, SECURITY_BITS,
     SIGNATURE_BYTES, SQISIGN_RESPONSE_LENGTH, TORSION_EVEN_POWER,
@@ -45,12 +45,7 @@ pub fn public_key_init(pk: &mut PublicKey) {
 // hash_to_challenge (common.c)
 // ---------------------------------------------------------------------------
 
-pub fn hash_to_challenge(
-    scalar: &mut Scalar,
-    pk: &PublicKey,
-    com_curve: &EcCurve,
-    message: &[u8],
-) {
+pub fn hash_to_challenge(scalar: &mut Scalar, pk: &PublicKey, com_curve: &EcCurve, message: &[u8]) {
     let mut buf = [0u8; 2 * FP2_ENCODED_BYTES];
     {
         let mut j1 = Fp2::default();
@@ -308,8 +303,12 @@ fn challenge_and_aux_basis_verify(
     sig: &Signature,
     pow_dim2_deg_resp: i32,
 ) -> bool {
-    if ec_curve_to_basis_2f_from_hint(b_chall_can, e_chall, TORSION_EVEN_POWER as i32, sig.hint_chall)
-        == 0
+    if ec_curve_to_basis_2f_from_hint(
+        b_chall_can,
+        e_chall,
+        TORSION_EVEN_POWER as i32,
+        sig.hint_chall,
+    ) == 0
     {
         return false;
     }
@@ -383,7 +382,14 @@ fn two_response_isogeny_verify(
         e_chall,
     );
 
-    if ec_eval_small_chain(e_chall, &ker, sig.two_resp_length as i32, &mut points, false) != 0 {
+    if ec_eval_small_chain(
+        e_chall,
+        &ker,
+        sig.two_resp_length as i32,
+        &mut points,
+        false,
+    ) != 0
+    {
         return false;
     }
 
@@ -439,9 +445,8 @@ pub fn protocols_verify(sig: &Signature, pk: &PublicKey, m: &[u8]) -> bool {
         return false;
     }
 
-    let pow_dim2_deg_resp = SQISIGN_RESPONSE_LENGTH as i32
-        - sig.two_resp_length as i32
-        - sig.backtracking as i32;
+    let pow_dim2_deg_resp =
+        SQISIGN_RESPONSE_LENGTH as i32 - sig.two_resp_length as i32 - sig.backtracking as i32;
     if pow_dim2_deg_resp < 0 || pow_dim2_deg_resp == 1 {
         return false;
     }
@@ -455,7 +460,9 @@ pub fn protocols_verify(sig: &Signature, pk: &PublicKey, m: &[u8]) -> bool {
         return false;
     }
 
-    debug_assert!(fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF && !pk.curve.is_a24_computed_and_normalized);
+    debug_assert!(
+        fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF && !pk.curve.is_a24_computed_and_normalized
+    );
 
     let mut e_chall = EcCurve::default();
     if !compute_challenge_verify(&mut e_chall, sig, &pk.curve, pk.hint_pk) {
@@ -606,7 +613,11 @@ mod tests {
             sm[64] = bt;
             let t = std::time::Instant::now();
             assert!(!sqisign_verify(m, &sm[..SIGNATURE_BYTES], &KAT0_PK));
-            assert!(t.elapsed().as_millis() < 5, "bt={bt} took {:?}", t.elapsed());
+            assert!(
+                t.elapsed().as_millis() < 5,
+                "bt={bt} took {:?}",
+                t.elapsed()
+            );
         }
     }
 

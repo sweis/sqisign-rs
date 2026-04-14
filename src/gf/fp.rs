@@ -14,8 +14,8 @@
 use core::fmt;
 
 use super::backend::{
-    modmul, modpro, modsqr, partial_reduce, LIMB_BITS, MASK, NBYTES, NLIMBS, NRES_C, P_TOP,
-    PR_WORDS, R2, THREE_INV, TWO_INV, TWO_P_TOP,
+    modmul, modpro, modsqr, partial_reduce, LIMB_BITS, MASK, NBYTES, NLIMBS, NRES_C, PR_WORDS,
+    P_TOP, R2, THREE_INV, TWO_INV, TWO_P_TOP,
 };
 pub use super::backend::{
     BITS, FP_ENCODED_BYTES, LOG2P, MINUS_ONE, NWORDS_FIELD, NWORDS_ORDER, ONE, ZERO,
@@ -247,8 +247,14 @@ fn modcsw(b: i32, g: &mut [u64; NLIMBS], f: &mut [u64; NLIMBS]) {
         let s = g[i];
         let t = f[i];
         let w = r.wrapping_mul(t.wrapping_add(s));
-        f[i] = c0.wrapping_mul(t).wrapping_add(c1.wrapping_mul(s)).wrapping_sub(w);
-        g[i] = c0.wrapping_mul(s).wrapping_add(c1.wrapping_mul(t)).wrapping_sub(w);
+        f[i] = c0
+            .wrapping_mul(t)
+            .wrapping_add(c1.wrapping_mul(s))
+            .wrapping_sub(w);
+        g[i] = c0
+            .wrapping_mul(s)
+            .wrapping_add(c1.wrapping_mul(t))
+            .wrapping_sub(w);
     }
 }
 
@@ -827,7 +833,10 @@ mod tests {
         let mut a = Fp::default();
         fp_set_one(&mut a);
         fp_encode(&mut enc, &a);
-        assert_hex(&enc, "0100000000000000000000000000000000000000000000000000000000000000");
+        assert_hex(
+            &enc,
+            "0100000000000000000000000000000000000000000000000000000000000000",
+        );
 
         let mut b = Fp::default();
         let mut c = Fp::default();
@@ -835,17 +844,26 @@ mod tests {
         fp_set_small(&mut b, 7);
         fp_mul(&mut c, &a, &b);
         fp_encode(&mut enc, &c);
-        assert_hex(&enc, "2300000000000000000000000000000000000000000000000000000000000000");
+        assert_hex(
+            &enc,
+            "2300000000000000000000000000000000000000000000000000000000000000",
+        );
 
         fp_inv(&mut c);
         fp_encode(&mut enc, &c);
-        assert_hex(&enc, "9224499224499224499224499224499224499224499224499224499224499201");
+        assert_hex(
+            &enc,
+            "9224499224499224499224499224499224499224499224499224499224499201",
+        );
 
         fp_set_small(&mut a, 12345);
         fp_sqr(&mut b, &a);
         fp_sqrt(&mut b);
         fp_encode(&mut enc, &b);
-        assert_hex(&enc, "c6cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04");
+        assert_hex(
+            &enc,
+            "c6cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04",
+        );
 
         let mut src = [0u8; 64];
         for i in 0..64 {
@@ -853,11 +871,17 @@ mod tests {
         }
         fp_decode_reduce(&mut a, &src);
         fp_encode(&mut enc, &a);
-        assert_hex(&enc, "a43cd712e8565f34a3ab4d895ecdd577b388f7ffa1ddb2212acc07dd4b54f602");
+        assert_hex(
+            &enc,
+            "a43cd712e8565f34a3ab4d895ecdd577b388f7ffa1ddb2212acc07dd4b54f602",
+        );
 
         fp_decode_reduce(&mut a, &src[..47]);
         fp_encode(&mut enc, &a);
-        assert_hex(&enc, "2c35d712e8565f34a3ab4d895ecdd57771787f868d949ba2a9b0b7bec5ccd303");
+        assert_hex(
+            &enc,
+            "2c35d712e8565f34a3ab4d895ecdd57771787f868d949ba2a9b0b7bec5ccd303",
+        );
     }
 
     #[test]

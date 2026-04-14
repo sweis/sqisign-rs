@@ -93,7 +93,12 @@ pub fn quat_represent_integer(
         ibz_copy(&mut adjusted_n_gamma, n_gamma);
     }
 
-    ibz_div(&mut sq_bound, &mut bound, &adjusted_n_gamma, &params.algebra.p);
+    ibz_div(
+        &mut sq_bound,
+        &mut bound,
+        &adjusted_n_gamma,
+        &params.algebra.p,
+    );
     ibz_set(&mut temp, params.order.q as i32);
     let t = sq_bound.clone();
     ibz_sub(&mut sq_bound, &t, &temp);

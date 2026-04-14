@@ -88,7 +88,11 @@ fn ec_eval_even_strategy(
 
         current -= 1;
     }
-    debug_assert!(if isog_len % 2 != 0 { current == 0 } else { current == -1 });
+    debug_assert!(if isog_len % 2 != 0 {
+        current == 0
+    } else {
+        current == -1
+    });
 
     if isog_len % 2 != 0 {
         #[cfg(debug_assertions)]

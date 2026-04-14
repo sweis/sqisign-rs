@@ -267,8 +267,20 @@ pub fn ibz_mat_4x4_inv_with_det_as_denom(
 
     // 2×2 minors.
     for i in 0..3 {
-        ibz_mat_2x2_det_from_ibz(&mut s[i], &mat[0][0], &mat[0][i + 1], &mat[1][0], &mat[1][i + 1]);
-        ibz_mat_2x2_det_from_ibz(&mut c[i], &mat[2][0], &mat[2][i + 1], &mat[3][0], &mat[3][i + 1]);
+        ibz_mat_2x2_det_from_ibz(
+            &mut s[i],
+            &mat[0][0],
+            &mat[0][i + 1],
+            &mat[1][0],
+            &mat[1][i + 1],
+        );
+        ibz_mat_2x2_det_from_ibz(
+            &mut c[i],
+            &mat[2][0],
+            &mat[2][i + 1],
+            &mat[3][0],
+            &mat[3][i + 1],
+        );
     }
     for i in 0..2 {
         ibz_mat_2x2_det_from_ibz(
@@ -452,7 +464,12 @@ mod tests {
         let mut id = ibz_mat_4x4_init();
         ibz_mat_4x4_identity(&mut id);
         assert_eq!(ibz_mat_4x4_is_identity(&id), 1);
-        let m = mat_from([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]);
+        let m = mat_from([
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+            [9, 10, 11, 12],
+            [13, 14, 15, 16],
+        ]);
         let mut r = ibz_mat_4x4_init();
         ibz_mat_4x4_mul(&mut r, &id, &m);
         assert_eq!(ibz_mat_4x4_equal(&r, &m), 1);
@@ -499,10 +516,7 @@ mod tests {
         // Singular: det = 0.
         let sing = mat_from([[1, 2, 3, 4], [2, 4, 6, 8], [0, 1, 0, 1], [1, 0, 1, 0]]);
         let mut det3 = Ibz::new();
-        assert_eq!(
-            ibz_mat_4x4_inv_with_det_as_denom(None, &mut det3, &sing),
-            0
-        );
+        assert_eq!(ibz_mat_4x4_inv_with_det_as_denom(None, &mut det3, &sing), 0);
         assert_eq!(det3, 0);
     }
 

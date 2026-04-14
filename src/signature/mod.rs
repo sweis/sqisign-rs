@@ -67,7 +67,11 @@ impl Drop for SecretKey {
         self.curve.a.im.0.zeroize();
         self.curve.c.re.0.zeroize();
         self.curve.c.im.0.zeroize();
-        for p in [&mut self.canonical_basis.p, &mut self.canonical_basis.q, &mut self.canonical_basis.pmq] {
+        for p in [
+            &mut self.canonical_basis.p,
+            &mut self.canonical_basis.q,
+            &mut self.canonical_basis.pmq,
+        ] {
             p.x.re.0.zeroize();
             p.x.im.0.zeroize();
             p.z.re.0.zeroize();
@@ -132,8 +136,11 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
 
     debug_assert!(test_basis_order_twof(&b0_two, &sk.curve, TORSION_EVEN_POWER as i32) != 0);
 
-    pk.hint_pk =
-        ec_curve_to_basis_2f_to_hint(&mut sk.canonical_basis, &mut sk.curve, TORSION_EVEN_POWER as i32);
+    pk.hint_pk = ec_curve_to_basis_2f_to_hint(
+        &mut sk.canonical_basis,
+        &mut sk.curve,
+        TORSION_EVEN_POWER as i32,
+    );
 
     debug_assert!(
         test_basis_order_twof(&sk.canonical_basis, &sk.curve, TORSION_EVEN_POWER as i32) != 0
@@ -178,7 +185,11 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
     {
         let mut bnd = Ibz::new();
         let mut absv = Ibz::new();
-        ibz_pow(&mut bnd, ibz_const_two(), (8 * nbytes - sgn as usize) as u32);
+        ibz_pow(
+            &mut bnd,
+            ibz_const_two(),
+            (8 * nbytes - sgn as usize) as u32,
+        );
         ibz_abs(&mut absv, x);
         debug_assert!(ibz_cmp(&absv, &bnd) < 0);
     }
@@ -230,7 +241,12 @@ pub fn secret_key_to_bytes(enc: &mut [u8], sk: &SecretKey, pk: &PublicKey) {
     public_key_to_bytes(&mut enc[..PUBLICKEY_BYTES], pk);
     p += PUBLICKEY_BYTES;
 
-    p += ibz_to_bytes(&mut enc[p..], &sk.secret_ideal.norm, FP_ENCODED_BYTES, false);
+    p += ibz_to_bytes(
+        &mut enc[p..],
+        &sk.secret_ideal.norm,
+        FP_ENCODED_BYTES,
+        false,
+    );
 
     {
         let mut gen = QuatAlgElem::default();
@@ -268,7 +284,13 @@ pub fn secret_key_from_bytes(sk: &mut SecretKey, pk: &mut PublicKey, enc: &[u8])
         for k in 0..4 {
             p += ibz_from_bytes(&mut gen.coord[k], &enc[p..], FP_ENCODED_BYTES, true);
         }
-        quat_lideal_create(&mut sk.secret_ideal, &gen, &norm, maxord_o0(), quatalg_pinfty());
+        quat_lideal_create(
+            &mut sk.secret_ideal,
+            &gen,
+            &norm,
+            maxord_o0(),
+            quatalg_pinfty(),
+        );
     }
 
     for i in 0..2 {
@@ -302,13 +324,9 @@ fn commit(
     lideal_com: &mut QuatLeftIdeal,
 ) -> bool {
     let params = quat_represent_integer_params();
-    let mut found = quat_sampling_random_ideal_o0_given_norm(
-        lideal_com,
-        com_degree(),
-        true,
-        &params,
-        None,
-    ) != 0;
+    let mut found =
+        quat_sampling_random_ideal_o0_given_norm(lideal_com, com_degree(), true, &params, None)
+            != 0;
     found = found
         && quat_lideal_prime_norm_reduced_equivalent(
             lideal_com,
@@ -316,8 +334,8 @@ fn commit(
             QUAT_PRIMALITY_NUM_ITER as i32,
             QUAT_EQUIV_BOUND_COEFF as i32,
         ) != 0;
-    found = found
-        && dim2id2iso_arbitrary_isogeny_evaluation(basis_even_com, e_com, lideal_com) != 0;
+    found =
+        found && dim2id2iso_arbitrary_isogeny_evaluation(basis_even_com, e_com, lideal_com) != 0;
     found
 }
 
@@ -334,7 +352,10 @@ fn compute_challenge_ideal_signature(
     ibz_mat_2x2_eval(&mut vec, &sk.mat_ba_can_to_ba0_two, &v_in);
 
     id2iso_kernel_dlogs_to_ideal_even(lideal_chall_two, &vec, TORSION_EVEN_POWER as i32);
-    debug_assert_eq!(ibz_cmp(&lideal_chall_two.norm, torsion_plus_2power_ibz()), 0);
+    debug_assert_eq!(
+        ibz_cmp(&lideal_chall_two.norm, torsion_plus_2power_ibz()),
+        0
+    );
 }
 
 fn sample_response(x: &mut QuatAlgElem, lattice: &QuatLattice, lattice_content: &Ibz) {
@@ -420,7 +441,12 @@ fn compute_random_aux_norm_and_helpers(
     let mut norm_d = Ibz::new();
     let mut tmp = Ibz::new();
 
-    quat_alg_norm(&mut degree_full_resp, &mut norm_d, resp_quat, quatalg_pinfty());
+    quat_alg_norm(
+        &mut degree_full_resp,
+        &mut norm_d,
+        resp_quat,
+        quatalg_pinfty(),
+    );
     debug_assert!(ibz_is_one(&norm_d) != 0);
     let dfr = degree_full_resp.clone();
     ibz_div(&mut degree_full_resp, remain, &dfr, lattice_content);
@@ -437,7 +463,13 @@ fn compute_random_aux_norm_and_helpers(
     quat_alg_conj(resp_quat, &rq);
 
     ibz_mul(&mut tmp, &lideal_commit.norm, &degree_odd_resp);
-    quat_lideal_create(lideal_com_resp, resp_quat, &tmp, maxord_o0(), quatalg_pinfty());
+    quat_lideal_create(
+        lideal_com_resp,
+        resp_quat,
+        &tmp,
+        maxord_o0(),
+        quatalg_pinfty(),
+    );
 
     let pow_dim2_deg_resp =
         SQISIGN_RESPONSE_LENGTH as i32 - exp_diadic_val_full_resp - sig.backtracking as i32;
@@ -501,11 +533,29 @@ fn compute_dim2_isogeny_challenge(
     ibz_to_digits(&mut scalar, degree_resp_inv);
 
     let p = dim_two_ker.t1.p2;
-    ec_mul(&mut dim_two_ker.t1.p2, &scalar, reduced_order, &p, &mut e_com_x_aux.e2);
+    ec_mul(
+        &mut dim_two_ker.t1.p2,
+        &scalar,
+        reduced_order,
+        &p,
+        &mut e_com_x_aux.e2,
+    );
     let p = dim_two_ker.t2.p2;
-    ec_mul(&mut dim_two_ker.t2.p2, &scalar, reduced_order, &p, &mut e_com_x_aux.e2);
+    ec_mul(
+        &mut dim_two_ker.t2.p2,
+        &scalar,
+        reduced_order,
+        &p,
+        &mut e_com_x_aux.e2,
+    );
     let p = dim_two_ker.t1m2.p2;
-    ec_mul(&mut dim_two_ker.t1m2.p2, &scalar, reduced_order, &p, &mut e_com_x_aux.e2);
+    ec_mul(
+        &mut dim_two_ker.t1m2.p2,
+        &scalar,
+        reduced_order,
+        &p,
+        &mut e_com_x_aux.e2,
+    );
 
     let n = exp_diadic_val_full_resp as u32;
     let s = dim_two_ker.t1;
@@ -683,12 +733,17 @@ fn compute_and_set_basis_change_matrix(
 
     #[cfg(debug_assertions)]
     {
-        debug_assert!(
-            test_basis_order_twof(&b_aux_2_can, e_aux_2, TORSION_EVEN_POWER as i32) != 0
-        );
+        debug_assert!(test_basis_order_twof(&b_aux_2_can, e_aux_2, TORSION_EVEN_POWER as i32) != 0);
         debug_assert!(test_basis_order_twof(b_aux_2, e_aux_2, f) != 0);
         let mut w0 = Fp2::default();
-        weil(&mut w0, f as u32, &b_aux_2.p, &b_aux_2.q, &b_aux_2.pmq, e_aux_2);
+        weil(
+            &mut w0,
+            f as u32,
+            &b_aux_2.p,
+            &b_aux_2.q,
+            &b_aux_2.pmq,
+            e_aux_2,
+        );
     }
 
     change_of_basis_matrix_tate_invert(
@@ -725,12 +780,7 @@ fn compute_and_set_basis_change_matrix(
     }
 }
 
-pub fn protocols_sign(
-    sig: &mut Signature,
-    pk: &PublicKey,
-    sk: &mut SecretKey,
-    m: &[u8],
-) -> i32 {
+pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m: &[u8]) -> i32 {
     let mut ret = 0;
     let mut reduced_order: i32 = 0;
     let mut pow_dim2_deg_resp: u8;
@@ -803,9 +853,8 @@ pub fn protocols_sign(
                 test_basis_order_twof(&ecom_eaux.b2, &ecom_eaux.e2, TORSION_EVEN_POWER as i32) != 0
             );
 
-            reduced_order = pow_dim2_deg_resp as i32
-                + HD_EXTRA_TORSION as i32
-                + sig.two_resp_length as i32;
+            reduced_order =
+                pow_dim2_deg_resp as i32 + HD_EXTRA_TORSION as i32 + sig.two_resp_length as i32;
             let bb = ecom_eaux.b1;
             ec_dbl_iter_basis(
                 &mut ecom_eaux.b1,

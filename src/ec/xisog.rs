@@ -133,7 +133,11 @@ pub fn xeval_4(r: &mut [EcPoint], q: &[EcPoint], kps: &EcKps4) {
 pub fn xeval_2_inplace(r: &mut [EcPoint], kps: &EcKps2) {
     for j in 0..r.len() {
         let q = r[j];
-        xeval_2(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+        xeval_2(
+            core::slice::from_mut(&mut r[j]),
+            core::slice::from_ref(&q),
+            kps,
+        );
     }
 }
 
@@ -142,7 +146,11 @@ pub fn xeval_2_inplace(r: &mut [EcPoint], kps: &EcKps2) {
 pub fn xeval_2_singular_inplace(r: &mut [EcPoint], kps: &EcKps2) {
     for j in 0..r.len() {
         let q = r[j];
-        xeval_2_singular(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+        xeval_2_singular(
+            core::slice::from_mut(&mut r[j]),
+            core::slice::from_ref(&q),
+            kps,
+        );
     }
 }
 
@@ -151,6 +159,10 @@ pub fn xeval_2_singular_inplace(r: &mut [EcPoint], kps: &EcKps2) {
 pub fn xeval_4_inplace(r: &mut [EcPoint], kps: &EcKps4) {
     for j in 0..r.len() {
         let q = r[j];
-        xeval_4(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+        xeval_4(
+            core::slice::from_mut(&mut r[j]),
+            core::slice::from_ref(&q),
+            kps,
+        );
     }
 }

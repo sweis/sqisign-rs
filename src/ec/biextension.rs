@@ -249,14 +249,7 @@ fn weil_n(r: &mut Fp2, pd: &PairingParams) {
 
 /// Weil pairing e_{2^e}(P, Q). `pq` should be x(P+Q) (or x(P-Q); the sign
 /// flips the result). Crashes (div-by-0) if P or Q is (0:1).
-pub fn weil(
-    r: &mut Fp2,
-    e: u32,
-    p: &EcPoint,
-    q: &EcPoint,
-    pq: &EcPoint,
-    curve: &mut EcCurve,
-) {
+pub fn weil(r: &mut Fp2, e: u32, p: &EcPoint, q: &EcPoint, pq: &EcPoint, curve: &mut EcCurve) {
     let mut pd = PairingParams {
         e,
         ..Default::default()
@@ -776,9 +769,7 @@ pub fn ec_dlog_2_tate(
 mod tests {
     use super::*;
     use crate::common::ctrdrbg::DrbgState;
-    use crate::ec::{
-        ec_curve_init, ec_curve_to_basis_2f_to_hint, ec_is_zero, xadd, xdbl_a24,
-    };
+    use crate::ec::{ec_curve_init, ec_curve_to_basis_2f_to_hint, ec_is_zero, xadd, xdbl_a24};
     use crate::gf::fp2_set_small;
     use crate::mp::mp_invert_matrix;
 
@@ -982,7 +973,12 @@ mod tests {
             &mut sr1, &mut sr2, &mut ss1, &mut ss2, &bpq, &brs_p, &mut curve, e_partial,
         );
         mp_invert_matrix(
-            &mut sr1, &mut sr2, &mut ss1, &mut ss2, e_partial, NWORDS_ORDER,
+            &mut sr1,
+            &mut sr2,
+            &mut ss1,
+            &mut ss2,
+            e_partial,
+            NWORDS_ORDER,
         );
         ec_biscalar_mul(&mut tmp, &sr1, &sr2, e as i32, &brs_p, &curve);
         let mut tmp2 = EcPoint::default();

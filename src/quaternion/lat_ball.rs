@@ -135,7 +135,10 @@ mod tests {
         quat_lattice_o0_set(&mut lat);
         let radius = Ibz::from(50);
         let mut res = QuatAlgElem::default();
-        assert_eq!(quat_lattice_sample_from_ball(&mut res, &lat, &alg, &radius), 1);
+        assert_eq!(
+            quat_lattice_sample_from_ball(&mut res, &lat, &alg, &radius),
+            1
+        );
         let mut nn = Ibz::new();
         let mut nd = Ibz::new();
         quat_alg_norm(&mut nn, &mut nd, &res, &alg);

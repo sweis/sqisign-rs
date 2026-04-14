@@ -3,21 +3,22 @@
 //! Auto-generated from the C reference by `tools/gen_precomp_sign.py`.
 #![allow(clippy::all)]
 
-use std::sync::OnceLock;
-use rug::Integer;
-use rug::integer::Order;
-use crate::quaternion::{
-    Ibz, IbzMat2x2, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal,
-    QuatPExtremalMaximalOrder,
-};
-use crate::ec::{EcCurve, EcBasis, EcPoint};
+use crate::ec::{EcBasis, EcCurve, EcPoint};
 use crate::gf::{Fp, Fp2};
+use crate::quaternion::{
+    Ibz, IbzMat2x2, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal, QuatPExtremalMaximalOrder,
+};
+use rug::integer::Order;
+use rug::Integer;
+use std::sync::OnceLock;
 
 #[inline]
 fn ibz_lit(neg: bool, limbs: &[u64]) -> Ibz {
     let mut z = Integer::new();
     z.assign_digits(limbs, Order::Lsf);
-    if neg { z = -z; }
+    if neg {
+        z = -z;
+    }
     z
 }
 
@@ -31,51 +32,1396 @@ pub const FINDUV_CUBE_SIZE: usize = 2400;
 // --- quaternion_data.c ---
 pub fn quat_prime_cofactor() -> &'static Ibz {
     static V: OnceLock<Ibz> = OnceLock::new();
-    V.get_or_init(|| ibz_lit(false, &[0x33,0x0,0x0,0x0,0x0,0x0,0x0,0x200000000000000]))
+    V.get_or_init(|| {
+        ibz_lit(
+            false,
+            &[0x33, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x200000000000000],
+        )
+    })
 }
 pub fn quatalg_pinfty() -> &'static QuatAlg {
     static V: OnceLock<QuatAlg> = OnceLock::new();
-    V.get_or_init(|| QuatAlg { p: ibz_lit(false, &[0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0x1afffffffffffff]) })
+    V.get_or_init(|| QuatAlg {
+        p: ibz_lit(
+            false,
+            &[
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0xffffffffffffffff,
+                0x1afffffffffffff,
+            ],
+        ),
+    })
 }
 pub const NUM_ALTERNATE_EXTREMAL_ORDERS: usize = 6;
 pub const NUM_ALTERNATE_STARTING_CURVES: usize = 6;
 pub fn extremal_orders() -> &'static [QuatPExtremalMaximalOrder; 7] {
     static V: OnceLock<[QuatPExtremalMaximalOrder; 7]> = OnceLock::new();
-    V.get_or_init(|| [
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x2]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])],[Ibz::new(),ibz_lit(false, &[0x2]),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0x2]), coord: [Ibz::new(),ibz_lit(false, &[0x2]),Ibz::new(),Ibz::new()] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 1 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0xb9c2992410dcc584,0xe941bdfbfbc85a67,0xc570cd5cdee20c61,0x49272e51b3ffa2d4]), basis: [[ibz_lit(false, &[0xb9c2992410dcc584,0xe941bdfbfbc85a67,0xc570cd5cdee20c61,0x49272e51b3ffa2d4]),Ibz::new(),ibz_lit(false, &[0xdce14c92086e62c2,0xf4a0defdfde42d33,0x62b866ae6f710630,0x24939728d9ffd16a]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0x353f4632d6340c93,0x31875084220d76ba,0xa3e468600fc8b121,0x7e5205e073881368]),Ibz::new(),ibz_lit(false, &[0xbcd36af0bfbd2f6d,0xd78a9b0b8f625c61,0x208471661aa3142,0xda1a97d643bd93c7,0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0xd7ffffffffffff])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0xdce14c92086e62c2,0xf4a0defdfde42d33,0x62b866ae6f710630,0x24939728d9ffd16a]),Ibz::new()],[Ibz::new(),ibz_lit(false, &[0x5]),Ibz::new(),ibz_lit(false, &[0x6bb98705156b9add,0xb82721a6d0348bdf,0xa9fd3da334c744e9,0xca1cd633ec0cebd])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0xb9c2992410dcc584,0xe941bdfbfbc85a67,0xc570cd5cdee20c61,0x49272e51b3ffa2d4]), coord: [Ibz::new(),ibz_lit(true, &[0x353f4632d6340c93,0x31875084220d76ba,0xa3e468600fc8b121,0x7e5205e073881368]),Ibz::new(),ibz_lit(false, &[0x5])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 5 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0x4089bfd70d34169a,0x6efdfefbc17d1be8,0xd204fedb58ea76e0,0xdf2847d63b9a01e3,0x2]), basis: [[ibz_lit(false, &[0x4089bfd70d34169a,0x6efdfefbc17d1be8,0xd204fedb58ea76e0,0xdf2847d63b9a01e3,0x2]),Ibz::new(),ibz_lit(false, &[0x2044dfeb869a0b4d,0x377eff7de0be8df4,0xe9027f6dac753b70,0x6f9423eb1dcd00f1,0x1]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0x2cde4dda6ec42412,0xc1d63a33aaa7281d,0x13fb816d22e35c26,0xadaad1a758e8ac81,0xc]),Ibz::new(),ibz_lit(false, &[0x9cc7d52656301f45,0xbb2787b3114d1aab,0x813f8bb40e50c6b6,0x66eea8d3f810ff7a,0xfffffffffffffffc,0xffffffffffffffff,0xffffffffffffffff,0x35fffffffffffff])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x2044dfeb869a0b4d,0x377eff7de0be8df4,0xe9027f6dac753b70,0x6f9423eb1dcd00f1,0x1]),Ibz::new()],[Ibz::new(),ibz_lit(false, &[0x94]),Ibz::new(),ibz_lit(false, &[0xa3336fc138d9233f,0xa1c12a4cce6a0aeb,0xb0b3d4c6a9fc274c,0x2bdc411a7a48555b])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0x4089bfd70d34169a,0x6efdfefbc17d1be8,0xd204fedb58ea76e0,0xdf2847d63b9a01e3,0x2]), coord: [Ibz::new(),ibz_lit(true, &[0x2cde4dda6ec42412,0xc1d63a33aaa7281d,0x13fb816d22e35c26,0xadaad1a758e8ac81,0xc]),Ibz::new(),ibz_lit(false, &[0x94])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 37 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0x25c2e2a5416ec31e,0xf395578b45faa926,0xd089d14d79016ac9,0x583b0bc4e0629e5c,0x3]), basis: [[ibz_lit(false, &[0x25c2e2a5416ec31e,0xf395578b45faa926,0xd089d14d79016ac9,0x583b0bc4e0629e5c,0x3]),Ibz::new(),ibz_lit(false, &[0x12e17152a0b7618f,0xf9caabc5a2fd5493,0x6844e8a6bc80b564,0xac1d85e270314f2e,0x1]),Ibz::new()],[Ibz::new(),ibz_lit(false, &[0xf8ca5829146704c2,0x434aa4a1b6612d31,0x8565e232bffa25cb,0x7103f640e422305,0x11]),Ibz::new(),ibz_lit(true, &[0x6f96454e5413b03,0x2b5275090b933808,0x48698961f4fe0ed1,0x70b04c4cdd214671,0xfffffffffffffff9,0xffffffffffffffff,0xffffffffffffffff,0x35fffffffffffff])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x12e17152a0b7618f,0xf9caabc5a2fd5493,0x6844e8a6bc80b564,0xac1d85e270314f2e,0x1]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0xf4]),Ibz::new(),ibz_lit(true, &[0xc9622ee2f5ace953,0x7c5ad761d9a0459d,0xb7a69b08cf368268,0x23bae3247e04bd23])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0x25c2e2a5416ec31e,0xf395578b45faa926,0xd089d14d79016ac9,0x583b0bc4e0629e5c,0x3]), coord: [Ibz::new(),ibz_lit(false, &[0xf8ca5829146704c2,0x434aa4a1b6612d31,0x8565e232bffa25cb,0x7103f640e422305,0x11]),Ibz::new(),ibz_lit(true, &[0xf4])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 61 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0xb7aa895528f00f94,0xd3b45a1565b6538f,0x11f83554cba49667,0x83d196a626525a9,0x1]), basis: [[ibz_lit(false, &[0xb7aa895528f00f94,0xd3b45a1565b6538f,0x11f83554cba49667,0x83d196a626525a9,0x1]),Ibz::new(),ibz_lit(false, &[0xdbd544aa947807ca,0xe9da2d0ab2db29c7,0x88fc1aaa65d24b33,0x841e8cb5313292d4]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0xcbe77339ed375409,0xcc9d18fa258295ab,0xb168aefd254313ae,0x6d9dc9af068bfdbc,0x6]),Ibz::new(),ibz_lit(true, &[0x3f3d42b7423f7013,0xfede52bf9883082a,0xb8af571a4498018,0x9e1f439d0be73139,0x2,0x0,0x0,0xd8000000000000])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0xdbd544aa947807ca,0xe9da2d0ab2db29c7,0x88fc1aaa65d24b33,0x841e8cb5313292d4]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0x61]),Ibz::new(),ibz_lit(false, &[0x177bea2934afca2d,0xe94d588a86ca91ed,0x67d7a1e4462155df,0x87b88f506a1b617])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0xb7aa895528f00f94,0xd3b45a1565b6538f,0x11f83554cba49667,0x83d196a626525a9,0x1]), coord: [Ibz::new(),ibz_lit(true, &[0xcbe77339ed375409,0xcc9d18fa258295ab,0xb168aefd254313ae,0x6d9dc9af068bfdbc,0x6]),Ibz::new(),ibz_lit(true, &[0x61])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 97 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0xa203cfa6df451e34,0x7a301d42d8c5e18a,0x741df9337a1286ce,0x1854bf65e48e6b48]), basis: [[ibz_lit(false, &[0xa203cfa6df451e34,0x7a301d42d8c5e18a,0x741df9337a1286ce,0x1854bf65e48e6b48]),Ibz::new(),ibz_lit(false, &[0x5101e7d36fa28f1a,0x3d180ea16c62f0c5,0x3a0efc99bd094367,0xc2a5fb2f24735a4]),Ibz::new()],[Ibz::new(),ibz_lit(false, &[0x93d8523a322cf03,0x56b533ca4b5003bc,0x98c638bf87c8863f,0x78edfc02fab78ce8]),Ibz::new(),ibz_lit(false, &[0x131074a1140024ed,0x3500512a1c0dce8a,0x3cdb892c69922451,0xf11f0420052045d8,0xcbe4d06cbe4d06cb,0x6cbe4d06cbe4d06,0x4d06cbe4d06cbe4d,0x1506cbe4d06cbe])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x5101e7d36fa28f1a,0x3d180ea16c62f0c5,0x3a0efc99bd094367,0xc2a5fb2f24735a4]),Ibz::new()],[Ibz::new(),ibz_lit(false, &[0xb]),Ibz::new(),ibz_lit(true, &[0x5199314c0d2e98b3,0x1ef7bd65b5927a5a,0x68e36cfe94fd7d32,0x88fb738d91cda6])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0xa203cfa6df451e34,0x7a301d42d8c5e18a,0x741df9337a1286ce,0x1854bf65e48e6b48]), coord: [Ibz::new(),ibz_lit(false, &[0x93d8523a322cf03,0x56b533ca4b5003bc,0x98c638bf87c8863f,0x78edfc02fab78ce8]),Ibz::new(),ibz_lit(false, &[0xb])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 113 },
-            QuatPExtremalMaximalOrder { order: QuatLattice { denom: ibz_lit(false, &[0x2e513c7fdc0d779c,0xd38cb29efb7d85b9,0x79a3a4fa9ea564bb,0xa977ca21f359df70,0x6]), basis: [[ibz_lit(false, &[0x2e513c7fdc0d779c,0xd38cb29efb7d85b9,0x79a3a4fa9ea564bb,0xa977ca21f359df70,0x6]),Ibz::new(),ibz_lit(false, &[0x97289e3fee06bbce,0xe9c6594f7dbec2dc,0x3cd1d27d4f52b25d,0x54bbe510f9acefb8,0x3]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0x727a1944aa9d8db1,0x564339b4ffc0c6c3,0x5371c0a9b5342de0,0x5a83a6c480df8e58,0x36]),Ibz::new(),ibz_lit(true, &[0x67c5f8155de89c90,0x180b7c9e00c90989,0xea883386df5a526d,0x3bad550724c5580a,0x10,0x0,0x0,0x438000000000000])],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x97289e3fee06bbce,0xe9c6594f7dbec2dc,0x3cd1d27d4f52b25d,0x54bbe510f9acefb8,0x3]),Ibz::new()],[Ibz::new(),ibz_lit(true, &[0x2e9]),Ibz::new(),ibz_lit(false, &[0x126ca6be1530a1f8,0x8495b3bcbdd9fd3b,0xf440cfae19855457,0x2eb1688184ba4ea6])]] }, z: QuatAlgElem { denom: ibz_lit(false, &[0x2e513c7fdc0d779c,0xd38cb29efb7d85b9,0x79a3a4fa9ea564bb,0xa977ca21f359df70,0x6]), coord: [Ibz::new(),ibz_lit(true, &[0x727a1944aa9d8db1,0x564339b4ffc0c6c3,0x5371c0a9b5342de0,0x5a83a6c480df8e58,0x36]),Ibz::new(),ibz_lit(true, &[0x2e9])] }, t: QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()] }, q: 149 }
-        ])
+    V.get_or_init(|| {
+        [
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(false, &[0x2]),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(false, &[0x1]),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(false, &[0x2]),
+                            ibz_lit(false, &[0x1]),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x2]),
+                    coord: [Ibz::new(), ibz_lit(false, &[0x2]), Ibz::new(), Ibz::new()],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 1,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xb9c2992410dcc584,
+                            0xe941bdfbfbc85a67,
+                            0xc570cd5cdee20c61,
+                            0x49272e51b3ffa2d4,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xb9c2992410dcc584,
+                                    0xe941bdfbfbc85a67,
+                                    0xc570cd5cdee20c61,
+                                    0x49272e51b3ffa2d4,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xdce14c92086e62c2,
+                                    0xf4a0defdfde42d33,
+                                    0x62b866ae6f710630,
+                                    0x24939728d9ffd16a,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x353f4632d6340c93,
+                                    0x31875084220d76ba,
+                                    0xa3e468600fc8b121,
+                                    0x7e5205e073881368,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xbcd36af0bfbd2f6d,
+                                    0xd78a9b0b8f625c61,
+                                    0x208471661aa3142,
+                                    0xda1a97d643bd93c7,
+                                    0xffffffffffffffff,
+                                    0xffffffffffffffff,
+                                    0xffffffffffffffff,
+                                    0xd7ffffffffffff,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xdce14c92086e62c2,
+                                    0xf4a0defdfde42d33,
+                                    0x62b866ae6f710630,
+                                    0x24939728d9ffd16a,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(false, &[0x5]),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x6bb98705156b9add,
+                                    0xb82721a6d0348bdf,
+                                    0xa9fd3da334c744e9,
+                                    0xca1cd633ec0cebd,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xb9c2992410dcc584,
+                            0xe941bdfbfbc85a67,
+                            0xc570cd5cdee20c61,
+                            0x49272e51b3ffa2d4,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            true,
+                            &[
+                                0x353f4632d6340c93,
+                                0x31875084220d76ba,
+                                0xa3e468600fc8b121,
+                                0x7e5205e073881368,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(false, &[0x5]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 5,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x4089bfd70d34169a,
+                            0x6efdfefbc17d1be8,
+                            0xd204fedb58ea76e0,
+                            0xdf2847d63b9a01e3,
+                            0x2,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x4089bfd70d34169a,
+                                    0x6efdfefbc17d1be8,
+                                    0xd204fedb58ea76e0,
+                                    0xdf2847d63b9a01e3,
+                                    0x2,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x2044dfeb869a0b4d,
+                                    0x377eff7de0be8df4,
+                                    0xe9027f6dac753b70,
+                                    0x6f9423eb1dcd00f1,
+                                    0x1,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x2cde4dda6ec42412,
+                                    0xc1d63a33aaa7281d,
+                                    0x13fb816d22e35c26,
+                                    0xadaad1a758e8ac81,
+                                    0xc,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x9cc7d52656301f45,
+                                    0xbb2787b3114d1aab,
+                                    0x813f8bb40e50c6b6,
+                                    0x66eea8d3f810ff7a,
+                                    0xfffffffffffffffc,
+                                    0xffffffffffffffff,
+                                    0xffffffffffffffff,
+                                    0x35fffffffffffff,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x2044dfeb869a0b4d,
+                                    0x377eff7de0be8df4,
+                                    0xe9027f6dac753b70,
+                                    0x6f9423eb1dcd00f1,
+                                    0x1,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(false, &[0x94]),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xa3336fc138d9233f,
+                                    0xa1c12a4cce6a0aeb,
+                                    0xb0b3d4c6a9fc274c,
+                                    0x2bdc411a7a48555b,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x4089bfd70d34169a,
+                            0x6efdfefbc17d1be8,
+                            0xd204fedb58ea76e0,
+                            0xdf2847d63b9a01e3,
+                            0x2,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            true,
+                            &[
+                                0x2cde4dda6ec42412,
+                                0xc1d63a33aaa7281d,
+                                0x13fb816d22e35c26,
+                                0xadaad1a758e8ac81,
+                                0xc,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(false, &[0x94]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 37,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x25c2e2a5416ec31e,
+                            0xf395578b45faa926,
+                            0xd089d14d79016ac9,
+                            0x583b0bc4e0629e5c,
+                            0x3,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x25c2e2a5416ec31e,
+                                    0xf395578b45faa926,
+                                    0xd089d14d79016ac9,
+                                    0x583b0bc4e0629e5c,
+                                    0x3,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x12e17152a0b7618f,
+                                    0xf9caabc5a2fd5493,
+                                    0x6844e8a6bc80b564,
+                                    0xac1d85e270314f2e,
+                                    0x1,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xf8ca5829146704c2,
+                                    0x434aa4a1b6612d31,
+                                    0x8565e232bffa25cb,
+                                    0x7103f640e422305,
+                                    0x11,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x6f96454e5413b03,
+                                    0x2b5275090b933808,
+                                    0x48698961f4fe0ed1,
+                                    0x70b04c4cdd214671,
+                                    0xfffffffffffffff9,
+                                    0xffffffffffffffff,
+                                    0xffffffffffffffff,
+                                    0x35fffffffffffff,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x12e17152a0b7618f,
+                                    0xf9caabc5a2fd5493,
+                                    0x6844e8a6bc80b564,
+                                    0xac1d85e270314f2e,
+                                    0x1,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(true, &[0xf4]),
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0xc9622ee2f5ace953,
+                                    0x7c5ad761d9a0459d,
+                                    0xb7a69b08cf368268,
+                                    0x23bae3247e04bd23,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x25c2e2a5416ec31e,
+                            0xf395578b45faa926,
+                            0xd089d14d79016ac9,
+                            0x583b0bc4e0629e5c,
+                            0x3,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf8ca5829146704c2,
+                                0x434aa4a1b6612d31,
+                                0x8565e232bffa25cb,
+                                0x7103f640e422305,
+                                0x11,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(true, &[0xf4]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 61,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xb7aa895528f00f94,
+                            0xd3b45a1565b6538f,
+                            0x11f83554cba49667,
+                            0x83d196a626525a9,
+                            0x1,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xb7aa895528f00f94,
+                                    0xd3b45a1565b6538f,
+                                    0x11f83554cba49667,
+                                    0x83d196a626525a9,
+                                    0x1,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xdbd544aa947807ca,
+                                    0xe9da2d0ab2db29c7,
+                                    0x88fc1aaa65d24b33,
+                                    0x841e8cb5313292d4,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0xcbe77339ed375409,
+                                    0xcc9d18fa258295ab,
+                                    0xb168aefd254313ae,
+                                    0x6d9dc9af068bfdbc,
+                                    0x6,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x3f3d42b7423f7013,
+                                    0xfede52bf9883082a,
+                                    0xb8af571a4498018,
+                                    0x9e1f439d0be73139,
+                                    0x2,
+                                    0x0,
+                                    0x0,
+                                    0xd8000000000000,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xdbd544aa947807ca,
+                                    0xe9da2d0ab2db29c7,
+                                    0x88fc1aaa65d24b33,
+                                    0x841e8cb5313292d4,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(true, &[0x61]),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x177bea2934afca2d,
+                                    0xe94d588a86ca91ed,
+                                    0x67d7a1e4462155df,
+                                    0x87b88f506a1b617,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xb7aa895528f00f94,
+                            0xd3b45a1565b6538f,
+                            0x11f83554cba49667,
+                            0x83d196a626525a9,
+                            0x1,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            true,
+                            &[
+                                0xcbe77339ed375409,
+                                0xcc9d18fa258295ab,
+                                0xb168aefd254313ae,
+                                0x6d9dc9af068bfdbc,
+                                0x6,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(true, &[0x61]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 97,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xa203cfa6df451e34,
+                            0x7a301d42d8c5e18a,
+                            0x741df9337a1286ce,
+                            0x1854bf65e48e6b48,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xa203cfa6df451e34,
+                                    0x7a301d42d8c5e18a,
+                                    0x741df9337a1286ce,
+                                    0x1854bf65e48e6b48,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x5101e7d36fa28f1a,
+                                    0x3d180ea16c62f0c5,
+                                    0x3a0efc99bd094367,
+                                    0xc2a5fb2f24735a4,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x93d8523a322cf03,
+                                    0x56b533ca4b5003bc,
+                                    0x98c638bf87c8863f,
+                                    0x78edfc02fab78ce8,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x131074a1140024ed,
+                                    0x3500512a1c0dce8a,
+                                    0x3cdb892c69922451,
+                                    0xf11f0420052045d8,
+                                    0xcbe4d06cbe4d06cb,
+                                    0x6cbe4d06cbe4d06,
+                                    0x4d06cbe4d06cbe4d,
+                                    0x1506cbe4d06cbe,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x5101e7d36fa28f1a,
+                                    0x3d180ea16c62f0c5,
+                                    0x3a0efc99bd094367,
+                                    0xc2a5fb2f24735a4,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(false, &[0xb]),
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x5199314c0d2e98b3,
+                                    0x1ef7bd65b5927a5a,
+                                    0x68e36cfe94fd7d32,
+                                    0x88fb738d91cda6,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0xa203cfa6df451e34,
+                            0x7a301d42d8c5e18a,
+                            0x741df9337a1286ce,
+                            0x1854bf65e48e6b48,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x93d8523a322cf03,
+                                0x56b533ca4b5003bc,
+                                0x98c638bf87c8863f,
+                                0x78edfc02fab78ce8,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(false, &[0xb]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 113,
+            },
+            QuatPExtremalMaximalOrder {
+                order: QuatLattice {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x2e513c7fdc0d779c,
+                            0xd38cb29efb7d85b9,
+                            0x79a3a4fa9ea564bb,
+                            0xa977ca21f359df70,
+                            0x6,
+                        ],
+                    ),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x2e513c7fdc0d779c,
+                                    0xd38cb29efb7d85b9,
+                                    0x79a3a4fa9ea564bb,
+                                    0xa977ca21f359df70,
+                                    0x6,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x97289e3fee06bbce,
+                                    0xe9c6594f7dbec2dc,
+                                    0x3cd1d27d4f52b25d,
+                                    0x54bbe510f9acefb8,
+                                    0x3,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x727a1944aa9d8db1,
+                                    0x564339b4ffc0c6c3,
+                                    0x5371c0a9b5342de0,
+                                    0x5a83a6c480df8e58,
+                                    0x36,
+                                ],
+                            ),
+                            Ibz::new(),
+                            ibz_lit(
+                                true,
+                                &[
+                                    0x67c5f8155de89c90,
+                                    0x180b7c9e00c90989,
+                                    0xea883386df5a526d,
+                                    0x3bad550724c5580a,
+                                    0x10,
+                                    0x0,
+                                    0x0,
+                                    0x438000000000000,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x97289e3fee06bbce,
+                                    0xe9c6594f7dbec2dc,
+                                    0x3cd1d27d4f52b25d,
+                                    0x54bbe510f9acefb8,
+                                    0x3,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(true, &[0x2e9]),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x126ca6be1530a1f8,
+                                    0x8495b3bcbdd9fd3b,
+                                    0xf440cfae19855457,
+                                    0x2eb1688184ba4ea6,
+                                ],
+                            ),
+                        ],
+                    ],
+                },
+                z: QuatAlgElem {
+                    denom: ibz_lit(
+                        false,
+                        &[
+                            0x2e513c7fdc0d779c,
+                            0xd38cb29efb7d85b9,
+                            0x79a3a4fa9ea564bb,
+                            0xa977ca21f359df70,
+                            0x6,
+                        ],
+                    ),
+                    coord: [
+                        Ibz::new(),
+                        ibz_lit(
+                            true,
+                            &[
+                                0x727a1944aa9d8db1,
+                                0x564339b4ffc0c6c3,
+                                0x5371c0a9b5342de0,
+                                0x5a83a6c480df8e58,
+                                0x36,
+                            ],
+                        ),
+                        Ibz::new(),
+                        ibz_lit(true, &[0x2e9]),
+                    ],
+                },
+                t: QuatAlgElem {
+                    denom: ibz_lit(false, &[0x1]),
+                    coord: [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                },
+                q: 149,
+            },
+        ]
+    })
 }
-pub fn maxord_o0() -> &'static QuatLattice { &extremal_orders()[0].order }
-pub fn standard_extremal_order() -> &'static QuatPExtremalMaximalOrder { &extremal_orders()[0] }
+pub fn maxord_o0() -> &'static QuatLattice {
+    &extremal_orders()[0].order
+}
+pub fn standard_extremal_order() -> &'static QuatPExtremalMaximalOrder {
+    &extremal_orders()[0]
+}
 pub fn connecting_ideals() -> &'static [QuatLeftIdeal; 7] {
     static V: OnceLock<[QuatLeftIdeal; 7]> = OnceLock::new();
-    V.get_or_init(|| [
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x2]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])],[Ibz::new(),ibz_lit(false, &[0x2]),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0x1]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x9669cee3be8db4ca,0x374bf6f986eb09cb,0xab5f3315d1f22e68,0x2541686ea9c92208]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x4be5bc362777db03,0x41a783b4d47438dd,0xc6171f00a3615426,0xaa22b1c8cb4e350])],[Ibz::new(),ibz_lit(false, &[0x9669cee3be8db4ca,0x374bf6f986eb09cb,0xab5f3315d1f22e68,0x2541686ea9c92208]),ibz_lit(false, &[0x4a8412ad9715d9c7,0xf5a47344b276d0ee,0xe54814152e90da41,0x1a9f3d521d143eb7]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0xcb34e771df46da65,0x1ba5fb7cc37584e5,0x55af998ae8f91734,0x12a0b43754e49104]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x7e48e9825a4d8412,0x2598297c6d03619e,0x51c8c89e24ff6aff,0x13de7e7b696506f8]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0xf2e308bed8b26e7d,0xf4ae760915727c3e,0x9b0353ecb93e8366,0x70741b0ae186573])],[Ibz::new(),ibz_lit(false, &[0x7e48e9825a4d8412,0x2598297c6d03619e,0x51c8c89e24ff6aff,0x13de7e7b696506f8]),ibz_lit(false, &[0x8b65e0c3819b1595,0x30e9b3735790e55f,0xb6c574b16bc0e798,0xcd73ccabb4ca184]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0x3f2474c12d26c209,0x92cc14be3681b0cf,0x28e4644f127fb57f,0x9ef3f3db4b2837c]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0xf407643d7694b376,0x5c1fd3456e430f5c,0x24fe1005777decc4,0xe095c85536a88e4]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0xb3a7da24a69c9427,0xcb05a39a22fc4f9a,0xad95b97d923dd93e,0x51bdeb96bd3374])],[Ibz::new(),ibz_lit(false, &[0xf407643d7694b376,0x5c1fd3456e430f5c,0x24fe1005777decc4,0xe095c85536a88e4]),ibz_lit(false, &[0x405f8a18cff81f4f,0x911a2fab4b46bfc2,0x77685687e5401385,0xdb79e99bcad556f]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0x7a03b21ebb4a59bb,0x2e0fe9a2b72187ae,0x127f0802bbbef662,0x704ae42a9b54472]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x5b4e1fb9cc347a2a,0x211dbb684f0f6acf,0xa5120782ae74a57b,0xa0355af5b576d75c]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0xb40f32f312fba3e3,0xdda9befc537d4bbe,0xc020aaf3aca98954,0x21a88fdf48f17da])],[Ibz::new(),ibz_lit(false, &[0x5b4e1fb9cc347a2a,0x211dbb684f0f6acf,0xa5120782ae74a57b,0xa0355af5b576d75c]),ibz_lit(false, &[0xa73eecc6b938d647,0x4373fc6bfb921f10,0xe4f15c8f01cb1c26,0x9e1ad1f7c0e7bf81]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0xada70fdce61a3d15,0x908eddb42787b567,0x528903c1573a52bd,0x501aad7adabb6bae]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x365e0f1a1f2981d6,0x87f138b195c88f4a,0x1cb182399ccab9ff,0x25be5f3f8fde070f]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x48f9a49c7c4cbe61,0xd427f823b80a3fb4,0xda063a569ec7593e,0xfb0c2cb2875551e])],[Ibz::new(),ibz_lit(false, &[0x365e0f1a1f2981d6,0x87f138b195c88f4a,0x1cb182399ccab9ff,0x25be5f3f8fde070f]),ibz_lit(false, &[0xed646a7da2dcc375,0xb3c9408dddbe4f95,0x42ab47e2fe0360c0,0x160d9c746768b1f0]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0x1b2f078d0f94c0eb,0xc3f89c58cae447a5,0x8e58c11cce655cff,0x12df2f9fc7ef0387]), parent_order: Some(maxord_o0()) },
-            QuatLeftIdeal { lattice: QuatLattice { denom: ibz_lit(false, &[0x2]), basis: [[ibz_lit(false, &[0x82808ced17295a86,0x24b35e391e0fd48f,0x4e2ed9f3a29474ba,0x30790dd2ee6b8cc1]),Ibz::new(),Ibz::new(),ibz_lit(false, &[0xdf50386757ee9203,0x7a779e30be9cd8ad,0x65f1bb7f77d9cd0f,0x2563e5c0bbf51b16])],[Ibz::new(),ibz_lit(false, &[0x82808ced17295a86,0x24b35e391e0fd48f,0x4e2ed9f3a29474ba,0x30790dd2ee6b8cc1]),ibz_lit(false, &[0xa3305485bf3ac883,0xaa3bc0085f72fbe1,0xe83d1e742abaa7aa,0xb152812327671aa]),Ibz::new()],[Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1]),Ibz::new()],[Ibz::new(),Ibz::new(),Ibz::new(),ibz_lit(false, &[0x1])]] }, norm: ibz_lit(false, &[0xc14046768b94ad43,0x1259af1c8f07ea47,0xa7176cf9d14a3a5d,0x183c86e97735c660]), parent_order: Some(maxord_o0()) }
-        ])
+    V.get_or_init(|| {
+        [
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(false, &[0x2]),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(false, &[0x1]),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(false, &[0x2]),
+                            ibz_lit(false, &[0x1]),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(false, &[0x1]),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x9669cee3be8db4ca,
+                                    0x374bf6f986eb09cb,
+                                    0xab5f3315d1f22e68,
+                                    0x2541686ea9c92208,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x4be5bc362777db03,
+                                    0x41a783b4d47438dd,
+                                    0xc6171f00a3615426,
+                                    0xaa22b1c8cb4e350,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x9669cee3be8db4ca,
+                                    0x374bf6f986eb09cb,
+                                    0xab5f3315d1f22e68,
+                                    0x2541686ea9c92208,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x4a8412ad9715d9c7,
+                                    0xf5a47344b276d0ee,
+                                    0xe54814152e90da41,
+                                    0x1a9f3d521d143eb7,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0xcb34e771df46da65,
+                        0x1ba5fb7cc37584e5,
+                        0x55af998ae8f91734,
+                        0x12a0b43754e49104,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x7e48e9825a4d8412,
+                                    0x2598297c6d03619e,
+                                    0x51c8c89e24ff6aff,
+                                    0x13de7e7b696506f8,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xf2e308bed8b26e7d,
+                                    0xf4ae760915727c3e,
+                                    0x9b0353ecb93e8366,
+                                    0x70741b0ae186573,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x7e48e9825a4d8412,
+                                    0x2598297c6d03619e,
+                                    0x51c8c89e24ff6aff,
+                                    0x13de7e7b696506f8,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x8b65e0c3819b1595,
+                                    0x30e9b3735790e55f,
+                                    0xb6c574b16bc0e798,
+                                    0xcd73ccabb4ca184,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0x3f2474c12d26c209,
+                        0x92cc14be3681b0cf,
+                        0x28e4644f127fb57f,
+                        0x9ef3f3db4b2837c,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xf407643d7694b376,
+                                    0x5c1fd3456e430f5c,
+                                    0x24fe1005777decc4,
+                                    0xe095c85536a88e4,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xb3a7da24a69c9427,
+                                    0xcb05a39a22fc4f9a,
+                                    0xad95b97d923dd93e,
+                                    0x51bdeb96bd3374,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xf407643d7694b376,
+                                    0x5c1fd3456e430f5c,
+                                    0x24fe1005777decc4,
+                                    0xe095c85536a88e4,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x405f8a18cff81f4f,
+                                    0x911a2fab4b46bfc2,
+                                    0x77685687e5401385,
+                                    0xdb79e99bcad556f,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0x7a03b21ebb4a59bb,
+                        0x2e0fe9a2b72187ae,
+                        0x127f0802bbbef662,
+                        0x704ae42a9b54472,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x5b4e1fb9cc347a2a,
+                                    0x211dbb684f0f6acf,
+                                    0xa5120782ae74a57b,
+                                    0xa0355af5b576d75c,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xb40f32f312fba3e3,
+                                    0xdda9befc537d4bbe,
+                                    0xc020aaf3aca98954,
+                                    0x21a88fdf48f17da,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x5b4e1fb9cc347a2a,
+                                    0x211dbb684f0f6acf,
+                                    0xa5120782ae74a57b,
+                                    0xa0355af5b576d75c,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xa73eecc6b938d647,
+                                    0x4373fc6bfb921f10,
+                                    0xe4f15c8f01cb1c26,
+                                    0x9e1ad1f7c0e7bf81,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0xada70fdce61a3d15,
+                        0x908eddb42787b567,
+                        0x528903c1573a52bd,
+                        0x501aad7adabb6bae,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x365e0f1a1f2981d6,
+                                    0x87f138b195c88f4a,
+                                    0x1cb182399ccab9ff,
+                                    0x25be5f3f8fde070f,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x48f9a49c7c4cbe61,
+                                    0xd427f823b80a3fb4,
+                                    0xda063a569ec7593e,
+                                    0xfb0c2cb2875551e,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x365e0f1a1f2981d6,
+                                    0x87f138b195c88f4a,
+                                    0x1cb182399ccab9ff,
+                                    0x25be5f3f8fde070f,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xed646a7da2dcc375,
+                                    0xb3c9408dddbe4f95,
+                                    0x42ab47e2fe0360c0,
+                                    0x160d9c746768b1f0,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0x1b2f078d0f94c0eb,
+                        0xc3f89c58cae447a5,
+                        0x8e58c11cce655cff,
+                        0x12df2f9fc7ef0387,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+            QuatLeftIdeal {
+                lattice: QuatLattice {
+                    denom: ibz_lit(false, &[0x2]),
+                    basis: [
+                        [
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x82808ced17295a86,
+                                    0x24b35e391e0fd48f,
+                                    0x4e2ed9f3a29474ba,
+                                    0x30790dd2ee6b8cc1,
+                                ],
+                            ),
+                            Ibz::new(),
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xdf50386757ee9203,
+                                    0x7a779e30be9cd8ad,
+                                    0x65f1bb7f77d9cd0f,
+                                    0x2563e5c0bbf51b16,
+                                ],
+                            ),
+                        ],
+                        [
+                            Ibz::new(),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0x82808ced17295a86,
+                                    0x24b35e391e0fd48f,
+                                    0x4e2ed9f3a29474ba,
+                                    0x30790dd2ee6b8cc1,
+                                ],
+                            ),
+                            ibz_lit(
+                                false,
+                                &[
+                                    0xa3305485bf3ac883,
+                                    0xaa3bc0085f72fbe1,
+                                    0xe83d1e742abaa7aa,
+                                    0xb152812327671aa,
+                                ],
+                            ),
+                            Ibz::new(),
+                        ],
+                        [Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1]), Ibz::new()],
+                        [Ibz::new(), Ibz::new(), Ibz::new(), ibz_lit(false, &[0x1])],
+                    ],
+                },
+                norm: ibz_lit(
+                    false,
+                    &[
+                        0xc14046768b94ad43,
+                        0x1259af1c8f07ea47,
+                        0xa7176cf9d14a3a5d,
+                        0x183c86e97735c660,
+                    ],
+                ),
+                parent_order: Some(maxord_o0()),
+            },
+        ]
+    })
 }
 pub fn conjugating_elements() -> &'static [QuatAlgElem; 7] {
     static V: OnceLock<[QuatAlgElem; 7]> = OnceLock::new();
-    V.get_or_init(|| [
-            QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [ibz_lit(false, &[0x1]),Ibz::new(),Ibz::new(),Ibz::new()] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x2]), coord: [ibz_lit(false, &[0xe24f8b19e6058fcd,0x78f37aae5b5f42a8,0x717652167553828e,0x2fe3938b367e0559]),ibz_lit(true, &[0xe24f8b19e6058fcd,0x78f37aae5b5f42a8,0x717652167553828e,0x2fe3938b367e0559]),ibz_lit(false, &[0x1]),ibz_lit(true, &[0x1])] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [ibz_lit(true, &[0xa3336fc138d92315,0xa1c12a4cce6a0aeb,0xb0b3d4c6a9fc274c,0x2bdc411a7a48555b]),ibz_lit(true, &[0xa3336fc138d92315,0xa1c12a4cce6a0aeb,0xb0b3d4c6a9fc274c,0x2bdc411a7a48555b]),ibz_lit(false, &[0x2]),ibz_lit(false, &[0x2])] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x1]), coord: [ibz_lit(false, &[0xc9622ee2f5ace8f5,0x7c5ad761d9a0459d,0xb7a69b08cf368268,0x23bae3247e04bd23]),ibz_lit(false, &[0xc9622ee2f5ace8f5,0x7c5ad761d9a0459d,0xb7a69b08cf368268,0x23bae3247e04bd23]),ibz_lit(true, &[0x2]),ibz_lit(true, &[0x2])] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x2]), coord: [ibz_lit(false, &[0x6ee3bb144752fef5,0x1179828206a25898,0x642d5ad8f5d1e429,0x917b9c04058d3061]),ibz_lit(true, &[0x6ee3bb144752fef5,0x1179828206a25898,0x642d5ad8f5d1e429,0x917b9c04058d3061]),ibz_lit(true, &[0x7]),ibz_lit(false, &[0x7])] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x2]), coord: [ibz_lit(true, &[0xed646a7da2dcc375,0xb3c9408dddbe4f95,0x42ab47e2fe0360c0,0x160d9c746768b1f0]),ibz_lit(true, &[0xed646a7da2dcc375,0xb3c9408dddbe4f95,0x42ab47e2fe0360c0,0x160d9c746768b1f0]),ibz_lit(true, &[0x1]),ibz_lit(true, &[0x1])] },
-            QuatAlgElem { denom: ibz_lit(false, &[0x2]), coord: [ibz_lit(true, &[0x430e75d6bdd295f7,0x127816b0bd785c58,0xbbcfb5dc016bc3f8,0x624a3c321815fa18]),ibz_lit(true, &[0x430e75d6bdd295f7,0x127816b0bd785c58,0xbbcfb5dc016bc3f8,0x624a3c321815fa18]),ibz_lit(false, &[0xd]),ibz_lit(false, &[0xd])] }
-        ])
+    V.get_or_init(|| {
+        [
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x1]),
+                coord: [ibz_lit(false, &[0x1]), Ibz::new(), Ibz::new(), Ibz::new()],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x2]),
+                coord: [
+                    ibz_lit(
+                        false,
+                        &[
+                            0xe24f8b19e6058fcd,
+                            0x78f37aae5b5f42a8,
+                            0x717652167553828e,
+                            0x2fe3938b367e0559,
+                        ],
+                    ),
+                    ibz_lit(
+                        true,
+                        &[
+                            0xe24f8b19e6058fcd,
+                            0x78f37aae5b5f42a8,
+                            0x717652167553828e,
+                            0x2fe3938b367e0559,
+                        ],
+                    ),
+                    ibz_lit(false, &[0x1]),
+                    ibz_lit(true, &[0x1]),
+                ],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x1]),
+                coord: [
+                    ibz_lit(
+                        true,
+                        &[
+                            0xa3336fc138d92315,
+                            0xa1c12a4cce6a0aeb,
+                            0xb0b3d4c6a9fc274c,
+                            0x2bdc411a7a48555b,
+                        ],
+                    ),
+                    ibz_lit(
+                        true,
+                        &[
+                            0xa3336fc138d92315,
+                            0xa1c12a4cce6a0aeb,
+                            0xb0b3d4c6a9fc274c,
+                            0x2bdc411a7a48555b,
+                        ],
+                    ),
+                    ibz_lit(false, &[0x2]),
+                    ibz_lit(false, &[0x2]),
+                ],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x1]),
+                coord: [
+                    ibz_lit(
+                        false,
+                        &[
+                            0xc9622ee2f5ace8f5,
+                            0x7c5ad761d9a0459d,
+                            0xb7a69b08cf368268,
+                            0x23bae3247e04bd23,
+                        ],
+                    ),
+                    ibz_lit(
+                        false,
+                        &[
+                            0xc9622ee2f5ace8f5,
+                            0x7c5ad761d9a0459d,
+                            0xb7a69b08cf368268,
+                            0x23bae3247e04bd23,
+                        ],
+                    ),
+                    ibz_lit(true, &[0x2]),
+                    ibz_lit(true, &[0x2]),
+                ],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x2]),
+                coord: [
+                    ibz_lit(
+                        false,
+                        &[
+                            0x6ee3bb144752fef5,
+                            0x1179828206a25898,
+                            0x642d5ad8f5d1e429,
+                            0x917b9c04058d3061,
+                        ],
+                    ),
+                    ibz_lit(
+                        true,
+                        &[
+                            0x6ee3bb144752fef5,
+                            0x1179828206a25898,
+                            0x642d5ad8f5d1e429,
+                            0x917b9c04058d3061,
+                        ],
+                    ),
+                    ibz_lit(true, &[0x7]),
+                    ibz_lit(false, &[0x7]),
+                ],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x2]),
+                coord: [
+                    ibz_lit(
+                        true,
+                        &[
+                            0xed646a7da2dcc375,
+                            0xb3c9408dddbe4f95,
+                            0x42ab47e2fe0360c0,
+                            0x160d9c746768b1f0,
+                        ],
+                    ),
+                    ibz_lit(
+                        true,
+                        &[
+                            0xed646a7da2dcc375,
+                            0xb3c9408dddbe4f95,
+                            0x42ab47e2fe0360c0,
+                            0x160d9c746768b1f0,
+                        ],
+                    ),
+                    ibz_lit(true, &[0x1]),
+                    ibz_lit(true, &[0x1]),
+                ],
+            },
+            QuatAlgElem {
+                denom: ibz_lit(false, &[0x2]),
+                coord: [
+                    ibz_lit(
+                        true,
+                        &[
+                            0x430e75d6bdd295f7,
+                            0x127816b0bd785c58,
+                            0xbbcfb5dc016bc3f8,
+                            0x624a3c321815fa18,
+                        ],
+                    ),
+                    ibz_lit(
+                        true,
+                        &[
+                            0x430e75d6bdd295f7,
+                            0x127816b0bd785c58,
+                            0xbbcfb5dc016bc3f8,
+                            0x624a3c321815fa18,
+                        ],
+                    ),
+                    ibz_lit(false, &[0xd]),
+                    ibz_lit(false, &[0xd]),
+                ],
+            },
+        ]
+    })
 }
 
 // --- endomorphism_action.c ---
@@ -94,25 +1440,3385 @@ pub struct CurveWithEndomorphismRing {
 
 pub fn curves_with_endomorphisms() -> &'static [CurveWithEndomorphismRing; 7] {
     static V: OnceLock<[CurveWithEndomorphismRing; 7]> = OnceLock::new();
-    V.get_or_init(|| [
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x97,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1300000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0xa6f4f854fc265d,0x4c8b84aa5fb427,0x1309a22f7f8bedd,0x12326c230bb7339,0x1177007f8e443b7,0x3227e897204471,0x173c12694021af7,0xd9af272f428697,0x523eda847ef5]), im: Fp([0xded07bbc792c63,0x11e1b26dec9cebc,0xc046644c2b6cd7,0x10fa781cd249b7d,0x1c100f6a2ab7eb,0x3268453a15b6a9,0x54d2827aa042c2,0x1976f2e8b7c96ec,0x16e01b2e8125f]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0xf73af643285709,0xf149be2f088d45,0xcd261395ea3c0a,0x3a51f18f48bd2c,0x20878d18902069,0x1dde2b7d4cfad79,0x1cfc83af281db52,0xcb86b4138f7754,0xb4deb1e3f8a7]), im: Fp([0x924c7a12f1ab1e,0x37608c2f01a03,0x15ab8f95ccf5c3e,0x99e325091f7251,0xc375ef1b0a8b52,0x1e7185439fe829e,0x1393f18a069901e,0x1171a261ad16dd5,0x6573978c1c85]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0xbd59e2ce6e76a2,0xa228faf46ea0f2,0x7a8f5e286ddda4,0x1e86463e0dfd6f9,0xfac9d6c1b2dab8,0x60c9e8e0172c38,0x1d99c5cbac24ea4,0x1fd213f31136b9c,0xa1a805f43cc7]), im: Fp([0xcc9b0dde77a90,0xa34dde57fa21f7,0x15c37431ec85427,0xa1113caabb2e5f,0x16b67ef506037e7,0x10846843b14ff60,0x1f931ac8f1c6bff,0x1db7e7711a25ca3,0x8c79c9683ccc]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0x892f96a886b93337,0xdf75c4974c8e9f38,0xd5435decd5b34fd7,0xa71e8de3d5c3f3dc,0x5af370731324d939,0x81d709d04122bb6b,0x6d855ea0387774de,0x19df28f2d7c31]),ibz_lit(false, &[0x2061e1c20cfd028e,0x716c40df3b18e412,0xebb9c041d980d025,0xa8fe17de4982bb45,0x2aa634d9ffe5b079,0x6bc39bab67872b0b,0xb57bf5123c037365,0x89c9cf0b50897])],[ibz_lit(false, &[0xd85637b2429e45b1,0x81ba39cb86cd2f81,0xfbe40058ee7e771e,0x5bb87a7d28fb0a4b,0x3a9d2d541657a413,0x3069068975a3bbad,0xad392e812fddb0ad,0x7b5cb2bffd3cd]),ibz_lit(false, &[0x76d069577946ccc9,0x208a3b68b37160c7,0x2abca2132a4cb028,0x58e1721c2a3c0c23,0xa50c8f8cecdb26c6,0x7e28f62fbedd4494,0x927aa15fc7888b21,0xe620d70d283ce])]], action_j: [[ibz_lit(false, &[0xeb4fc9a677e020f3,0xa6e3ecb4ff68b334,0xf4eb9e8743c15015,0x80a093925f3722e7,0x75591be3670f9ea0,0x1519fa83900d2cb5,0x6dc4af3a4d7c67b8,0x58d841e5112e1]),ibz_lit(false, &[0x2fa66d21e4308e98,0x30ece5ebf0cf524f,0x47bf7d2f77113658,0x1ef4e7a6720cbbc5,0x471c59e52c25335f,0xa2a762d65d385e06,0x7a7a5e15defc65f3,0xd7bb8c542dac4])],[ibz_lit(false, &[0x49e0ec61e4fe3249,0x8116ef6c4955b5f,0x608ebd6959fc4fdf,0x98ac5706e9a9afe2,0xecac9c4e481ab327,0x14a4faad640119fa,0x97687eb53fb50eda,0xbdc284c106597]),ibz_lit(false, &[0x14b03659881fdf0d,0x591c134b00974ccb,0xb146178bc3eafea,0x7f5f6c6da0c8dd18,0x8aa6e41c98f0615f,0xeae6057c6ff2d34a,0x923b50c5b2839847,0xa727be1aeed1e])]], action_k: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_gen2: [[ibz_lit(false, &[0x892f96a886b93337,0xdf75c4974c8e9f38,0xd5435decd5b34fd7,0xa71e8de3d5c3f3dc,0x5af370731324d939,0x81d709d04122bb6b,0x6d855ea0387774de,0x19df28f2d7c31]),ibz_lit(false, &[0x2061e1c20cfd028e,0x716c40df3b18e412,0xebb9c041d980d025,0xa8fe17de4982bb45,0x2aa634d9ffe5b079,0x6bc39bab67872b0b,0xb57bf5123c037365,0x89c9cf0b50897])],[ibz_lit(false, &[0xd85637b2429e45b1,0x81ba39cb86cd2f81,0xfbe40058ee7e771e,0x5bb87a7d28fb0a4b,0x3a9d2d541657a413,0x3069068975a3bbad,0xad392e812fddb0ad,0x7b5cb2bffd3cd]),ibz_lit(false, &[0x76d069577946ccc9,0x208a3b68b37160c7,0x2abca2132a4cb028,0x58e1721c2a3c0c23,0xa50c8f8cecdb26c6,0x7e28f62fbedd4494,0x927aa15fc7888b21,0xe620d70d283ce])]], action_gen3: [[ibz_lit(false, &[0xba3fb0277f4caa15,0xc32cd8a625fba936,0x65177e3a0cba4ff6,0x13df90bb1a7d8b62,0x6826462b3d1a3bed,0x4b788229e897f410,0x6da506ed42f9ee4b,0xb95bb56bf4789]),ibz_lit(false, &[0xa8042771f896c893,0xd12c936595f41b30,0x99bc9eb8a849033e,0x63f97fc25dc7bb85,0xb8e1475f960571ec,0x87357f40e25fc488,0x17fb29940d7fecac,0x30c2adafbf1ae])],[ibz_lit(false, &[0x911b920a13ce3bfd,0xc4e5d46125b14570,0x2e395ee1243d637e,0x7a3268c209525d17,0x13a4e4d12f392b9d,0xa287009b6cd26ad4,0xa250d69b37c95fc3,0x1c8f9bc081cb2]),ibz_lit(false, &[0x45c04fd880b355eb,0x3cd32759da0456c9,0x9ae881c5f345b009,0xec206f44e582749d,0x97d9b9d4c2e5c412,0xb4877dd617680bef,0x925af912bd0611b4,0x46a44a940b876])]], action_gen4: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x7838c0c7e9359b,0xa0241848b2e31,0x1e513fd2175a2ee,0xda48c71b9d18f9,0x13b6b86861174cc,0x9b82e5c43b507f,0x1439e83575c1c09,0x19e57d9f5939091,0x44880ed92fcc]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x9e0e3031fa4dfe,0x10280906122cb8c,0xf944ff485d68bb,0x369231c6e7463e,0x1cedae1a1845d33,0xa6e0b9710ed41f,0xd0e7a0d5d70702,0x6795f67d64e424,0xd52203b64bf3]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0xff99a931ae18e7,0x16c3a85de11bfd,0x938324767ebf5c,0x170ea78423829c,0x1cf0b25dbe641e6,0x1371d9223490ee2,0x1100b9f655692da,0x9a7a7e5610f30,0x432da20495ee]), im: Fp([0x17289bdbad869c4,0xf431f59f54b4cc,0x1e965d1d7f73a9e,0x3b31ec1b6e1db,0xadf747eed73502,0x10a7bed6ee2eb55,0x129f7aeba05d72e,0xc525edd0de6f30,0x109bd2568492b]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0x17f824a02df5a9c,0x101e4e5631fb9df,0x1059d28c36db406,0x11b8f6b93e83292,0x1bf9476d220088d,0x8835e450918b0e,0xf6f5050cad230a,0x974fa19b6885b1,0xea80d9f423ba]), im: Fp([0x18a34f95dcfa766,0x259ac80c8bae62,0x148f57b1a16cacc,0x809a705c8de46f,0x57866efe18a97c,0x12d4718b912bf3,0xbbeaa8c436d693,0x15c2922ec80dc1e,0x53fa7f3813d1]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0xa060257b805dfb,0x1115b37aeaf7f2c,0x1afdd70ce2324a6,0x73c72696f3570a,0x9698e0ec860cef,0xac7fbf0c5a88f5,0xe26a2921625151,0x8804777d00744e,0xd7a70444c3]), im: Fp([0xa6f00c2cc54ec2,0xf86ea03642fdb5,0x16de7052808d245,0x1b68185b06ef2ff,0x19df5820d92b79a,0x909ca827ab4f1a,0x53007bb61da51,0xf0bca44982c023,0xd01d2d673bd6]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0x6297ba6ae815625d,0xd28bc698d2b21a75,0x412682e497f300b1,0x9c4318163639f8e7,0x2b8aad5237dad2cf,0x1a986be7429791cb,0x835c22de0a8a19e4,0x7a95745964d5f]),ibz_lit(false, &[0xf04d0a1071f7f6c6,0xbcad60da241923dd,0xdb612f1db26de86c,0x9d94b159d9470ae7,0xcd5ce3fe840142db,0xc4c5f28afd387586,0xd31f185c5c2240d7,0x5b462e782843f])],[ibz_lit(false, &[0x4b34fc9673181c53,0xa9144d56ae17d504,0x28b244800696a8c,0xd29ca7ccce1b5716,0x40ddc81e102848cf,0xcb9f36f706d4bcdf,0x38d399c03a3408d7,0xbe1a8b4bc6e18]),ibz_lit(false, &[0x9d68459517ea9da3,0x2d7439672d4de58a,0xbed97d1b680cff4e,0x63bce7e9c9c60718,0xd47552adc8252d30,0xe5679418bd686e34,0x7ca3dd21f575e61b,0x856a8ba69b2a0])]], action_j: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_k: [[ibz_lit(false, &[0xd816f1c69f841aff,0x1191990d450bdd0,0x820947801a97bcf7,0x7b5320ba1d73695b,0x351fac534ce55e3c,0x121fd54c5a3eaaa3,0x83700c9cdb55bf17,0xc1f35415c2061]),ibz_lit(false, &[0xd4f3bab1de6f7734,0x7cc069b06c68c928,0x2eb2b1dc296c994f,0x95d3a8ff8494e4ce,0x6cd609180e7f5f30,0xed961f93747cae27,0xc33e713dc91a5590,0x39ce540fdc075])],[ibz_lit(false, &[0x9ec71aaf89f5da85,0x20bc3ae9ec63cfff,0xfa257d849942c2f3,0x9342c357eb7b5e69,0x7a7f857bd26c5c58,0x33bb97fb5c0757,0xcc0ad644fceb6c28,0x412d6e1c022ad]),ibz_lit(false, &[0x27e90e39607be501,0xfee6e66f2baf422f,0x7df6b87fe5684308,0x84acdf45e28c96a4,0xcae053acb31aa1c3,0xede02ab3a5c1555c,0x7c8ff36324aa40e8,0x3e0cabea3df9e])]], action_gen2: [[ibz_lit(false, &[0x6297ba6ae815625d,0xd28bc698d2b21a75,0x412682e497f300b1,0x9c4318163639f8e7,0x2b8aad5237dad2cf,0x1a986be7429791cb,0x835c22de0a8a19e4,0x7a95745964d5f]),ibz_lit(false, &[0xf04d0a1071f7f6c6,0xbcad60da241923dd,0xdb612f1db26de86c,0x9d94b159d9470ae7,0xcd5ce3fe840142db,0xc4c5f28afd387586,0xd31f185c5c2240d7,0x5b462e782843f])],[ibz_lit(false, &[0x4b34fc9673181c53,0xa9144d56ae17d504,0x28b244800696a8c,0xd29ca7ccce1b5716,0x40ddc81e102848cf,0xcb9f36f706d4bcdf,0x38d399c03a3408d7,0xbe1a8b4bc6e18]),ibz_lit(false, &[0x9d68459517ea9da3,0x2d7439672d4de58a,0xbed97d1b680cff4e,0x63bce7e9c9c60718,0xd47552adc8252d30,0xe5679418bd686e34,0x7ca3dd21f575e61b,0x856a8ba69b2a0])]], action_gen3: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]], action_gen4: [[ibz_lit(false, &[0xee5e6c8c35ac679c,0xbda9f6c29fa2827,0x39bdd3515e202083,0x8f237274085d9bc,0x6e266f9055dde905,0xec90f170f15a6779,0xe7106f9953a0db0e,0xde2e1a7f0ad92]),ibz_lit(false, &[0x4c65238cbf25a483,0xac20c5afccc9dd0b,0xbd24e2bfb162e998,0xd37dd781672005fd,0x7f8676b0595a0a89,0xd6792c0159eadea4,0x2bcfe2625454714b,0xc8cd38bc0fad4])],[ibz_lit(false, &[0xed1595e861883f72,0x15d9aae902fd2b1a,0xce25fe5523ff5945,0x16db8534a648aa48,0x3a68fb7ca3013fcf,0xf04430ee1c1d04ba,0x497198b2c4f8116f,0x32836b93eea5c]),ibz_lit(false, &[0x11a19373ca539864,0xf4256093d605d7d8,0xc6422caea1dfdf7c,0xf70dc8d8bf7a2643,0x91d9906faa2216fa,0x136f0e8f0ea59886,0x18ef9066ac5f24f1,0x21d1e580f526d])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x14c421c766617c3,0x2ec28c422c40ee,0x1e9416ac457e0da,0x3bf653bc6d0d4f,0x66f9fb9b4c0889,0x8db55f0c5a0769,0x2b77dffd10b7cc,0x1a2c7bbd80c39b5,0x9172a1a01960]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x15310871d998688,0x10bb0a3108b103b,0x1fa505ab115f836,0x8efd94ef1b4353,0x99be7ee6d30222,0x236d57c31681da,0x8addf7ff442df3,0x68b1eef6030e6d,0xe85ca8680658]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0x93e659155a96bf,0x11915582a869e37,0x1c717f137541aa,0x17acaa3fa699ab7,0x1fadb8a40c6d0f8,0x12932af75a2eec9,0x99ac705917d58f,0xe038749db70780,0x17d6e214c0a98]), im: Fp([0x46add73c99b87,0xa42a8489f59e22,0x15566e9be425188,0x183df6f62df9bde,0x1f9ed54e88bc577,0x10508a77e03a1b7,0x1738998a79419c8,0xe34c6be132e7d0,0x22ad9b2e0698]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0x5d6e41f3e597c0,0x15dfc36dd954143,0xa01ecf72d58e04,0x55394a3ae0562b,0x1ff9d8e5036cb97,0xa0ac8053e37308,0xefd68958336de3,0x15141533cdd36e2,0x15fc099d1cf99]), im: Fp([0x6e5c05fbe78ca0,0xe2948dcf498694,0x1e8e8cd63f06aa8,0x8b7657fc344dc9,0xfa93e0f5839316,0x378f4c48c79c6,0x1cde2bec96f8ba6,0x11650c52bb89117,0x18d8410c063c2]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0x1050041684113b,0x1bf9d8535068a6b,0x10eed8b7d268ec2,0x13e130acb3916d4,0xfa24658119aeb,0xd3dafb05f72fec,0x1844f2dd9df0cd,0x1d5ee78d4e1223b,0x1203bdf52cba6]), im: Fp([0x15f7225a6a1ef13,0x12670e00b02f3d,0x1a515df8ffe4c45,0xf680b54af2f9c,0x1d9d6712675450b,0x625fe737930c1a,0x14e3dbf5e206aef,0x1b46aaaf7b011ad,0x104f92d6ff6c4]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0x9d1132540fec5b0b,0x86b865ca32bb8130,0x667c3cc3fce78184,0x9834271e4e65a54b,0x45fd5e0d1d810a9c,0x7e575f8f4b0b26eb,0xe98456b4cb4cd36f,0xb59a1cfdfad75]),ibz_lit(false, &[0x55ed1c2b15e82bba,0xb4093a5cb3ccb72c,0x90a1d365071b2f3d,0xa6330be01e26b2f5,0x49b3e0e3e2bdc5a6,0x36749ba39f1cd4c8,0xcdd3c60354112e5a,0x4088a2e7efb23])],[ibz_lit(false, &[0x236512fcb5b7a8e5,0x5ece526022676f00,0xe5b3fcde93eebf38,0xdd481770712a09f9,0xbdfb7f55350dd27,0xca36e6a97cb446a4,0x3713e43b03c98565,0x4806aeeb14fe2]),ibz_lit(false, &[0x62eecdabf013a4f5,0x79479a35cd447ecf,0x9983c33c03187e7b,0x67cbd8e1b19a5ab4,0xba02a1f2e27ef563,0x81a8a070b4f4d914,0x167ba94b34b32c90,0x4a65e3020528a])]], action_j: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_k: [[ibz_lit(false, &[0xc566d8e823935eb9,0x45771bf1a77f0d78,0x281132cecd33141,0xf25b4bb1d3413b5,0xde505e9fbf860dc3,0x687dd5b0e95ef536,0xc8ccdb8d992c03ab,0x56e1ad954faf0]),ibz_lit(false, &[0x1544d9f7f7a8f17c,0x3fba3812f5aab2c8,0xad77678cb545f63e,0x74c9a5dc12f8ed9f,0x14a0806fc1e0ec1d,0x57d5606c34f3fb25,0xa78783e39c8c9733,0x12499503b7cae])],[ibz_lit(false, &[0xb74db73f57ac5d83,0x915004335881869,0xb830448782eb7f31,0x5646991170a76627,0x925d168ce1134779,0xd5a6a95ed347c1e8,0xf75500720beb7deb,0x27ef99ee20306]),ibz_lit(false, &[0x3a992717dc6ca147,0xba88e40e5880f287,0xfd7eecd3132ccebe,0xf0da4b44e2cbec4a,0x21afa1604079f23c,0x97822a4f16a10ac9,0x3733247266d3fc54,0xa91e526ab050f])]], action_gen2: [[ibz_lit(false, &[0x9d1132540fec5b0b,0x86b865ca32bb8130,0x667c3cc3fce78184,0x9834271e4e65a54b,0x45fd5e0d1d810a9c,0x7e575f8f4b0b26eb,0xe98456b4cb4cd36f,0xb59a1cfdfad75]),ibz_lit(false, &[0x55ed1c2b15e82bba,0xb4093a5cb3ccb72c,0x90a1d365071b2f3d,0xa6330be01e26b2f5,0x49b3e0e3e2bdc5a6,0x36749ba39f1cd4c8,0xcdd3c60354112e5a,0x4088a2e7efb23])],[ibz_lit(false, &[0x236512fcb5b7a8e5,0x5ece526022676f00,0xe5b3fcde93eebf38,0xdd481770712a09f9,0xbdfb7f55350dd27,0xca36e6a97cb446a4,0x3713e43b03c98565,0x4806aeeb14fe2]),ibz_lit(false, &[0x62eecdabf013a4f5,0x79479a35cd447ecf,0x9983c33c03187e7b,0x67cbd8e1b19a5ab4,0xba02a1f2e27ef563,0x81a8a070b4f4d914,0x167ba94b34b32c90,0x4a65e3020528a])]], action_gen3: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]], action_gen4: [[ibz_lit(false, &[0x645aeb34786f0b,0x2fabccf0ecff9a1a,0xc31a97e7718af3a8,0x5ee1514eb872a0cd,0x97c6d0c34af94b79,0xa5e6a98723709591,0x198031508730e201,0xb25c93b838452]),ibz_lit(false, &[0xfc6bdefe7f691de7,0x13185188c1006fd5,0x426033ac10dd416e,0xd02e5b131d0e8985,0x4f729b7d6e286fb5,0xda5ff00dd5f39665,0x958d4b2ad77898f2,0x34a93d837fcef])],[ibz_lit(false, &[0x5e0dcb8f81f38527,0xedcf061374487c93,0x8ace19dc77c77d31,0x28df9ccca582bfb8,0x546b33e64f69b6e0,0xdc8d53ed1627cfb2,0xb942c438b843d80b,0x2c1dcb3c08fb5]),ibz_lit(false, &[0xff9ba514cb8790f5,0xd054330f130065e5,0x3ce568188e750c57,0xa11eaeb1478d5f32,0x68392f3cb506b486,0x5a195678dc8f6a6e,0xe67fceaf78cf1dfe,0x4da36c47c7bad])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x66ef478b1d357a,0x139d483892b4e3c,0x1c8bc2e1a9b9d1d,0xba7952dc366959,0x1c2d06fb77cb686,0xd804666fd232d,0xdf690b66fe739,0x1752193556ed6a1,0xe46c791bacfb]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x19bbd1e2c74df6,0xce7520e24ad38f,0xf22f0b86a6e747,0x12e9e54b70d9a56,0xf0b41beddf2da1,0x83601199bf48cb,0x837da42d9bf9ce,0x1dd4864d55bb5a8,0x911b1e46eb3e]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0x15ee07571823d89,0x357af02d9c9678,0x8a68f083fb6b,0x6eb03be6fb4f8,0x9e8bcabcdff26f,0x7fd3db2256250d,0x1ac7896cc73524d,0x330878da71e14e,0x23ea0f819055]), im: Fp([0x1b08423920489cb,0x174e1e59a60bb82,0x887643d268136e,0x24f05db88ae0b4,0xfbee8f47e6bea0,0xc92d18b88c845d,0x2168ac383bd67e,0x13214fb4109008f,0xa56ac65ea5f5]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0xe7b62def555139,0x1e2752f95444da2,0xdfc3af61038faf,0x144ba7ace162e08,0x94231e70a5d787,0xaf1371849b24f0,0xd1dcfdb68706c0,0xed771060ff7361,0x156884e494257]), im: Fp([0xc6e6088c3dd5b8,0x89a19791164b8a,0x8d13ff1cdcfe31,0x1e10e1e3c677f85,0x1a055cfd4b7691d,0x13ccadc41356bda,0x17027cc398ca204,0x15def49fc87c2ae,0x2abeb522f908]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0x54a49af5b2eebf,0x374db978c2a5a5,0x1430ac48ba06d23,0x1a97631fca4f103,0x4271251a7ae9d8,0x32bcdfe6400221,0x7c41c80b20f52,0xc1cc2e9909ec9d,0x8fb5cf7cf51c]), im: Fp([0x1b64c97c73757a4,0x1a3aab2674d3bf,0x184cfe35d1d4a09,0xc1fc2ec5caadd7,0xab488a96a5099a,0x28f020fa1788ca,0xb3dc2b28132a04,0x18b4637d9be2b49,0xf2b120c08599]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0xe8a6cbb79bc53919,0xc64e8690022a3f55,0x422f80e86c4d8e93,0xb342f54507e10ffd,0xfb8da62b80a587be,0xd4d4697466e4048,0xa00852c1c9ba9d79,0xab87cf30921f1]),ibz_lit(false, &[0x5bc4cdfe86b5c03e,0x946490d9bc7bc7a1,0xc710853d9345c604,0x8ef440504b981ad2,0xb6100bd26664d73c,0xcf72abe95e87483e,0x348352b1bfbf679e,0xebd534a360f7c])],[ibz_lit(false, &[0x676cba319b8c5937,0x42e2f6199c3d8d31,0x390a76e5d0724d1a,0xfd712d1676435086,0xed6356ecff7b0341,0x94886a5d73241436,0x4043d6b5014509f0,0xf7784eb6e10d8]),ibz_lit(false, &[0x17593448643ac6e7,0x39b1796ffdd5c0aa,0xbdd07f1793b2716c,0x4cbd0abaf81ef002,0x47259d47f5a7841,0xf2b2b968b991bfb7,0x5ff7ad3e36456286,0x547830cf6de0e])]], action_j: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_k: [[ibz_lit(false, &[0x289e3527c1bb5fd3,0xfbf2a8e1f5ce97fd,0xcb44df66b5e78f04,0x6e5c031c831405b5,0x5ea93d193134a6b9,0xafb9800337fe860d,0xde5aa36df377bfdd,0xbc87208daa9df]),ibz_lit(false, &[0xf7dbd4616a4fb354,0xb2740ff667864aec,0x277e97e9066dfcf4,0x6062b1fa68a35e43,0xd92667ed8c2ba56a,0x80845bc54883444a,0x4eb63b85209e1f0a,0xab05cb97314fe])],[ibz_lit(false, &[0x4d2a2271213b9c41,0x8462f3fd987cca4c,0x5ca1f930550484ba,0x1bc10b1684d2b075,0x4bb0e84efeb5e1ac,0x97f43d9857b6f6b6,0xb841aae9866da24,0xf4a2dfcb736ec]),ibz_lit(false, &[0xd761cad83e44a02d,0x40d571e0a316802,0x34bb20994a1870fb,0x91a3fce37cebfa4a,0xa156c2e6cecb5946,0x50467ffcc80179f2,0x21a55c920c884022,0x4378df7255620])]], action_gen2: [[ibz_lit(false, &[0xe8a6cbb79bc53919,0xc64e8690022a3f55,0x422f80e86c4d8e93,0xb342f54507e10ffd,0xfb8da62b80a587be,0xd4d4697466e4048,0xa00852c1c9ba9d79,0xab87cf30921f1]),ibz_lit(false, &[0x5bc4cdfe86b5c03e,0x946490d9bc7bc7a1,0xc710853d9345c604,0x8ef440504b981ad2,0xb6100bd26664d73c,0xcf72abe95e87483e,0x348352b1bfbf679e,0xebd534a360f7c])],[ibz_lit(false, &[0x676cba319b8c5937,0x42e2f6199c3d8d31,0x390a76e5d0724d1a,0xfd712d1676435086,0xed6356ecff7b0341,0x94886a5d73241436,0x4043d6b5014509f0,0xf7784eb6e10d8]),ibz_lit(false, &[0x17593448643ac6e7,0x39b1796ffdd5c0aa,0xbdd07f1793b2716c,0x4cbd0abaf81ef002,0x47259d47f5a7841,0xf2b2b968b991bfb7,0x5ff7ad3e36456286,0x547830cf6de0e])]], action_gen3: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]], action_gen4: [[ibz_lit(false, &[0xa4d60ae5e24a718a,0x69ce9f91f453d401,0x4e639273fa117d19,0x746ae08fde49f33a,0xe4c43b652bb243d,0x74fedf64380d1bdd,0xd71ba4d6584f4dfa,0xf717ef070f067]),ibz_lit(false, &[0xe045d1d078455d93,0xad36940006b6fa74,0x7ca09b00d3f64e68,0xb42f1fb60facab22,0x2b2dbc5bb2e357db,0x291834e2c77e94fa,0xd4a268cff9dd6ce9,0x5da606050bc59])],[ibz_lit(false, &[0x2d81ac2b5d39c6dc,0x8e30dab5f398c9b8,0x8cd271021b25b3b2,0x52b8b4f37c35952e,0x8d316906b8775789,0x166702b38a1098a6,0xc8ecfc76a9350856,0xd4f0291486044]),ibz_lit(false, &[0x5b29f51a1db58e76,0x9631606e0bac2bfe,0xb19c6d8c05ee82e6,0x8b951f7021b60cc5,0xf1b3bc49ad44dbc2,0x8b01209bc7f2e422,0x28e45b29a7b0b205,0x8e810f8f0f98])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0xfd2411644b2991,0x1440346f2b5711b,0x1cc7ee0a33c1b83,0xa062cb94740d05,0x62c8a1b44bb8da,0x1bfd5ccbd55fd69,0x1f894cf946f9195,0x147c43756d18b00,0x2568784bd852]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x1bf49045912cafb,0x1d100d1bcad5c46,0xf31fb828cf06e0,0x12818b2e51d0341,0x98b2286d12ee36,0xeff5732f557f5a,0x7e2533e51be465,0x151f10dd5b462c0,0x1a55a1e12f614]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0x129fa92c54145da,0x65a8021bcb3760,0x8ae07687369746,0xfe3a080d467f5a,0x39231b31c2ba0e,0x1e70981fb5d9196,0xf7d76b8c93da7a,0x5746d15be48cd7,0xfd86a25b0a3]), im: Fp([0x1654fdda78d1edf,0x79a8670d099fee,0xdd99cdb757bbbf,0x10f76c17a528f48,0xc337bcab18ac3d,0x16e38eb648d8fe8,0x1d6141fad5b28ab,0x1bf2d9d4c74637b,0x29ba8f0dc13]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0x1446cbafb7312e6,0x13ca3d229f0d143,0x864180ecc866a,0x183c6015a8621a1,0x1c1436aaa80a4d7,0x186fddd61c524fa,0x1e9f117e4ef3d2d,0x18fa388953461d4,0xf87d039786dc]), im: Fp([0x19db81d00027563,0x7a4d632899ffc0,0x765d70177e189e,0xbf87aaed095511,0x18255786ae6d90,0xad87eb3597ec5f,0x783ba19089d042,0xa0170919d119b2,0xe4931bae759c]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0xaba4c452d665de,0x18fe074e84bce17,0x367a0e3a936d47,0x13b6cc9b4fd707b,0x388b7689fe5f7,0xfa6e127e6d0888,0x19d6b6fe31d41f,0x12e20fb5bfbdb71,0x69ce89bbc394]), im: Fp([0x15141b4cbd86fca,0xc76b14c72d5a45,0x159db1952cb556b,0xb92ec91fc22dce,0xccb7aa1e2dd4d4,0x1ff598295f17ea7,0x188c9d9d383c06f,0x1a24a5467a5ec73,0x4a90ed99386e]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0x55cc620ad8504f71,0x125cab424b7431b0,0xca6473b3a634b589,0x9b4a60226c416ed0,0x29251e190e0db03e,0xfc6a10dd042a275e,0xe556977eb5927f51,0x3a68f873d10bc]),ibz_lit(false, &[0x90c5b7847e790ed2,0x59f4606efc99e054,0xe3fc29bfb6aeb88f,0x4bf9ba948c88a3cf,0x723631c0f771cb60,0xfdbfb9b8a9e72401,0xc8109bd6b4d5326e,0xf1f620661b7f0])],[ibz_lit(false, &[0xe1ad6715c1a7b407,0xbd8e159415e831eb,0x16368f7a2bae3976,0x162712ae88d28d19,0xfa51dd784868f2b0,0x35d97eb3a1f3fd6b,0x54dd12a82c09d826,0x15bcdc29c87d6]),ibz_lit(false, &[0xaa339df527afb08f,0xeda354bdb48bce4f,0x359b8c4c59cb4a76,0x64b59fdd93be912f,0xd6dae1e6f1f24fc1,0x395ef22fbd5d8a1,0x1aa968814a6d80ae,0xc597078c2ef43])]], action_j: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_k: [[ibz_lit(false, &[0x6eaa739b27c8e7eb,0x4a84ac1cf5937a17,0xea3de67e77711a27,0xc51c8edda34b4596,0x481b2551d1a17c15,0x1eab8b82fed0402e,0x6abf714320fac98b,0x9510f475f463a]),ibz_lit(false, &[0x138cdab69e319e28,0xb2b7444d5193c3c0,0xc700b08b5630f371,0xbd7c0c3f3f082404,0x429d7bb2d892963b,0x9aac853df27719d8,0x9e40f5e842cd9bfa,0x69c2315a88a41])],[ibz_lit(false, &[0x9d61921908ee66d1,0xdf2ac3eefc6313a4,0x8ad8c39102ef1353,0xa4b21029b014953b,0x199cf3a8fc0761a3,0xb4596eb76a41e6c8,0x8b4e9ec32f4ea187,0x35b21038b5321]),ibz_lit(false, &[0x91558c64d8371815,0xb57b53e30a6c85e8,0x15c21981888ee5d8,0x3ae371225cb4ba69,0xb7e4daae2e5e83ea,0xe154747d012fbfd1,0x95408ebcdf053674,0x6aef0b8a0b9c5])]], action_gen2: [[ibz_lit(false, &[0x55cc620ad8504f71,0x125cab424b7431b0,0xca6473b3a634b589,0x9b4a60226c416ed0,0x29251e190e0db03e,0xfc6a10dd042a275e,0xe556977eb5927f51,0x3a68f873d10bc]),ibz_lit(false, &[0x90c5b7847e790ed2,0x59f4606efc99e054,0xe3fc29bfb6aeb88f,0x4bf9ba948c88a3cf,0x723631c0f771cb60,0xfdbfb9b8a9e72401,0xc8109bd6b4d5326e,0xf1f620661b7f0])],[ibz_lit(false, &[0xe1ad6715c1a7b407,0xbd8e159415e831eb,0x16368f7a2bae3976,0x162712ae88d28d19,0xfa51dd784868f2b0,0x35d97eb3a1f3fd6b,0x54dd12a82c09d826,0x15bcdc29c87d6]),ibz_lit(false, &[0xaa339df527afb08f,0xeda354bdb48bce4f,0x359b8c4c59cb4a76,0x64b59fdd93be912f,0xd6dae1e6f1f24fc1,0x395ef22fbd5d8a1,0x1aa968814a6d80ae,0xc597078c2ef43])]], action_gen3: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]], action_gen4: [[ibz_lit(false, &[0xd4832c9b5e7ab83a,0x2eae4a2171e9eff9,0xb0386bf2bb260921,0x34fbd498c05aeac9,0x81de2674aae907ca,0xa35488c97dbe471f,0x7c829acc53019f03,0x8dc7b0732c479]),ibz_lit(false, &[0x84bff3d4aeba4733,0x4604e0faa71a453a,0x5fc5b1149bc2f02b,0x175d23021a8d5f8d,0x698c051b83513655,0xdd4bdd6a8c83c745,0xe320d1fc80b7682f,0xc365c1d3ca30])],[ibz_lit(false, &[0xe05ddcb05173e32c,0xbed7fd386e8c3a7e,0xedf026f1a9865fe0,0x2e70a48e1dbc8fc7,0xf05be8c3e7676648,0x5304f8f663b626aa,0xe67554a27c937042,0x8b36e02b1d3ea]),ibz_lit(false, &[0x2b7cd364a18547c6,0xd151b5de8e161006,0x4fc7940d44d9f6de,0xcb042b673fa51536,0x7e21d98b5516f835,0x5cab77368241b8e0,0x837d6533acfe60fc,0x72384f8cd3b86])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x9107d3b2fc5b4b,0x178b41702c49c10,0x17cdc394303cdb,0x75d9ee79edc826,0x15e8fbe8583ae05,0x1716c8c7e4cfd5d,0x19e5b8df259fa77,0x1299ef4818b8dc5,0x613663bc46ff]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x2441f4ecbf176a,0x1de2d05c0b12704,0x105f370e50c0f36,0x9d767b9e7b7209,0xd7a3efa160eb81,0x1dc5b231f933f57,0xe796e37c967e9d,0x1ca67bd2062e371,0xdc4d98ef11bf]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0xad0cca9ca14749,0x1ce65c55475af21,0x7da4b2ae49fde8,0x46275ebf0bb42b,0x1afefc02d269bf5,0x109ef8920237a22,0xdf7449c0a7c9cc,0x15c6348774f3767,0xb9bbc2d05890]), im: Fp([0x1ee7bfef0d5eae5,0x15aafe653cc3d73,0x13436adcd436be,0x4b47effcddc31e,0xfc71a830b53878,0x2a4f362c70c419,0x1eac9b539582a48,0x190b3252dff5df4,0xb0fb47b9921b]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0x11eb26825bd9bfd,0x309082f5faa153,0x1d2750bb18c49c3,0x4d5a3ee1a6f55b,0x14035956952d71,0x16bc6893876269c,0x4de3e1c7c65599,0xb8a066b683c75f,0x148988ba4c58b]), im: Fp([0xe9aa95f7f209bc,0x90240ea461236b,0xa2332a0f0693d4,0x72a28588e72882,0x12085e7e26e257e,0x1a3db34e26cc447,0x1e91a311a1b00f6,0x7e0b88ab6b62d1,0xa2e689e6cab9]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0x45bbf3700eaaff,0x13444a9d8d39ae3,0xd42b4525a2cbd1,0x1b830b1e25305c9,0x1d60229a4f1ac,0x93e28f485b0bde,0xa079547789fddd,0x1152658f49746a,0x17eaadefdf6b7]), im: Fp([0x21ddba4fb08120,0x14d06508c4a8dd5,0xdc778bbb3e175a,0x1ce84a4cb7604f,0x19d428ce45d547c,0x169b0ab2ba61008,0x5e095b7e38b542,0x1ea4c95d65b48af,0xa077bc9ca28a]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0x18c2d32ef14f2ce5,0x4090a7fc28335217,0x3801e7704d89d9d5,0x2ee554326ac9bca0,0x8911df1a827a4356,0x18b903e5f05a4102,0xea2fd99b77adf66f,0xde07136bba030]),ibz_lit(false, &[0x14f02608c670752,0x4db95e4d0865138a,0x94224a7e7a2cca26,0x7e33841dbdc8b2f6,0x15fc963338a65677,0xb16cdcefbe04acce,0x1f8f83957a5ed57b,0x64be3e383e4b9])],[ibz_lit(false, &[0x535f517740f29b63,0x5e1c18a22f265098,0x23971db933e95d70,0x87bfcae6b98baccc,0x2f67f2d0b329d43f,0xc67d4369d2ab779c,0x1a2bf06b9550d065,0x3bb649b2b0c6e]),ibz_lit(false, &[0xe73d2cd10eb0d31b,0xbf6f5803d7ccade8,0xc7fe188fb276262a,0xd11aabcd9536435f,0x76ee20e57d85bca9,0xe746fc1a0fa5befd,0x15d0266488520990,0x21f8ec9445fcf])]], action_j: [[ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91]),ibz_lit(false, &[0x3518843fe40c4222,0x4347b4e5a75772d1,0xb77e030dc2673326,0x8cf2d175cb8c9907,0xa7152316b8765440,0xcd7fa72f9e96f0ab,0xdc2d985fa42f1e06,0x82ae0e71ed9ee])],[ibz_lit(false, &[0x15fd6c621c9011ac,0x744c60c658511924,0x51a156540a6b80fd,0x4132f265803f6589,0x65cf0b749796d2,0x3aad420302bc2e51,0x67e4cc1a5b4001f2,0x37a8cba17dfd3]),ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e])]], action_k: [[ibz_lit(false, &[0xb0a2d75050f499f9,0x34be6b4b6986fdaa,0x8c180e0539747bd5,0x63b5cc33bb5a6bb8,0xbdc4b4efec49943b,0x129185ad2fc85a2a,0x93f6721b9618a29f,0xbdfbb2e85b40f]),ibz_lit(false, &[0x3e902aee4ff5f4c0,0x111cf257b2af0049,0x8a7cc7d9c1d5ead0,0xb43ce1f60f629579,0xc2091b7b14ca8f3f,0x5d39dfc0f5cd0ac8,0xba542e6e9c9a9d8d,0x21cfc4f0279d5])],[ibz_lit(false, &[0xcef33343173001eb,0xd52b353e76152add,0x69d0229200c19951,0xd332fec7c1bd4a9f,0x61a4aa2767f872b7,0x9a69fe1d8ec033dd,0xbb33209b060f38ac,0xc5c8013f555b1]),ibz_lit(false, &[0x4f5d28afaf0b6607,0xcb4194b496790255,0x73e7f1fac68b842a,0x9c4a33cc44a59447,0x423b4b1013b66bc4,0xed6e7a52d037a5d5,0x6c098de469e75d60,0x42044d17a4bf0])]], action_gen2: [[ibz_lit(false, &[0x18c2d32ef14f2ce5,0x4090a7fc28335217,0x3801e7704d89d9d5,0x2ee554326ac9bca0,0x8911df1a827a4356,0x18b903e5f05a4102,0xea2fd99b77adf66f,0xde07136bba030]),ibz_lit(false, &[0x14f02608c670752,0x4db95e4d0865138a,0x94224a7e7a2cca26,0x7e33841dbdc8b2f6,0x15fc963338a65677,0xb16cdcefbe04acce,0x1f8f83957a5ed57b,0x64be3e383e4b9])],[ibz_lit(false, &[0x535f517740f29b63,0x5e1c18a22f265098,0x23971db933e95d70,0x87bfcae6b98baccc,0x2f67f2d0b329d43f,0xc67d4369d2ab779c,0x1a2bf06b9550d065,0x3bb649b2b0c6e]),ibz_lit(false, &[0xe73d2cd10eb0d31b,0xbf6f5803d7ccade8,0xc7fe188fb276262a,0xd11aabcd9536435f,0x76ee20e57d85bca9,0xe746fc1a0fa5befd,0x15d0266488520990,0x21f8ec9445fcf])]], action_gen3: [[ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8]),ibz_lit(false, &[0x9a8c421ff2062111,0x21a3da72d3abb968,0xdbbf0186e1339993,0x467968bae5c64c83,0xd38a918b5c3b2a20,0x66bfd397cf4b7855,0x6e16cc2fd2178f03,0x41570738f6cf7])],[ibz_lit(false, &[0xafeb6310e4808d6,0xba2630632c288c92,0xa8d0ab2a0535c07e,0x20997932c01fb2c4,0x8032e785ba4bcb69,0x1d56a101815e1728,0xb3f2660d2da000f9,0x1bd465d0befe9]),ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037])]], action_gen4: [[ibz_lit(false, &[0xca3be2b2dd4c129d,0x41268f99c8b6c0b,0xb80dae25758351a8,0x66e14ba1387b35d5,0x6503d8cf6b60754,0x16d2c05f214fa955,0x3ed3123e246f9ce4,0x589642e24a07f]),ibz_lit(false, &[0x253ca44cbc609e3f,0x9f9f326fa9f9a75e,0x5ee33889a47f14aa,0x62226cba933f087d,0x992aa815a8c9cd43,0xf6754cffc1d3643a,0xb9e452487e2af30b,0x3525b2c53a454])],[ibz_lit(false, &[0x45deb681a517584d,0xe0fd01237c58c2ea,0xddc5f6696c5bfd80,0x37ecc7a0caa9b21a,0xe812e98412e7f8c6,0x41f59fca128aef9f,0x78c5f1cf5c32118f,0x260d22ae39424]),ibz_lit(false, &[0x35c41d4d22b3ed63,0xfbed9706637493f4,0x47f251da8a7cae57,0x991eb45ec784ca2a,0xf9afc2730949f8ab,0xe92d3fa0deb056aa,0xc12cedc1db90631b,0xa769bd1db5f80])]] },
-            CurveWithEndomorphismRing { curve: EcCurve { a: Fp2 { re: Fp([0x172ddbc8950509,0xce75362e576436,0x137ae6681595fd1,0x12d86e76835c57a,0x9f570600f104f3,0x1cc06a5b91122b0,0x4f61dace51b554,0x24ba43eb6e9ab7,0x146a883c4c92c]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, c: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, a24: EcPoint { x: Fp2 { re: Fp([0x105cb76f22541da,0xb39d4d8b95d90d,0x14deb99a05657f4,0x1cb61b9da0d715e,0x27d5c1803c413c,0x7301a96e4448ac,0x193d876b3946d55,0x92e90fadba6ad,0x3daa20f1324b]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, is_a24_computed_and_normalized: true }, basis_even: EcBasis { p: EcPoint { x: Fp2 { re: Fp([0x16d33c4fcba81f3,0x1135c0ca5876bd8,0x930cc9a12334e1,0x164ceb50c5c906d,0x9a7b9e250df205,0x59fd4642dc1b82,0x2fa02d52117507,0xaf52b9cd70b6aa,0x19ff3cefe0e4a]), im: Fp([0x14e913e16c00099,0xc885327d07ccc0,0x161da2253ef7204,0xc59960fe2ebf61,0x15ff0c93e9ba8c7,0x23365acc88e44f,0x8a7af330eca718,0xe969a032ed2a53,0x3f87df8ca88e]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, q: EcPoint { x: Fp2 { re: Fp([0x17c8b5a62ab9b8c,0x1b3ded6d45d61f1,0x10c48f9bcc396a0,0x1902c56a8072ef3,0x179a04920b8ab82,0xb60fc42ca6a4e9,0x83bff0f4f46a9b,0x32fc4d1a34c186,0x1396d1f279bd5]), im: Fp([0xe11de2b3e31c44,0x12c73b685e5d6f0,0x126eecdd4e029f2,0x1196946bcdcab29,0x1eb35361127b3e0,0xa3e6fab2cacd17,0xeee36dd90d313c,0x16b99c74346e54f,0xff4bd2cc5b7c]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } }, pmq: EcPoint { x: Fp2 { re: Fp([0x18b1a8fcd644747,0xc1dc9ef0370154,0xb205662bc7b7a,0x177261612397ba9,0x1e97e22498aa19d,0xaf43c2a4b79f0d,0x18e73168d2b7fc8,0x1fad079f4e433fd,0x15fd5662f73d7]), im: Fp([0x1e1289c30498f13,0xd460c137a25393,0x190dc9aec94a55d,0xe14e9d8766a2ff,0x1d6a6cab4864bfe,0x179b69675f3f71f,0x1ee2284791c35d6,0x1c326425b28dd3c,0xa383711df0e3]) }, z: Fp2 { re: Fp([0x12f,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xb00000000000]), im: Fp([0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0]) } } }, action_i: [[ibz_lit(false, &[0xc163a798561efe45,0xda12b3c01fffedaa,0xface239051232588,0xb190a21d651b6e59,0xd81603021b0e1b0,0xa91c8cef64b06542,0x961ae27bd947e0bd,0x50ed0f20a2a3e]),ibz_lit(false, &[0x3538ed4e4b770ff6,0xc49fd5473304c757,0xcad4796b2ff801b,0x83e13e77969c58be,0x372066647d43a371,0xebbc74dce4e56c98,0x5bc93147c7e0aab5,0xcb4007ff5537e])],[ibz_lit(false, &[0x429cfaa0ce5877eb,0xc196068abe89c7dd,0xbc4ea04a63aed249,0x4738fc2b64adbbb5,0x459d6b55918a4d4d,0xfe42208a748cf5ab,0x28cc23d7378521d2,0xd3406106afd9f]),ibz_lit(false, &[0x3e9c5867a9e101bb,0x25ed4c3fe0001255,0x531dc6faedcda77,0x4e6f5de29ae491a6,0xf27e9fcfde4f1e4f,0x56e373109b4f9abd,0x69e51d8426b81f42,0xaf12f0df5d5c1])]], action_j: [[ibz_lit(false, &[0x75f1d05088dbf3b3,0xe7a297c48cbe10dd,0x8d12d51ff1e2e6ae,0xc097c98a639555a8,0x78ce54f366aa60c3,0x3e199a77fb35dce,0x30f333393c9a8753,0x7c99fc05e406e]),ibz_lit(false, &[0xcae77bc01bf3bdde,0xbcb84b1a58a88d2e,0x4881fcf23d98ccd9,0x730d2e8a347366f8,0x58eadce94789abbf,0x328058d061690f54,0x23d267a05bd0e1f9,0x7d51f18e12611])],[ibz_lit(false, &[0xea02939de36fee54,0x8bb39f39a7aee6db,0xae5ea9abf5947f02,0xbecd0d9a7fc09a76,0xff9a30f48b68692d,0xc552bdfcfd43d1ae,0x981b33e5a4bffe0d,0xc857345e8202c]),ibz_lit(false, &[0x8a0e2faf77240c4d,0x185d683b7341ef22,0x72ed2ae00e1d1951,0x3f6836759c6aaa57,0x8731ab0c99559f3c,0xfc1e6658804ca231,0xcf0cccc6c36578ac,0x836603fa1bf91])]], action_k: [[ibz_lit(false, &[0x755771ea51a039f7,0x9aa76a816b5e794c,0x2121e387ab85d8dd,0xf813e27379891086,0xc6d59ef5b13febd5,0x24c4ecf314f82da2,0xb213b9efc8def485,0xdd591e587bc4d]),ibz_lit(false, &[0x2a9ec116133fc5d4,0xdacf6173aeddacf5,0x50136d36a33e6448,0x906de57159f62093,0xbe30b92ae4ab37c9,0x47ffffc8de581d49,0x867961286230e0cb,0xd66c70c5e731c])],[ibz_lit(false, &[0x8dadd0dc2e3e55ad,0x81af3e27e1d04e0a,0x5bd452f2a5fa1bb4,0xbdd40036ddfe2b9b,0x7b2921d23027f99a,0xec5c6864214610ee,0xe4a1bc15540f6bbd,0x4df513d9c00ee]),ibz_lit(false, &[0x8aa88e15ae5fc609,0x6558957e94a186b3,0xdede1c78547a2722,0x7ec1d8c8676ef79,0x392a610a4ec0142a,0xdb3b130ceb07d25d,0x4dec461037210b7a,0x22a6e1a7843b2])]], action_gen2: [[ibz_lit(false, &[0xc163a798561efe45,0xda12b3c01fffedaa,0xface239051232588,0xb190a21d651b6e59,0xd81603021b0e1b0,0xa91c8cef64b06542,0x961ae27bd947e0bd,0x50ed0f20a2a3e]),ibz_lit(false, &[0x3538ed4e4b770ff6,0xc49fd5473304c757,0xcad4796b2ff801b,0x83e13e77969c58be,0x372066647d43a371,0xebbc74dce4e56c98,0x5bc93147c7e0aab5,0xcb4007ff5537e])],[ibz_lit(false, &[0x429cfaa0ce5877eb,0xc196068abe89c7dd,0xbc4ea04a63aed249,0x4738fc2b64adbbb5,0x459d6b55918a4d4d,0xfe42208a748cf5ab,0x28cc23d7378521d2,0xd3406106afd9f]),ibz_lit(false, &[0x3e9c5867a9e101bb,0x25ed4c3fe0001255,0x531dc6faedcda77,0x4e6f5de29ae491a6,0xf27e9fcfde4f1e4f,0x56e373109b4f9abd,0x69e51d8426b81f42,0xaf12f0df5d5c1])]], action_gen3: [[ibz_lit(false, &[0xbaf8e828446df9da,0x73d14be2465f086e,0x46896a8ff8f17357,0xe04be4c531caaad4,0x3c672a79b3553061,0x81f0ccd3bfd9aee7,0x1879999c9e4d43a9,0xbe4cfe02f2037]),ibz_lit(false, &[0x6573bde00df9deef,0xde5c258d2c544697,0x2440fe791ecc666c,0xb98697451a39b37c,0x2c756e74a3c4d5df,0x99402c6830b487aa,0x91e933d02de870fc,0xbea8f8c709308])],[ibz_lit(false, &[0xf50149cef1b7f72a,0x45d9cf9cd3d7736d,0x572f54d5faca3f81,0xdf6686cd3fe04d3b,0x7fcd187a45b43496,0xe2a95efe7ea1e8d7,0x4c0d99f2d25fff06,0xe42b9a2f41016]),ibz_lit(false, &[0x450717d7bb920627,0x8c2eb41db9a0f791,0xb9769570070e8ca8,0x1fb41b3ace35552b,0xc398d5864caacf9e,0x7e0f332c40265118,0xe786666361b2bc56,0x41b301fd0dfc8])]], action_gen4: [[ibz_lit(false, &[0x8865a159619b9e37,0x57ce0b3b85c2ab15,0x8cf0feb0a8d68108,0xc3a96936c7e1ef13,0x7ba27c689c5dd8f2,0x22eb845b4c63f4da,0x701924f337a0bedd,0x3b81c69052855]),ibz_lit(false, &[0xadd1c1ee130992b5,0x4a4faf0c49110165,0xacc0926fd4b25374,0xc1887c68eb63fd2f,0x9a226cfe152e41ce,0x5fef438c09330adb,0x8c5b773282aae17a,0x6dcee4cd4fa7b])],[ibz_lit(false, &[0x91b3743ec00c77b7,0x4b6bc9e803bec92c,0x2be7857fed1b519c,0xd5ec3a2164a02270,0xa58f175a2392d5d1,0x18755f4639085c36,0x8eda7e0bcd4aee40,0xd6e24c28c87e0]),ibz_lit(false, &[0x779a5ea69e6461c9,0xa831f4c47a3d54ea,0x730f014f57297ef7,0x3c5696c9381e10ec,0x845d839763a2270d,0xdd147ba4b39c0b25,0x8fe6db0cc85f4122,0xc47e396fad7aa])]] }
-        ])
+    V.get_or_init(|| {
+        [
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([0x97, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1300000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xa6f4f854fc265d,
+                                0x4c8b84aa5fb427,
+                                0x1309a22f7f8bedd,
+                                0x12326c230bb7339,
+                                0x1177007f8e443b7,
+                                0x3227e897204471,
+                                0x173c12694021af7,
+                                0xd9af272f428697,
+                                0x523eda847ef5,
+                            ]),
+                            im: Fp([
+                                0xded07bbc792c63,
+                                0x11e1b26dec9cebc,
+                                0xc046644c2b6cd7,
+                                0x10fa781cd249b7d,
+                                0x1c100f6a2ab7eb,
+                                0x3268453a15b6a9,
+                                0x54d2827aa042c2,
+                                0x1976f2e8b7c96ec,
+                                0x16e01b2e8125f,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xf73af643285709,
+                                0xf149be2f088d45,
+                                0xcd261395ea3c0a,
+                                0x3a51f18f48bd2c,
+                                0x20878d18902069,
+                                0x1dde2b7d4cfad79,
+                                0x1cfc83af281db52,
+                                0xcb86b4138f7754,
+                                0xb4deb1e3f8a7,
+                            ]),
+                            im: Fp([
+                                0x924c7a12f1ab1e,
+                                0x37608c2f01a03,
+                                0x15ab8f95ccf5c3e,
+                                0x99e325091f7251,
+                                0xc375ef1b0a8b52,
+                                0x1e7185439fe829e,
+                                0x1393f18a069901e,
+                                0x1171a261ad16dd5,
+                                0x6573978c1c85,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xbd59e2ce6e76a2,
+                                0xa228faf46ea0f2,
+                                0x7a8f5e286ddda4,
+                                0x1e86463e0dfd6f9,
+                                0xfac9d6c1b2dab8,
+                                0x60c9e8e0172c38,
+                                0x1d99c5cbac24ea4,
+                                0x1fd213f31136b9c,
+                                0xa1a805f43cc7,
+                            ]),
+                            im: Fp([
+                                0xcc9b0dde77a90,
+                                0xa34dde57fa21f7,
+                                0x15c37431ec85427,
+                                0xa1113caabb2e5f,
+                                0x16b67ef506037e7,
+                                0x10846843b14ff60,
+                                0x1f931ac8f1c6bff,
+                                0x1db7e7711a25ca3,
+                                0x8c79c9683ccc,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x892f96a886b93337,
+                                0xdf75c4974c8e9f38,
+                                0xd5435decd5b34fd7,
+                                0xa71e8de3d5c3f3dc,
+                                0x5af370731324d939,
+                                0x81d709d04122bb6b,
+                                0x6d855ea0387774de,
+                                0x19df28f2d7c31,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2061e1c20cfd028e,
+                                0x716c40df3b18e412,
+                                0xebb9c041d980d025,
+                                0xa8fe17de4982bb45,
+                                0x2aa634d9ffe5b079,
+                                0x6bc39bab67872b0b,
+                                0xb57bf5123c037365,
+                                0x89c9cf0b50897,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd85637b2429e45b1,
+                                0x81ba39cb86cd2f81,
+                                0xfbe40058ee7e771e,
+                                0x5bb87a7d28fb0a4b,
+                                0x3a9d2d541657a413,
+                                0x3069068975a3bbad,
+                                0xad392e812fddb0ad,
+                                0x7b5cb2bffd3cd,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x76d069577946ccc9,
+                                0x208a3b68b37160c7,
+                                0x2abca2132a4cb028,
+                                0x58e1721c2a3c0c23,
+                                0xa50c8f8cecdb26c6,
+                                0x7e28f62fbedd4494,
+                                0x927aa15fc7888b21,
+                                0xe620d70d283ce,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xeb4fc9a677e020f3,
+                                0xa6e3ecb4ff68b334,
+                                0xf4eb9e8743c15015,
+                                0x80a093925f3722e7,
+                                0x75591be3670f9ea0,
+                                0x1519fa83900d2cb5,
+                                0x6dc4af3a4d7c67b8,
+                                0x58d841e5112e1,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2fa66d21e4308e98,
+                                0x30ece5ebf0cf524f,
+                                0x47bf7d2f77113658,
+                                0x1ef4e7a6720cbbc5,
+                                0x471c59e52c25335f,
+                                0xa2a762d65d385e06,
+                                0x7a7a5e15defc65f3,
+                                0xd7bb8c542dac4,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x49e0ec61e4fe3249,
+                                0x8116ef6c4955b5f,
+                                0x608ebd6959fc4fdf,
+                                0x98ac5706e9a9afe2,
+                                0xecac9c4e481ab327,
+                                0x14a4faad640119fa,
+                                0x97687eb53fb50eda,
+                                0xbdc284c106597,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x14b03659881fdf0d,
+                                0x591c134b00974ccb,
+                                0xb146178bc3eafea,
+                                0x7f5f6c6da0c8dd18,
+                                0x8aa6e41c98f0615f,
+                                0xeae6057c6ff2d34a,
+                                0x923b50c5b2839847,
+                                0xa727be1aeed1e,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x892f96a886b93337,
+                                0xdf75c4974c8e9f38,
+                                0xd5435decd5b34fd7,
+                                0xa71e8de3d5c3f3dc,
+                                0x5af370731324d939,
+                                0x81d709d04122bb6b,
+                                0x6d855ea0387774de,
+                                0x19df28f2d7c31,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2061e1c20cfd028e,
+                                0x716c40df3b18e412,
+                                0xebb9c041d980d025,
+                                0xa8fe17de4982bb45,
+                                0x2aa634d9ffe5b079,
+                                0x6bc39bab67872b0b,
+                                0xb57bf5123c037365,
+                                0x89c9cf0b50897,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd85637b2429e45b1,
+                                0x81ba39cb86cd2f81,
+                                0xfbe40058ee7e771e,
+                                0x5bb87a7d28fb0a4b,
+                                0x3a9d2d541657a413,
+                                0x3069068975a3bbad,
+                                0xad392e812fddb0ad,
+                                0x7b5cb2bffd3cd,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x76d069577946ccc9,
+                                0x208a3b68b37160c7,
+                                0x2abca2132a4cb028,
+                                0x58e1721c2a3c0c23,
+                                0xa50c8f8cecdb26c6,
+                                0x7e28f62fbedd4494,
+                                0x927aa15fc7888b21,
+                                0xe620d70d283ce,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xba3fb0277f4caa15,
+                                0xc32cd8a625fba936,
+                                0x65177e3a0cba4ff6,
+                                0x13df90bb1a7d8b62,
+                                0x6826462b3d1a3bed,
+                                0x4b788229e897f410,
+                                0x6da506ed42f9ee4b,
+                                0xb95bb56bf4789,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xa8042771f896c893,
+                                0xd12c936595f41b30,
+                                0x99bc9eb8a849033e,
+                                0x63f97fc25dc7bb85,
+                                0xb8e1475f960571ec,
+                                0x87357f40e25fc488,
+                                0x17fb29940d7fecac,
+                                0x30c2adafbf1ae,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x911b920a13ce3bfd,
+                                0xc4e5d46125b14570,
+                                0x2e395ee1243d637e,
+                                0x7a3268c209525d17,
+                                0x13a4e4d12f392b9d,
+                                0xa287009b6cd26ad4,
+                                0xa250d69b37c95fc3,
+                                0x1c8f9bc081cb2,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x45c04fd880b355eb,
+                                0x3cd32759da0456c9,
+                                0x9ae881c5f345b009,
+                                0xec206f44e582749d,
+                                0x97d9b9d4c2e5c412,
+                                0xb4877dd617680bef,
+                                0x925af912bd0611b4,
+                                0x46a44a940b876,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0x7838c0c7e9359b,
+                            0xa0241848b2e31,
+                            0x1e513fd2175a2ee,
+                            0xda48c71b9d18f9,
+                            0x13b6b86861174cc,
+                            0x9b82e5c43b507f,
+                            0x1439e83575c1c09,
+                            0x19e57d9f5939091,
+                            0x44880ed92fcc,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x9e0e3031fa4dfe,
+                                0x10280906122cb8c,
+                                0xf944ff485d68bb,
+                                0x369231c6e7463e,
+                                0x1cedae1a1845d33,
+                                0xa6e0b9710ed41f,
+                                0xd0e7a0d5d70702,
+                                0x6795f67d64e424,
+                                0xd52203b64bf3,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xff99a931ae18e7,
+                                0x16c3a85de11bfd,
+                                0x938324767ebf5c,
+                                0x170ea78423829c,
+                                0x1cf0b25dbe641e6,
+                                0x1371d9223490ee2,
+                                0x1100b9f655692da,
+                                0x9a7a7e5610f30,
+                                0x432da20495ee,
+                            ]),
+                            im: Fp([
+                                0x17289bdbad869c4,
+                                0xf431f59f54b4cc,
+                                0x1e965d1d7f73a9e,
+                                0x3b31ec1b6e1db,
+                                0xadf747eed73502,
+                                0x10a7bed6ee2eb55,
+                                0x129f7aeba05d72e,
+                                0xc525edd0de6f30,
+                                0x109bd2568492b,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x17f824a02df5a9c,
+                                0x101e4e5631fb9df,
+                                0x1059d28c36db406,
+                                0x11b8f6b93e83292,
+                                0x1bf9476d220088d,
+                                0x8835e450918b0e,
+                                0xf6f5050cad230a,
+                                0x974fa19b6885b1,
+                                0xea80d9f423ba,
+                            ]),
+                            im: Fp([
+                                0x18a34f95dcfa766,
+                                0x259ac80c8bae62,
+                                0x148f57b1a16cacc,
+                                0x809a705c8de46f,
+                                0x57866efe18a97c,
+                                0x12d4718b912bf3,
+                                0xbbeaa8c436d693,
+                                0x15c2922ec80dc1e,
+                                0x53fa7f3813d1,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xa060257b805dfb,
+                                0x1115b37aeaf7f2c,
+                                0x1afdd70ce2324a6,
+                                0x73c72696f3570a,
+                                0x9698e0ec860cef,
+                                0xac7fbf0c5a88f5,
+                                0xe26a2921625151,
+                                0x8804777d00744e,
+                                0xd7a70444c3,
+                            ]),
+                            im: Fp([
+                                0xa6f00c2cc54ec2,
+                                0xf86ea03642fdb5,
+                                0x16de7052808d245,
+                                0x1b68185b06ef2ff,
+                                0x19df5820d92b79a,
+                                0x909ca827ab4f1a,
+                                0x53007bb61da51,
+                                0xf0bca44982c023,
+                                0xd01d2d673bd6,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6297ba6ae815625d,
+                                0xd28bc698d2b21a75,
+                                0x412682e497f300b1,
+                                0x9c4318163639f8e7,
+                                0x2b8aad5237dad2cf,
+                                0x1a986be7429791cb,
+                                0x835c22de0a8a19e4,
+                                0x7a95745964d5f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf04d0a1071f7f6c6,
+                                0xbcad60da241923dd,
+                                0xdb612f1db26de86c,
+                                0x9d94b159d9470ae7,
+                                0xcd5ce3fe840142db,
+                                0xc4c5f28afd387586,
+                                0xd31f185c5c2240d7,
+                                0x5b462e782843f,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x4b34fc9673181c53,
+                                0xa9144d56ae17d504,
+                                0x28b244800696a8c,
+                                0xd29ca7ccce1b5716,
+                                0x40ddc81e102848cf,
+                                0xcb9f36f706d4bcdf,
+                                0x38d399c03a3408d7,
+                                0xbe1a8b4bc6e18,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9d68459517ea9da3,
+                                0x2d7439672d4de58a,
+                                0xbed97d1b680cff4e,
+                                0x63bce7e9c9c60718,
+                                0xd47552adc8252d30,
+                                0xe5679418bd686e34,
+                                0x7ca3dd21f575e61b,
+                                0x856a8ba69b2a0,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd816f1c69f841aff,
+                                0x1191990d450bdd0,
+                                0x820947801a97bcf7,
+                                0x7b5320ba1d73695b,
+                                0x351fac534ce55e3c,
+                                0x121fd54c5a3eaaa3,
+                                0x83700c9cdb55bf17,
+                                0xc1f35415c2061,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd4f3bab1de6f7734,
+                                0x7cc069b06c68c928,
+                                0x2eb2b1dc296c994f,
+                                0x95d3a8ff8494e4ce,
+                                0x6cd609180e7f5f30,
+                                0xed961f93747cae27,
+                                0xc33e713dc91a5590,
+                                0x39ce540fdc075,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9ec71aaf89f5da85,
+                                0x20bc3ae9ec63cfff,
+                                0xfa257d849942c2f3,
+                                0x9342c357eb7b5e69,
+                                0x7a7f857bd26c5c58,
+                                0x33bb97fb5c0757,
+                                0xcc0ad644fceb6c28,
+                                0x412d6e1c022ad,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x27e90e39607be501,
+                                0xfee6e66f2baf422f,
+                                0x7df6b87fe5684308,
+                                0x84acdf45e28c96a4,
+                                0xcae053acb31aa1c3,
+                                0xede02ab3a5c1555c,
+                                0x7c8ff36324aa40e8,
+                                0x3e0cabea3df9e,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6297ba6ae815625d,
+                                0xd28bc698d2b21a75,
+                                0x412682e497f300b1,
+                                0x9c4318163639f8e7,
+                                0x2b8aad5237dad2cf,
+                                0x1a986be7429791cb,
+                                0x835c22de0a8a19e4,
+                                0x7a95745964d5f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf04d0a1071f7f6c6,
+                                0xbcad60da241923dd,
+                                0xdb612f1db26de86c,
+                                0x9d94b159d9470ae7,
+                                0xcd5ce3fe840142db,
+                                0xc4c5f28afd387586,
+                                0xd31f185c5c2240d7,
+                                0x5b462e782843f,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x4b34fc9673181c53,
+                                0xa9144d56ae17d504,
+                                0x28b244800696a8c,
+                                0xd29ca7ccce1b5716,
+                                0x40ddc81e102848cf,
+                                0xcb9f36f706d4bcdf,
+                                0x38d399c03a3408d7,
+                                0xbe1a8b4bc6e18,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9d68459517ea9da3,
+                                0x2d7439672d4de58a,
+                                0xbed97d1b680cff4e,
+                                0x63bce7e9c9c60718,
+                                0xd47552adc8252d30,
+                                0xe5679418bd686e34,
+                                0x7ca3dd21f575e61b,
+                                0x856a8ba69b2a0,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xee5e6c8c35ac679c,
+                                0xbda9f6c29fa2827,
+                                0x39bdd3515e202083,
+                                0x8f237274085d9bc,
+                                0x6e266f9055dde905,
+                                0xec90f170f15a6779,
+                                0xe7106f9953a0db0e,
+                                0xde2e1a7f0ad92,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x4c65238cbf25a483,
+                                0xac20c5afccc9dd0b,
+                                0xbd24e2bfb162e998,
+                                0xd37dd781672005fd,
+                                0x7f8676b0595a0a89,
+                                0xd6792c0159eadea4,
+                                0x2bcfe2625454714b,
+                                0xc8cd38bc0fad4,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xed1595e861883f72,
+                                0x15d9aae902fd2b1a,
+                                0xce25fe5523ff5945,
+                                0x16db8534a648aa48,
+                                0x3a68fb7ca3013fcf,
+                                0xf04430ee1c1d04ba,
+                                0x497198b2c4f8116f,
+                                0x32836b93eea5c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x11a19373ca539864,
+                                0xf4256093d605d7d8,
+                                0xc6422caea1dfdf7c,
+                                0xf70dc8d8bf7a2643,
+                                0x91d9906faa2216fa,
+                                0x136f0e8f0ea59886,
+                                0x18ef9066ac5f24f1,
+                                0x21d1e580f526d,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0x14c421c766617c3,
+                            0x2ec28c422c40ee,
+                            0x1e9416ac457e0da,
+                            0x3bf653bc6d0d4f,
+                            0x66f9fb9b4c0889,
+                            0x8db55f0c5a0769,
+                            0x2b77dffd10b7cc,
+                            0x1a2c7bbd80c39b5,
+                            0x9172a1a01960,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x15310871d998688,
+                                0x10bb0a3108b103b,
+                                0x1fa505ab115f836,
+                                0x8efd94ef1b4353,
+                                0x99be7ee6d30222,
+                                0x236d57c31681da,
+                                0x8addf7ff442df3,
+                                0x68b1eef6030e6d,
+                                0xe85ca8680658,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x93e659155a96bf,
+                                0x11915582a869e37,
+                                0x1c717f137541aa,
+                                0x17acaa3fa699ab7,
+                                0x1fadb8a40c6d0f8,
+                                0x12932af75a2eec9,
+                                0x99ac705917d58f,
+                                0xe038749db70780,
+                                0x17d6e214c0a98,
+                            ]),
+                            im: Fp([
+                                0x46add73c99b87,
+                                0xa42a8489f59e22,
+                                0x15566e9be425188,
+                                0x183df6f62df9bde,
+                                0x1f9ed54e88bc577,
+                                0x10508a77e03a1b7,
+                                0x1738998a79419c8,
+                                0xe34c6be132e7d0,
+                                0x22ad9b2e0698,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x5d6e41f3e597c0,
+                                0x15dfc36dd954143,
+                                0xa01ecf72d58e04,
+                                0x55394a3ae0562b,
+                                0x1ff9d8e5036cb97,
+                                0xa0ac8053e37308,
+                                0xefd68958336de3,
+                                0x15141533cdd36e2,
+                                0x15fc099d1cf99,
+                            ]),
+                            im: Fp([
+                                0x6e5c05fbe78ca0,
+                                0xe2948dcf498694,
+                                0x1e8e8cd63f06aa8,
+                                0x8b7657fc344dc9,
+                                0xfa93e0f5839316,
+                                0x378f4c48c79c6,
+                                0x1cde2bec96f8ba6,
+                                0x11650c52bb89117,
+                                0x18d8410c063c2,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x1050041684113b,
+                                0x1bf9d8535068a6b,
+                                0x10eed8b7d268ec2,
+                                0x13e130acb3916d4,
+                                0xfa24658119aeb,
+                                0xd3dafb05f72fec,
+                                0x1844f2dd9df0cd,
+                                0x1d5ee78d4e1223b,
+                                0x1203bdf52cba6,
+                            ]),
+                            im: Fp([
+                                0x15f7225a6a1ef13,
+                                0x12670e00b02f3d,
+                                0x1a515df8ffe4c45,
+                                0xf680b54af2f9c,
+                                0x1d9d6712675450b,
+                                0x625fe737930c1a,
+                                0x14e3dbf5e206aef,
+                                0x1b46aaaf7b011ad,
+                                0x104f92d6ff6c4,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9d1132540fec5b0b,
+                                0x86b865ca32bb8130,
+                                0x667c3cc3fce78184,
+                                0x9834271e4e65a54b,
+                                0x45fd5e0d1d810a9c,
+                                0x7e575f8f4b0b26eb,
+                                0xe98456b4cb4cd36f,
+                                0xb59a1cfdfad75,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x55ed1c2b15e82bba,
+                                0xb4093a5cb3ccb72c,
+                                0x90a1d365071b2f3d,
+                                0xa6330be01e26b2f5,
+                                0x49b3e0e3e2bdc5a6,
+                                0x36749ba39f1cd4c8,
+                                0xcdd3c60354112e5a,
+                                0x4088a2e7efb23,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x236512fcb5b7a8e5,
+                                0x5ece526022676f00,
+                                0xe5b3fcde93eebf38,
+                                0xdd481770712a09f9,
+                                0xbdfb7f55350dd27,
+                                0xca36e6a97cb446a4,
+                                0x3713e43b03c98565,
+                                0x4806aeeb14fe2,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x62eecdabf013a4f5,
+                                0x79479a35cd447ecf,
+                                0x9983c33c03187e7b,
+                                0x67cbd8e1b19a5ab4,
+                                0xba02a1f2e27ef563,
+                                0x81a8a070b4f4d914,
+                                0x167ba94b34b32c90,
+                                0x4a65e3020528a,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xc566d8e823935eb9,
+                                0x45771bf1a77f0d78,
+                                0x281132cecd33141,
+                                0xf25b4bb1d3413b5,
+                                0xde505e9fbf860dc3,
+                                0x687dd5b0e95ef536,
+                                0xc8ccdb8d992c03ab,
+                                0x56e1ad954faf0,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x1544d9f7f7a8f17c,
+                                0x3fba3812f5aab2c8,
+                                0xad77678cb545f63e,
+                                0x74c9a5dc12f8ed9f,
+                                0x14a0806fc1e0ec1d,
+                                0x57d5606c34f3fb25,
+                                0xa78783e39c8c9733,
+                                0x12499503b7cae,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xb74db73f57ac5d83,
+                                0x915004335881869,
+                                0xb830448782eb7f31,
+                                0x5646991170a76627,
+                                0x925d168ce1134779,
+                                0xd5a6a95ed347c1e8,
+                                0xf75500720beb7deb,
+                                0x27ef99ee20306,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3a992717dc6ca147,
+                                0xba88e40e5880f287,
+                                0xfd7eecd3132ccebe,
+                                0xf0da4b44e2cbec4a,
+                                0x21afa1604079f23c,
+                                0x97822a4f16a10ac9,
+                                0x3733247266d3fc54,
+                                0xa91e526ab050f,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9d1132540fec5b0b,
+                                0x86b865ca32bb8130,
+                                0x667c3cc3fce78184,
+                                0x9834271e4e65a54b,
+                                0x45fd5e0d1d810a9c,
+                                0x7e575f8f4b0b26eb,
+                                0xe98456b4cb4cd36f,
+                                0xb59a1cfdfad75,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x55ed1c2b15e82bba,
+                                0xb4093a5cb3ccb72c,
+                                0x90a1d365071b2f3d,
+                                0xa6330be01e26b2f5,
+                                0x49b3e0e3e2bdc5a6,
+                                0x36749ba39f1cd4c8,
+                                0xcdd3c60354112e5a,
+                                0x4088a2e7efb23,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x236512fcb5b7a8e5,
+                                0x5ece526022676f00,
+                                0xe5b3fcde93eebf38,
+                                0xdd481770712a09f9,
+                                0xbdfb7f55350dd27,
+                                0xca36e6a97cb446a4,
+                                0x3713e43b03c98565,
+                                0x4806aeeb14fe2,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x62eecdabf013a4f5,
+                                0x79479a35cd447ecf,
+                                0x9983c33c03187e7b,
+                                0x67cbd8e1b19a5ab4,
+                                0xba02a1f2e27ef563,
+                                0x81a8a070b4f4d914,
+                                0x167ba94b34b32c90,
+                                0x4a65e3020528a,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x645aeb34786f0b,
+                                0x2fabccf0ecff9a1a,
+                                0xc31a97e7718af3a8,
+                                0x5ee1514eb872a0cd,
+                                0x97c6d0c34af94b79,
+                                0xa5e6a98723709591,
+                                0x198031508730e201,
+                                0xb25c93b838452,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xfc6bdefe7f691de7,
+                                0x13185188c1006fd5,
+                                0x426033ac10dd416e,
+                                0xd02e5b131d0e8985,
+                                0x4f729b7d6e286fb5,
+                                0xda5ff00dd5f39665,
+                                0x958d4b2ad77898f2,
+                                0x34a93d837fcef,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x5e0dcb8f81f38527,
+                                0xedcf061374487c93,
+                                0x8ace19dc77c77d31,
+                                0x28df9ccca582bfb8,
+                                0x546b33e64f69b6e0,
+                                0xdc8d53ed1627cfb2,
+                                0xb942c438b843d80b,
+                                0x2c1dcb3c08fb5,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xff9ba514cb8790f5,
+                                0xd054330f130065e5,
+                                0x3ce568188e750c57,
+                                0xa11eaeb1478d5f32,
+                                0x68392f3cb506b486,
+                                0x5a195678dc8f6a6e,
+                                0xe67fceaf78cf1dfe,
+                                0x4da36c47c7bad,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0x66ef478b1d357a,
+                            0x139d483892b4e3c,
+                            0x1c8bc2e1a9b9d1d,
+                            0xba7952dc366959,
+                            0x1c2d06fb77cb686,
+                            0xd804666fd232d,
+                            0xdf690b66fe739,
+                            0x1752193556ed6a1,
+                            0xe46c791bacfb,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x19bbd1e2c74df6,
+                                0xce7520e24ad38f,
+                                0xf22f0b86a6e747,
+                                0x12e9e54b70d9a56,
+                                0xf0b41beddf2da1,
+                                0x83601199bf48cb,
+                                0x837da42d9bf9ce,
+                                0x1dd4864d55bb5a8,
+                                0x911b1e46eb3e,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x15ee07571823d89,
+                                0x357af02d9c9678,
+                                0x8a68f083fb6b,
+                                0x6eb03be6fb4f8,
+                                0x9e8bcabcdff26f,
+                                0x7fd3db2256250d,
+                                0x1ac7896cc73524d,
+                                0x330878da71e14e,
+                                0x23ea0f819055,
+                            ]),
+                            im: Fp([
+                                0x1b08423920489cb,
+                                0x174e1e59a60bb82,
+                                0x887643d268136e,
+                                0x24f05db88ae0b4,
+                                0xfbee8f47e6bea0,
+                                0xc92d18b88c845d,
+                                0x2168ac383bd67e,
+                                0x13214fb4109008f,
+                                0xa56ac65ea5f5,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xe7b62def555139,
+                                0x1e2752f95444da2,
+                                0xdfc3af61038faf,
+                                0x144ba7ace162e08,
+                                0x94231e70a5d787,
+                                0xaf1371849b24f0,
+                                0xd1dcfdb68706c0,
+                                0xed771060ff7361,
+                                0x156884e494257,
+                            ]),
+                            im: Fp([
+                                0xc6e6088c3dd5b8,
+                                0x89a19791164b8a,
+                                0x8d13ff1cdcfe31,
+                                0x1e10e1e3c677f85,
+                                0x1a055cfd4b7691d,
+                                0x13ccadc41356bda,
+                                0x17027cc398ca204,
+                                0x15def49fc87c2ae,
+                                0x2abeb522f908,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x54a49af5b2eebf,
+                                0x374db978c2a5a5,
+                                0x1430ac48ba06d23,
+                                0x1a97631fca4f103,
+                                0x4271251a7ae9d8,
+                                0x32bcdfe6400221,
+                                0x7c41c80b20f52,
+                                0xc1cc2e9909ec9d,
+                                0x8fb5cf7cf51c,
+                            ]),
+                            im: Fp([
+                                0x1b64c97c73757a4,
+                                0x1a3aab2674d3bf,
+                                0x184cfe35d1d4a09,
+                                0xc1fc2ec5caadd7,
+                                0xab488a96a5099a,
+                                0x28f020fa1788ca,
+                                0xb3dc2b28132a04,
+                                0x18b4637d9be2b49,
+                                0xf2b120c08599,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe8a6cbb79bc53919,
+                                0xc64e8690022a3f55,
+                                0x422f80e86c4d8e93,
+                                0xb342f54507e10ffd,
+                                0xfb8da62b80a587be,
+                                0xd4d4697466e4048,
+                                0xa00852c1c9ba9d79,
+                                0xab87cf30921f1,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x5bc4cdfe86b5c03e,
+                                0x946490d9bc7bc7a1,
+                                0xc710853d9345c604,
+                                0x8ef440504b981ad2,
+                                0xb6100bd26664d73c,
+                                0xcf72abe95e87483e,
+                                0x348352b1bfbf679e,
+                                0xebd534a360f7c,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x676cba319b8c5937,
+                                0x42e2f6199c3d8d31,
+                                0x390a76e5d0724d1a,
+                                0xfd712d1676435086,
+                                0xed6356ecff7b0341,
+                                0x94886a5d73241436,
+                                0x4043d6b5014509f0,
+                                0xf7784eb6e10d8,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x17593448643ac6e7,
+                                0x39b1796ffdd5c0aa,
+                                0xbdd07f1793b2716c,
+                                0x4cbd0abaf81ef002,
+                                0x47259d47f5a7841,
+                                0xf2b2b968b991bfb7,
+                                0x5ff7ad3e36456286,
+                                0x547830cf6de0e,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x289e3527c1bb5fd3,
+                                0xfbf2a8e1f5ce97fd,
+                                0xcb44df66b5e78f04,
+                                0x6e5c031c831405b5,
+                                0x5ea93d193134a6b9,
+                                0xafb9800337fe860d,
+                                0xde5aa36df377bfdd,
+                                0xbc87208daa9df,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf7dbd4616a4fb354,
+                                0xb2740ff667864aec,
+                                0x277e97e9066dfcf4,
+                                0x6062b1fa68a35e43,
+                                0xd92667ed8c2ba56a,
+                                0x80845bc54883444a,
+                                0x4eb63b85209e1f0a,
+                                0xab05cb97314fe,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x4d2a2271213b9c41,
+                                0x8462f3fd987cca4c,
+                                0x5ca1f930550484ba,
+                                0x1bc10b1684d2b075,
+                                0x4bb0e84efeb5e1ac,
+                                0x97f43d9857b6f6b6,
+                                0xb841aae9866da24,
+                                0xf4a2dfcb736ec,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd761cad83e44a02d,
+                                0x40d571e0a316802,
+                                0x34bb20994a1870fb,
+                                0x91a3fce37cebfa4a,
+                                0xa156c2e6cecb5946,
+                                0x50467ffcc80179f2,
+                                0x21a55c920c884022,
+                                0x4378df7255620,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe8a6cbb79bc53919,
+                                0xc64e8690022a3f55,
+                                0x422f80e86c4d8e93,
+                                0xb342f54507e10ffd,
+                                0xfb8da62b80a587be,
+                                0xd4d4697466e4048,
+                                0xa00852c1c9ba9d79,
+                                0xab87cf30921f1,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x5bc4cdfe86b5c03e,
+                                0x946490d9bc7bc7a1,
+                                0xc710853d9345c604,
+                                0x8ef440504b981ad2,
+                                0xb6100bd26664d73c,
+                                0xcf72abe95e87483e,
+                                0x348352b1bfbf679e,
+                                0xebd534a360f7c,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x676cba319b8c5937,
+                                0x42e2f6199c3d8d31,
+                                0x390a76e5d0724d1a,
+                                0xfd712d1676435086,
+                                0xed6356ecff7b0341,
+                                0x94886a5d73241436,
+                                0x4043d6b5014509f0,
+                                0xf7784eb6e10d8,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x17593448643ac6e7,
+                                0x39b1796ffdd5c0aa,
+                                0xbdd07f1793b2716c,
+                                0x4cbd0abaf81ef002,
+                                0x47259d47f5a7841,
+                                0xf2b2b968b991bfb7,
+                                0x5ff7ad3e36456286,
+                                0x547830cf6de0e,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xa4d60ae5e24a718a,
+                                0x69ce9f91f453d401,
+                                0x4e639273fa117d19,
+                                0x746ae08fde49f33a,
+                                0xe4c43b652bb243d,
+                                0x74fedf64380d1bdd,
+                                0xd71ba4d6584f4dfa,
+                                0xf717ef070f067,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe045d1d078455d93,
+                                0xad36940006b6fa74,
+                                0x7ca09b00d3f64e68,
+                                0xb42f1fb60facab22,
+                                0x2b2dbc5bb2e357db,
+                                0x291834e2c77e94fa,
+                                0xd4a268cff9dd6ce9,
+                                0x5da606050bc59,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2d81ac2b5d39c6dc,
+                                0x8e30dab5f398c9b8,
+                                0x8cd271021b25b3b2,
+                                0x52b8b4f37c35952e,
+                                0x8d316906b8775789,
+                                0x166702b38a1098a6,
+                                0xc8ecfc76a9350856,
+                                0xd4f0291486044,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x5b29f51a1db58e76,
+                                0x9631606e0bac2bfe,
+                                0xb19c6d8c05ee82e6,
+                                0x8b951f7021b60cc5,
+                                0xf1b3bc49ad44dbc2,
+                                0x8b01209bc7f2e422,
+                                0x28e45b29a7b0b205,
+                                0x8e810f8f0f98,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0xfd2411644b2991,
+                            0x1440346f2b5711b,
+                            0x1cc7ee0a33c1b83,
+                            0xa062cb94740d05,
+                            0x62c8a1b44bb8da,
+                            0x1bfd5ccbd55fd69,
+                            0x1f894cf946f9195,
+                            0x147c43756d18b00,
+                            0x2568784bd852,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x1bf49045912cafb,
+                                0x1d100d1bcad5c46,
+                                0xf31fb828cf06e0,
+                                0x12818b2e51d0341,
+                                0x98b2286d12ee36,
+                                0xeff5732f557f5a,
+                                0x7e2533e51be465,
+                                0x151f10dd5b462c0,
+                                0x1a55a1e12f614,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x129fa92c54145da,
+                                0x65a8021bcb3760,
+                                0x8ae07687369746,
+                                0xfe3a080d467f5a,
+                                0x39231b31c2ba0e,
+                                0x1e70981fb5d9196,
+                                0xf7d76b8c93da7a,
+                                0x5746d15be48cd7,
+                                0xfd86a25b0a3,
+                            ]),
+                            im: Fp([
+                                0x1654fdda78d1edf,
+                                0x79a8670d099fee,
+                                0xdd99cdb757bbbf,
+                                0x10f76c17a528f48,
+                                0xc337bcab18ac3d,
+                                0x16e38eb648d8fe8,
+                                0x1d6141fad5b28ab,
+                                0x1bf2d9d4c74637b,
+                                0x29ba8f0dc13,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x1446cbafb7312e6,
+                                0x13ca3d229f0d143,
+                                0x864180ecc866a,
+                                0x183c6015a8621a1,
+                                0x1c1436aaa80a4d7,
+                                0x186fddd61c524fa,
+                                0x1e9f117e4ef3d2d,
+                                0x18fa388953461d4,
+                                0xf87d039786dc,
+                            ]),
+                            im: Fp([
+                                0x19db81d00027563,
+                                0x7a4d632899ffc0,
+                                0x765d70177e189e,
+                                0xbf87aaed095511,
+                                0x18255786ae6d90,
+                                0xad87eb3597ec5f,
+                                0x783ba19089d042,
+                                0xa0170919d119b2,
+                                0xe4931bae759c,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xaba4c452d665de,
+                                0x18fe074e84bce17,
+                                0x367a0e3a936d47,
+                                0x13b6cc9b4fd707b,
+                                0x388b7689fe5f7,
+                                0xfa6e127e6d0888,
+                                0x19d6b6fe31d41f,
+                                0x12e20fb5bfbdb71,
+                                0x69ce89bbc394,
+                            ]),
+                            im: Fp([
+                                0x15141b4cbd86fca,
+                                0xc76b14c72d5a45,
+                                0x159db1952cb556b,
+                                0xb92ec91fc22dce,
+                                0xccb7aa1e2dd4d4,
+                                0x1ff598295f17ea7,
+                                0x188c9d9d383c06f,
+                                0x1a24a5467a5ec73,
+                                0x4a90ed99386e,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x55cc620ad8504f71,
+                                0x125cab424b7431b0,
+                                0xca6473b3a634b589,
+                                0x9b4a60226c416ed0,
+                                0x29251e190e0db03e,
+                                0xfc6a10dd042a275e,
+                                0xe556977eb5927f51,
+                                0x3a68f873d10bc,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x90c5b7847e790ed2,
+                                0x59f4606efc99e054,
+                                0xe3fc29bfb6aeb88f,
+                                0x4bf9ba948c88a3cf,
+                                0x723631c0f771cb60,
+                                0xfdbfb9b8a9e72401,
+                                0xc8109bd6b4d5326e,
+                                0xf1f620661b7f0,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe1ad6715c1a7b407,
+                                0xbd8e159415e831eb,
+                                0x16368f7a2bae3976,
+                                0x162712ae88d28d19,
+                                0xfa51dd784868f2b0,
+                                0x35d97eb3a1f3fd6b,
+                                0x54dd12a82c09d826,
+                                0x15bcdc29c87d6,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xaa339df527afb08f,
+                                0xeda354bdb48bce4f,
+                                0x359b8c4c59cb4a76,
+                                0x64b59fdd93be912f,
+                                0xd6dae1e6f1f24fc1,
+                                0x395ef22fbd5d8a1,
+                                0x1aa968814a6d80ae,
+                                0xc597078c2ef43,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6eaa739b27c8e7eb,
+                                0x4a84ac1cf5937a17,
+                                0xea3de67e77711a27,
+                                0xc51c8edda34b4596,
+                                0x481b2551d1a17c15,
+                                0x1eab8b82fed0402e,
+                                0x6abf714320fac98b,
+                                0x9510f475f463a,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x138cdab69e319e28,
+                                0xb2b7444d5193c3c0,
+                                0xc700b08b5630f371,
+                                0xbd7c0c3f3f082404,
+                                0x429d7bb2d892963b,
+                                0x9aac853df27719d8,
+                                0x9e40f5e842cd9bfa,
+                                0x69c2315a88a41,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9d61921908ee66d1,
+                                0xdf2ac3eefc6313a4,
+                                0x8ad8c39102ef1353,
+                                0xa4b21029b014953b,
+                                0x199cf3a8fc0761a3,
+                                0xb4596eb76a41e6c8,
+                                0x8b4e9ec32f4ea187,
+                                0x35b21038b5321,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x91558c64d8371815,
+                                0xb57b53e30a6c85e8,
+                                0x15c21981888ee5d8,
+                                0x3ae371225cb4ba69,
+                                0xb7e4daae2e5e83ea,
+                                0xe154747d012fbfd1,
+                                0x95408ebcdf053674,
+                                0x6aef0b8a0b9c5,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x55cc620ad8504f71,
+                                0x125cab424b7431b0,
+                                0xca6473b3a634b589,
+                                0x9b4a60226c416ed0,
+                                0x29251e190e0db03e,
+                                0xfc6a10dd042a275e,
+                                0xe556977eb5927f51,
+                                0x3a68f873d10bc,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x90c5b7847e790ed2,
+                                0x59f4606efc99e054,
+                                0xe3fc29bfb6aeb88f,
+                                0x4bf9ba948c88a3cf,
+                                0x723631c0f771cb60,
+                                0xfdbfb9b8a9e72401,
+                                0xc8109bd6b4d5326e,
+                                0xf1f620661b7f0,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe1ad6715c1a7b407,
+                                0xbd8e159415e831eb,
+                                0x16368f7a2bae3976,
+                                0x162712ae88d28d19,
+                                0xfa51dd784868f2b0,
+                                0x35d97eb3a1f3fd6b,
+                                0x54dd12a82c09d826,
+                                0x15bcdc29c87d6,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xaa339df527afb08f,
+                                0xeda354bdb48bce4f,
+                                0x359b8c4c59cb4a76,
+                                0x64b59fdd93be912f,
+                                0xd6dae1e6f1f24fc1,
+                                0x395ef22fbd5d8a1,
+                                0x1aa968814a6d80ae,
+                                0xc597078c2ef43,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xd4832c9b5e7ab83a,
+                                0x2eae4a2171e9eff9,
+                                0xb0386bf2bb260921,
+                                0x34fbd498c05aeac9,
+                                0x81de2674aae907ca,
+                                0xa35488c97dbe471f,
+                                0x7c829acc53019f03,
+                                0x8dc7b0732c479,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x84bff3d4aeba4733,
+                                0x4604e0faa71a453a,
+                                0x5fc5b1149bc2f02b,
+                                0x175d23021a8d5f8d,
+                                0x698c051b83513655,
+                                0xdd4bdd6a8c83c745,
+                                0xe320d1fc80b7682f,
+                                0xc365c1d3ca30,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe05ddcb05173e32c,
+                                0xbed7fd386e8c3a7e,
+                                0xedf026f1a9865fe0,
+                                0x2e70a48e1dbc8fc7,
+                                0xf05be8c3e7676648,
+                                0x5304f8f663b626aa,
+                                0xe67554a27c937042,
+                                0x8b36e02b1d3ea,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2b7cd364a18547c6,
+                                0xd151b5de8e161006,
+                                0x4fc7940d44d9f6de,
+                                0xcb042b673fa51536,
+                                0x7e21d98b5516f835,
+                                0x5cab77368241b8e0,
+                                0x837d6533acfe60fc,
+                                0x72384f8cd3b86,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0x9107d3b2fc5b4b,
+                            0x178b41702c49c10,
+                            0x17cdc394303cdb,
+                            0x75d9ee79edc826,
+                            0x15e8fbe8583ae05,
+                            0x1716c8c7e4cfd5d,
+                            0x19e5b8df259fa77,
+                            0x1299ef4818b8dc5,
+                            0x613663bc46ff,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x2441f4ecbf176a,
+                                0x1de2d05c0b12704,
+                                0x105f370e50c0f36,
+                                0x9d767b9e7b7209,
+                                0xd7a3efa160eb81,
+                                0x1dc5b231f933f57,
+                                0xe796e37c967e9d,
+                                0x1ca67bd2062e371,
+                                0xdc4d98ef11bf,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0xad0cca9ca14749,
+                                0x1ce65c55475af21,
+                                0x7da4b2ae49fde8,
+                                0x46275ebf0bb42b,
+                                0x1afefc02d269bf5,
+                                0x109ef8920237a22,
+                                0xdf7449c0a7c9cc,
+                                0x15c6348774f3767,
+                                0xb9bbc2d05890,
+                            ]),
+                            im: Fp([
+                                0x1ee7bfef0d5eae5,
+                                0x15aafe653cc3d73,
+                                0x13436adcd436be,
+                                0x4b47effcddc31e,
+                                0xfc71a830b53878,
+                                0x2a4f362c70c419,
+                                0x1eac9b539582a48,
+                                0x190b3252dff5df4,
+                                0xb0fb47b9921b,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x11eb26825bd9bfd,
+                                0x309082f5faa153,
+                                0x1d2750bb18c49c3,
+                                0x4d5a3ee1a6f55b,
+                                0x14035956952d71,
+                                0x16bc6893876269c,
+                                0x4de3e1c7c65599,
+                                0xb8a066b683c75f,
+                                0x148988ba4c58b,
+                            ]),
+                            im: Fp([
+                                0xe9aa95f7f209bc,
+                                0x90240ea461236b,
+                                0xa2332a0f0693d4,
+                                0x72a28588e72882,
+                                0x12085e7e26e257e,
+                                0x1a3db34e26cc447,
+                                0x1e91a311a1b00f6,
+                                0x7e0b88ab6b62d1,
+                                0xa2e689e6cab9,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x45bbf3700eaaff,
+                                0x13444a9d8d39ae3,
+                                0xd42b4525a2cbd1,
+                                0x1b830b1e25305c9,
+                                0x1d60229a4f1ac,
+                                0x93e28f485b0bde,
+                                0xa079547789fddd,
+                                0x1152658f49746a,
+                                0x17eaadefdf6b7,
+                            ]),
+                            im: Fp([
+                                0x21ddba4fb08120,
+                                0x14d06508c4a8dd5,
+                                0xdc778bbb3e175a,
+                                0x1ce84a4cb7604f,
+                                0x19d428ce45d547c,
+                                0x169b0ab2ba61008,
+                                0x5e095b7e38b542,
+                                0x1ea4c95d65b48af,
+                                0xa077bc9ca28a,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x18c2d32ef14f2ce5,
+                                0x4090a7fc28335217,
+                                0x3801e7704d89d9d5,
+                                0x2ee554326ac9bca0,
+                                0x8911df1a827a4356,
+                                0x18b903e5f05a4102,
+                                0xea2fd99b77adf66f,
+                                0xde07136bba030,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x14f02608c670752,
+                                0x4db95e4d0865138a,
+                                0x94224a7e7a2cca26,
+                                0x7e33841dbdc8b2f6,
+                                0x15fc963338a65677,
+                                0xb16cdcefbe04acce,
+                                0x1f8f83957a5ed57b,
+                                0x64be3e383e4b9,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x535f517740f29b63,
+                                0x5e1c18a22f265098,
+                                0x23971db933e95d70,
+                                0x87bfcae6b98baccc,
+                                0x2f67f2d0b329d43f,
+                                0xc67d4369d2ab779c,
+                                0x1a2bf06b9550d065,
+                                0x3bb649b2b0c6e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe73d2cd10eb0d31b,
+                                0xbf6f5803d7ccade8,
+                                0xc7fe188fb276262a,
+                                0xd11aabcd9536435f,
+                                0x76ee20e57d85bca9,
+                                0xe746fc1a0fa5befd,
+                                0x15d0266488520990,
+                                0x21f8ec9445fcf,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3518843fe40c4222,
+                                0x4347b4e5a75772d1,
+                                0xb77e030dc2673326,
+                                0x8cf2d175cb8c9907,
+                                0xa7152316b8765440,
+                                0xcd7fa72f9e96f0ab,
+                                0xdc2d985fa42f1e06,
+                                0x82ae0e71ed9ee,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x15fd6c621c9011ac,
+                                0x744c60c658511924,
+                                0x51a156540a6b80fd,
+                                0x4132f265803f6589,
+                                0x65cf0b749796d2,
+                                0x3aad420302bc2e51,
+                                0x67e4cc1a5b4001f2,
+                                0x37a8cba17dfd3,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xb0a2d75050f499f9,
+                                0x34be6b4b6986fdaa,
+                                0x8c180e0539747bd5,
+                                0x63b5cc33bb5a6bb8,
+                                0xbdc4b4efec49943b,
+                                0x129185ad2fc85a2a,
+                                0x93f6721b9618a29f,
+                                0xbdfbb2e85b40f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3e902aee4ff5f4c0,
+                                0x111cf257b2af0049,
+                                0x8a7cc7d9c1d5ead0,
+                                0xb43ce1f60f629579,
+                                0xc2091b7b14ca8f3f,
+                                0x5d39dfc0f5cd0ac8,
+                                0xba542e6e9c9a9d8d,
+                                0x21cfc4f0279d5,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcef33343173001eb,
+                                0xd52b353e76152add,
+                                0x69d0229200c19951,
+                                0xd332fec7c1bd4a9f,
+                                0x61a4aa2767f872b7,
+                                0x9a69fe1d8ec033dd,
+                                0xbb33209b060f38ac,
+                                0xc5c8013f555b1,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x4f5d28afaf0b6607,
+                                0xcb4194b496790255,
+                                0x73e7f1fac68b842a,
+                                0x9c4a33cc44a59447,
+                                0x423b4b1013b66bc4,
+                                0xed6e7a52d037a5d5,
+                                0x6c098de469e75d60,
+                                0x42044d17a4bf0,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x18c2d32ef14f2ce5,
+                                0x4090a7fc28335217,
+                                0x3801e7704d89d9d5,
+                                0x2ee554326ac9bca0,
+                                0x8911df1a827a4356,
+                                0x18b903e5f05a4102,
+                                0xea2fd99b77adf66f,
+                                0xde07136bba030,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x14f02608c670752,
+                                0x4db95e4d0865138a,
+                                0x94224a7e7a2cca26,
+                                0x7e33841dbdc8b2f6,
+                                0x15fc963338a65677,
+                                0xb16cdcefbe04acce,
+                                0x1f8f83957a5ed57b,
+                                0x64be3e383e4b9,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x535f517740f29b63,
+                                0x5e1c18a22f265098,
+                                0x23971db933e95d70,
+                                0x87bfcae6b98baccc,
+                                0x2f67f2d0b329d43f,
+                                0xc67d4369d2ab779c,
+                                0x1a2bf06b9550d065,
+                                0x3bb649b2b0c6e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xe73d2cd10eb0d31b,
+                                0xbf6f5803d7ccade8,
+                                0xc7fe188fb276262a,
+                                0xd11aabcd9536435f,
+                                0x76ee20e57d85bca9,
+                                0xe746fc1a0fa5befd,
+                                0x15d0266488520990,
+                                0x21f8ec9445fcf,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x9a8c421ff2062111,
+                                0x21a3da72d3abb968,
+                                0xdbbf0186e1339993,
+                                0x467968bae5c64c83,
+                                0xd38a918b5c3b2a20,
+                                0x66bfd397cf4b7855,
+                                0x6e16cc2fd2178f03,
+                                0x41570738f6cf7,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xafeb6310e4808d6,
+                                0xba2630632c288c92,
+                                0xa8d0ab2a0535c07e,
+                                0x20997932c01fb2c4,
+                                0x8032e785ba4bcb69,
+                                0x1d56a101815e1728,
+                                0xb3f2660d2da000f9,
+                                0x1bd465d0befe9,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xca3be2b2dd4c129d,
+                                0x41268f99c8b6c0b,
+                                0xb80dae25758351a8,
+                                0x66e14ba1387b35d5,
+                                0x6503d8cf6b60754,
+                                0x16d2c05f214fa955,
+                                0x3ed3123e246f9ce4,
+                                0x589642e24a07f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x253ca44cbc609e3f,
+                                0x9f9f326fa9f9a75e,
+                                0x5ee33889a47f14aa,
+                                0x62226cba933f087d,
+                                0x992aa815a8c9cd43,
+                                0xf6754cffc1d3643a,
+                                0xb9e452487e2af30b,
+                                0x3525b2c53a454,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x45deb681a517584d,
+                                0xe0fd01237c58c2ea,
+                                0xddc5f6696c5bfd80,
+                                0x37ecc7a0caa9b21a,
+                                0xe812e98412e7f8c6,
+                                0x41f59fca128aef9f,
+                                0x78c5f1cf5c32118f,
+                                0x260d22ae39424,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x35c41d4d22b3ed63,
+                                0xfbed9706637493f4,
+                                0x47f251da8a7cae57,
+                                0x991eb45ec784ca2a,
+                                0xf9afc2730949f8ab,
+                                0xe92d3fa0deb056aa,
+                                0xc12cedc1db90631b,
+                                0xa769bd1db5f80,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+            CurveWithEndomorphismRing {
+                curve: EcCurve {
+                    a: Fp2 {
+                        re: Fp([
+                            0x172ddbc8950509,
+                            0xce75362e576436,
+                            0x137ae6681595fd1,
+                            0x12d86e76835c57a,
+                            0x9f570600f104f3,
+                            0x1cc06a5b91122b0,
+                            0x4f61dace51b554,
+                            0x24ba43eb6e9ab7,
+                            0x146a883c4c92c,
+                        ]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    c: Fp2 {
+                        re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                        im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                    },
+                    a24: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x105cb76f22541da,
+                                0xb39d4d8b95d90d,
+                                0x14deb99a05657f4,
+                                0x1cb61b9da0d715e,
+                                0x27d5c1803c413c,
+                                0x7301a96e4448ac,
+                                0x193d876b3946d55,
+                                0x92e90fadba6ad,
+                                0x3daa20f1324b,
+                            ]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    is_a24_computed_and_normalized: true,
+                },
+                basis_even: EcBasis {
+                    p: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x16d33c4fcba81f3,
+                                0x1135c0ca5876bd8,
+                                0x930cc9a12334e1,
+                                0x164ceb50c5c906d,
+                                0x9a7b9e250df205,
+                                0x59fd4642dc1b82,
+                                0x2fa02d52117507,
+                                0xaf52b9cd70b6aa,
+                                0x19ff3cefe0e4a,
+                            ]),
+                            im: Fp([
+                                0x14e913e16c00099,
+                                0xc885327d07ccc0,
+                                0x161da2253ef7204,
+                                0xc59960fe2ebf61,
+                                0x15ff0c93e9ba8c7,
+                                0x23365acc88e44f,
+                                0x8a7af330eca718,
+                                0xe969a032ed2a53,
+                                0x3f87df8ca88e,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    q: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x17c8b5a62ab9b8c,
+                                0x1b3ded6d45d61f1,
+                                0x10c48f9bcc396a0,
+                                0x1902c56a8072ef3,
+                                0x179a04920b8ab82,
+                                0xb60fc42ca6a4e9,
+                                0x83bff0f4f46a9b,
+                                0x32fc4d1a34c186,
+                                0x1396d1f279bd5,
+                            ]),
+                            im: Fp([
+                                0xe11de2b3e31c44,
+                                0x12c73b685e5d6f0,
+                                0x126eecdd4e029f2,
+                                0x1196946bcdcab29,
+                                0x1eb35361127b3e0,
+                                0xa3e6fab2cacd17,
+                                0xeee36dd90d313c,
+                                0x16b99c74346e54f,
+                                0xff4bd2cc5b7c,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                    pmq: EcPoint {
+                        x: Fp2 {
+                            re: Fp([
+                                0x18b1a8fcd644747,
+                                0xc1dc9ef0370154,
+                                0xb205662bc7b7a,
+                                0x177261612397ba9,
+                                0x1e97e22498aa19d,
+                                0xaf43c2a4b79f0d,
+                                0x18e73168d2b7fc8,
+                                0x1fad079f4e433fd,
+                                0x15fd5662f73d7,
+                            ]),
+                            im: Fp([
+                                0x1e1289c30498f13,
+                                0xd460c137a25393,
+                                0x190dc9aec94a55d,
+                                0xe14e9d8766a2ff,
+                                0x1d6a6cab4864bfe,
+                                0x179b69675f3f71f,
+                                0x1ee2284791c35d6,
+                                0x1c326425b28dd3c,
+                                0xa383711df0e3,
+                            ]),
+                        },
+                        z: Fp2 {
+                            re: Fp([0x12f, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb00000000000]),
+                            im: Fp([0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]),
+                        },
+                    },
+                },
+                action_i: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xc163a798561efe45,
+                                0xda12b3c01fffedaa,
+                                0xface239051232588,
+                                0xb190a21d651b6e59,
+                                0xd81603021b0e1b0,
+                                0xa91c8cef64b06542,
+                                0x961ae27bd947e0bd,
+                                0x50ed0f20a2a3e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3538ed4e4b770ff6,
+                                0xc49fd5473304c757,
+                                0xcad4796b2ff801b,
+                                0x83e13e77969c58be,
+                                0x372066647d43a371,
+                                0xebbc74dce4e56c98,
+                                0x5bc93147c7e0aab5,
+                                0xcb4007ff5537e,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x429cfaa0ce5877eb,
+                                0xc196068abe89c7dd,
+                                0xbc4ea04a63aed249,
+                                0x4738fc2b64adbbb5,
+                                0x459d6b55918a4d4d,
+                                0xfe42208a748cf5ab,
+                                0x28cc23d7378521d2,
+                                0xd3406106afd9f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3e9c5867a9e101bb,
+                                0x25ed4c3fe0001255,
+                                0x531dc6faedcda77,
+                                0x4e6f5de29ae491a6,
+                                0xf27e9fcfde4f1e4f,
+                                0x56e373109b4f9abd,
+                                0x69e51d8426b81f42,
+                                0xaf12f0df5d5c1,
+                            ],
+                        ),
+                    ],
+                ],
+                action_j: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x75f1d05088dbf3b3,
+                                0xe7a297c48cbe10dd,
+                                0x8d12d51ff1e2e6ae,
+                                0xc097c98a639555a8,
+                                0x78ce54f366aa60c3,
+                                0x3e199a77fb35dce,
+                                0x30f333393c9a8753,
+                                0x7c99fc05e406e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xcae77bc01bf3bdde,
+                                0xbcb84b1a58a88d2e,
+                                0x4881fcf23d98ccd9,
+                                0x730d2e8a347366f8,
+                                0x58eadce94789abbf,
+                                0x328058d061690f54,
+                                0x23d267a05bd0e1f9,
+                                0x7d51f18e12611,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xea02939de36fee54,
+                                0x8bb39f39a7aee6db,
+                                0xae5ea9abf5947f02,
+                                0xbecd0d9a7fc09a76,
+                                0xff9a30f48b68692d,
+                                0xc552bdfcfd43d1ae,
+                                0x981b33e5a4bffe0d,
+                                0xc857345e8202c,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8a0e2faf77240c4d,
+                                0x185d683b7341ef22,
+                                0x72ed2ae00e1d1951,
+                                0x3f6836759c6aaa57,
+                                0x8731ab0c99559f3c,
+                                0xfc1e6658804ca231,
+                                0xcf0cccc6c36578ac,
+                                0x836603fa1bf91,
+                            ],
+                        ),
+                    ],
+                ],
+                action_k: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x755771ea51a039f7,
+                                0x9aa76a816b5e794c,
+                                0x2121e387ab85d8dd,
+                                0xf813e27379891086,
+                                0xc6d59ef5b13febd5,
+                                0x24c4ecf314f82da2,
+                                0xb213b9efc8def485,
+                                0xdd591e587bc4d,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x2a9ec116133fc5d4,
+                                0xdacf6173aeddacf5,
+                                0x50136d36a33e6448,
+                                0x906de57159f62093,
+                                0xbe30b92ae4ab37c9,
+                                0x47ffffc8de581d49,
+                                0x867961286230e0cb,
+                                0xd66c70c5e731c,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8dadd0dc2e3e55ad,
+                                0x81af3e27e1d04e0a,
+                                0x5bd452f2a5fa1bb4,
+                                0xbdd40036ddfe2b9b,
+                                0x7b2921d23027f99a,
+                                0xec5c6864214610ee,
+                                0xe4a1bc15540f6bbd,
+                                0x4df513d9c00ee,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8aa88e15ae5fc609,
+                                0x6558957e94a186b3,
+                                0xdede1c78547a2722,
+                                0x7ec1d8c8676ef79,
+                                0x392a610a4ec0142a,
+                                0xdb3b130ceb07d25d,
+                                0x4dec461037210b7a,
+                                0x22a6e1a7843b2,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen2: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xc163a798561efe45,
+                                0xda12b3c01fffedaa,
+                                0xface239051232588,
+                                0xb190a21d651b6e59,
+                                0xd81603021b0e1b0,
+                                0xa91c8cef64b06542,
+                                0x961ae27bd947e0bd,
+                                0x50ed0f20a2a3e,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3538ed4e4b770ff6,
+                                0xc49fd5473304c757,
+                                0xcad4796b2ff801b,
+                                0x83e13e77969c58be,
+                                0x372066647d43a371,
+                                0xebbc74dce4e56c98,
+                                0x5bc93147c7e0aab5,
+                                0xcb4007ff5537e,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x429cfaa0ce5877eb,
+                                0xc196068abe89c7dd,
+                                0xbc4ea04a63aed249,
+                                0x4738fc2b64adbbb5,
+                                0x459d6b55918a4d4d,
+                                0xfe42208a748cf5ab,
+                                0x28cc23d7378521d2,
+                                0xd3406106afd9f,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x3e9c5867a9e101bb,
+                                0x25ed4c3fe0001255,
+                                0x531dc6faedcda77,
+                                0x4e6f5de29ae491a6,
+                                0xf27e9fcfde4f1e4f,
+                                0x56e373109b4f9abd,
+                                0x69e51d8426b81f42,
+                                0xaf12f0df5d5c1,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen3: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xbaf8e828446df9da,
+                                0x73d14be2465f086e,
+                                0x46896a8ff8f17357,
+                                0xe04be4c531caaad4,
+                                0x3c672a79b3553061,
+                                0x81f0ccd3bfd9aee7,
+                                0x1879999c9e4d43a9,
+                                0xbe4cfe02f2037,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x6573bde00df9deef,
+                                0xde5c258d2c544697,
+                                0x2440fe791ecc666c,
+                                0xb98697451a39b37c,
+                                0x2c756e74a3c4d5df,
+                                0x99402c6830b487aa,
+                                0x91e933d02de870fc,
+                                0xbea8f8c709308,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0xf50149cef1b7f72a,
+                                0x45d9cf9cd3d7736d,
+                                0x572f54d5faca3f81,
+                                0xdf6686cd3fe04d3b,
+                                0x7fcd187a45b43496,
+                                0xe2a95efe7ea1e8d7,
+                                0x4c0d99f2d25fff06,
+                                0xe42b9a2f41016,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x450717d7bb920627,
+                                0x8c2eb41db9a0f791,
+                                0xb9769570070e8ca8,
+                                0x1fb41b3ace35552b,
+                                0xc398d5864caacf9e,
+                                0x7e0f332c40265118,
+                                0xe786666361b2bc56,
+                                0x41b301fd0dfc8,
+                            ],
+                        ),
+                    ],
+                ],
+                action_gen4: [
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x8865a159619b9e37,
+                                0x57ce0b3b85c2ab15,
+                                0x8cf0feb0a8d68108,
+                                0xc3a96936c7e1ef13,
+                                0x7ba27c689c5dd8f2,
+                                0x22eb845b4c63f4da,
+                                0x701924f337a0bedd,
+                                0x3b81c69052855,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0xadd1c1ee130992b5,
+                                0x4a4faf0c49110165,
+                                0xacc0926fd4b25374,
+                                0xc1887c68eb63fd2f,
+                                0x9a226cfe152e41ce,
+                                0x5fef438c09330adb,
+                                0x8c5b773282aae17a,
+                                0x6dcee4cd4fa7b,
+                            ],
+                        ),
+                    ],
+                    [
+                        ibz_lit(
+                            false,
+                            &[
+                                0x91b3743ec00c77b7,
+                                0x4b6bc9e803bec92c,
+                                0x2be7857fed1b519c,
+                                0xd5ec3a2164a02270,
+                                0xa58f175a2392d5d1,
+                                0x18755f4639085c36,
+                                0x8eda7e0bcd4aee40,
+                                0xd6e24c28c87e0,
+                            ],
+                        ),
+                        ibz_lit(
+                            false,
+                            &[
+                                0x779a5ea69e6461c9,
+                                0xa831f4c47a3d54ea,
+                                0x730f014f57297ef7,
+                                0x3c5696c9381e10ec,
+                                0x845d839763a2270d,
+                                0xdd147ba4b39c0b25,
+                                0x8fe6db0cc85f4122,
+                                0xc47e396fad7aa,
+                            ],
+                        ),
+                    ],
+                ],
+            },
+        ]
+    })
 }
-pub fn curve_e0() -> &'static EcCurve { &curves_with_endomorphisms()[0].curve }
-pub fn basis_even() -> &'static EcBasis { &curves_with_endomorphisms()[0].basis_even }
+pub fn curve_e0() -> &'static EcCurve {
+    &curves_with_endomorphisms()[0].curve
+}
+pub fn basis_even() -> &'static EcBasis {
+    &curves_with_endomorphisms()[0].basis_even
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
-    use rug::ops::RemRounding;
     use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
+    use rug::ops::RemRounding;
+    use rug::Integer;
 
     #[test]
     fn pinfty_is_prime_p() {
@@ -121,7 +4827,10 @@ mod tests {
         expected <<= TORSION_EVEN_POWER as u32;
         expected -= 1;
         assert_eq!(quatalg_pinfty().p, expected);
-        assert_ne!(quatalg_pinfty().p.is_probably_prime(40), rug::integer::IsPrime::No);
+        assert_ne!(
+            quatalg_pinfty().p.is_probably_prime(40),
+            rug::integer::IsPrime::No
+        );
     }
 
     #[test]
@@ -130,7 +4839,7 @@ mod tests {
         // Standard maximal order O₀: denom=2, basis=[[2,0,0,1],[0,2,1,0],[0,0,1,0],[0,0,0,1]], q=1.
         assert_eq!(o0.order.denom, 2);
         assert_eq!(o0.q, 1);
-        let exp: [[i32; 4]; 4] = [[2,0,0,1],[0,2,1,0],[0,0,1,0],[0,0,0,1]];
+        let exp: [[i32; 4]; 4] = [[2, 0, 0, 1], [0, 2, 1, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
         for i in 0..4 {
             for j in 0..4 {
                 assert_eq!(o0.order.basis[i][j], exp[i][j], "basis[{i}][{j}]");
@@ -138,8 +4847,10 @@ mod tests {
         }
         // z = i (stored as 2i/2), t = j.
         assert_eq!(o0.z.denom, 2);
-        assert_eq!(o0.z.coord[0], 0); assert_eq!(o0.z.coord[1], 2);
-        assert_eq!(o0.z.coord[2], 0); assert_eq!(o0.z.coord[3], 0);
+        assert_eq!(o0.z.coord[0], 0);
+        assert_eq!(o0.z.coord[1], 2);
+        assert_eq!(o0.z.coord[2], 0);
+        assert_eq!(o0.z.coord[3], 0);
         assert_eq!(o0.t.denom, 1);
         assert_eq!(o0.t.coord[2], 1);
     }
@@ -170,12 +4881,13 @@ mod tests {
         // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^e.
         let cwe = &curves_with_endomorphisms()[0];
         let m = &cwe.action_i;
-        let mut modn = Integer::from(1); modn <<= TORSION_EVEN_POWER as u32;
+        let mut modn = Integer::from(1);
+        modn <<= TORSION_EVEN_POWER as u32;
         let r = |x: &Integer| -> Integer { x.clone().rem_euc(modn.clone()) };
-        let m2_00 = r(&(m[0][0].clone()*&m[0][0] + m[0][1].clone()*&m[1][0]));
-        let m2_01 = r(&(m[0][0].clone()*&m[0][1] + m[0][1].clone()*&m[1][1]));
-        let m2_10 = r(&(m[1][0].clone()*&m[0][0] + m[1][1].clone()*&m[1][0]));
-        let m2_11 = r(&(m[1][0].clone()*&m[0][1] + m[1][1].clone()*&m[1][1]));
+        let m2_00 = r(&(m[0][0].clone() * &m[0][0] + m[0][1].clone() * &m[1][0]));
+        let m2_01 = r(&(m[0][0].clone() * &m[0][1] + m[0][1].clone() * &m[1][1]));
+        let m2_10 = r(&(m[1][0].clone() * &m[0][0] + m[1][1].clone() * &m[1][0]));
+        let m2_11 = r(&(m[1][0].clone() * &m[0][1] + m[1][1].clone() * &m[1][1]));
         let neg1 = modn.clone() - 1;
         assert_eq!(m2_00, neg1);
         assert_eq!(m2_11, neg1);

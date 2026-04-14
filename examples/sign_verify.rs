@@ -5,7 +5,9 @@
 
 use sqisign_rs::common::ctrdrbg;
 use sqisign_rs::nistapi::{crypto_sign, crypto_sign_keypair, crypto_sign_open};
-use sqisign_rs::params::{CRYPTO_ALGNAME, CRYPTO_BYTES, CRYPTO_PUBLICKEYBYTES, CRYPTO_SECRETKEYBYTES};
+use sqisign_rs::params::{
+    CRYPTO_ALGNAME, CRYPTO_BYTES, CRYPTO_PUBLICKEYBYTES, CRYPTO_SECRETKEYBYTES,
+};
 
 fn main() {
     println!("Algorithm: {CRYPTO_ALGNAME}");

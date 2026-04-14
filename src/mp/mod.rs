@@ -52,8 +52,7 @@ pub const fn is_digit_lessthan_ct(x: Digit, y: Digit) -> u32 {
 pub const fn addc(a: Digit, b: Digit, carry_in: u32) -> (Digit, u32) {
     let temp = a.wrapping_add(carry_in as Digit);
     let sum = b.wrapping_add(temp);
-    let carry_out =
-        is_digit_lessthan_ct(temp, carry_in as Digit) | is_digit_lessthan_ct(sum, temp);
+    let carry_out = is_digit_lessthan_ct(temp, carry_in as Digit) | is_digit_lessthan_ct(sum, temp);
     (sum, carry_out)
 }
 
@@ -62,8 +61,7 @@ pub const fn addc(a: Digit, b: Digit, carry_in: u32) -> (Digit, u32) {
 #[inline(always)]
 pub const fn subc(a: Digit, b: Digit, borrow_in: u32) -> (Digit, u32) {
     let temp = a.wrapping_sub(b);
-    let borrow_out =
-        is_digit_lessthan_ct(a, b) | ((borrow_in) & is_digit_zero_ct(temp));
+    let borrow_out = is_digit_lessthan_ct(a, b) | ((borrow_in) & is_digit_zero_ct(temp));
     let diff = temp.wrapping_sub(borrow_in as Digit);
     (diff, borrow_out)
 }
@@ -641,5 +639,4 @@ mod tests {
         multiple_mp_shiftl(&mut x, 127, 3);
         assert_eq!(x, [0, 1u64 << 63, 0]);
     }
-
 }

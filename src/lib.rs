@@ -8,17 +8,17 @@
 #![allow(unused_imports)]
 
 pub mod common;
-pub mod mp;
-pub mod gf;
 pub mod ec;
-pub mod precomp;
+pub mod gf;
 pub mod hd;
+pub mod mp;
+pub mod precomp;
 pub mod verification;
 
 #[cfg(feature = "sign")]
-pub mod quaternion;
-#[cfg(feature = "sign")]
 pub mod id2iso;
+#[cfg(feature = "sign")]
+pub mod quaternion;
 #[cfg(feature = "sign")]
 pub mod signature;
 

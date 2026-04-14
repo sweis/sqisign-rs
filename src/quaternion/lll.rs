@@ -19,11 +19,19 @@ pub const EPSILON_DENOM: i32 = 100;
 /// Symmetric-matrix accessor (lower-triangular storage).
 #[inline]
 fn sym_get(g: &IbzMat4x4, i: usize, j: usize) -> &Ibz {
-    if i < j { &g[j][i] } else { &g[i][j] }
+    if i < j {
+        &g[j][i]
+    } else {
+        &g[i][j]
+    }
 }
 #[inline]
 fn sym_get_mut(g: &mut IbzMat4x4, i: usize, j: usize) -> &mut Ibz {
-    if i < j { &mut g[j][i] } else { &mut g[i][j] }
+    if i < j {
+        &mut g[j][i]
+    } else {
+        &mut g[i][j]
+    }
 }
 
 /// In-place L² reduction. `g` is the (symmetric) Gram matrix of `basis`;
