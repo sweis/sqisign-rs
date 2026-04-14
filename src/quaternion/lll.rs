@@ -46,8 +46,8 @@ pub fn quat_lll_core(g: &mut IbzMat4x4, basis: &mut IbzMat4x4) {
 
     let mut xf = Dpe::ZERO;
     let mut tmpf = Dpe::ZERO;
-    let mut x = Ibz::new();
-    let mut tmpi = Ibz::new();
+    let mut x = Ibz::default();
+    let mut tmpi = Ibz::default();
 
     r[0][0].set_z(&g[0][0]);
     let mut kappa: usize = 1;
@@ -197,8 +197,8 @@ pub fn quat_lattice_lll(red: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAl
 // LLL verification (rationals; debug/test only).
 
 pub fn quat_lll_set_ibq_parameters(delta: &mut Ibq, eta: &mut Ibq) {
-    let mut num = Ibz::new();
-    let mut denom = Ibz::new();
+    let mut num = Ibz::default();
+    let mut denom = Ibz::default();
     ibq_set(delta, ibz_const_one(), ibz_const_two());
     ibz_set(&mut num, EPSILON_NUM);
     ibz_set(&mut denom, EPSILON_DENOM);
@@ -321,10 +321,10 @@ pub fn quat_lll_verify(mat: &IbzMat4x4, delta: &Ibq, eta: &Ibq, alg: &QuatAlg) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
     fn mat_from(rows: [[i64; 4]; 4]) -> IbzMat4x4 {
         core::array::from_fn(|i| core::array::from_fn(|j| z(rows[i][j])))
@@ -344,11 +344,15 @@ mod tests {
         quat_lll_set_ibq_parameters(&mut delta, &mut eta);
         assert_eq!(quat_lll_verify(&red, &delta, &eta, &alg), 1);
         // det preserved.
-        let mut d0 = Ibz::new();
-        let mut d1 = Ibz::new();
+        let mut d0 = Ibz::default();
+        let mut d1 = Ibz::default();
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut d0, &lat.basis);
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut d1, &red);
-        assert_eq!(d0.clone().abs(), d1.clone().abs());
+        let mut a0 = Ibz::default();
+        let mut a1 = Ibz::default();
+        crate::quaternion::ibz_abs(&mut a0, &d0);
+        crate::quaternion::ibz_abs(&mut a1, &d1);
+        assert_eq!(a0, a1);
     }
 
     #[test]

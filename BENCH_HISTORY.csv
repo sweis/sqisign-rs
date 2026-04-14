@@ -21,3 +21,4 @@ C-ref-sysGMP,2026-04-14T19:05:00Z,verify=49.34M-instr,keygen=682.1M-instr,sign=1
 # The 2x keygen/sign win is AES-NI (Rust `aes` crate auto-detect) vs C ref's bitsliced
 # software AES (br_aes_ct64_* = 52% of C keygen profile). Verify (no DRBG/GMP) is at parity.
 2a443e4,2026-04-14T19:22:57Z,verify=2.995ms,keygen=22.790ms,sign=53.178ms,post-hardening-quiet-system
+cb37e19+dirty,2026-04-14T20:59:14Z,verify=3.158ms,keygen=23.733ms,sign=55.546ms,malachite-backend

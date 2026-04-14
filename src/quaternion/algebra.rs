@@ -8,7 +8,7 @@ use super::types::*;
 /// Coordinate-only quaternion product in basis (1, i, j, ij) with
 /// i² = -1, j² = -p, k = ij.
 pub fn quat_alg_coord_mul(res: &mut IbzVec4, a: &IbzVec4, b: &IbzVec4, alg: &QuatAlg) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut sum = ibz_vec_4_init();
 
     // 1 component: -p(a2 b2 + a3 b3) + a0 b0 - a1 b1
@@ -81,8 +81,8 @@ pub fn quat_alg_equal_denom(
     a: &QuatAlgElem,
     b: &QuatAlgElem,
 ) {
-    let mut gcd = Ibz::new();
-    let mut r = Ibz::new();
+    let mut gcd = Ibz::default();
+    let mut r = Ibz::default();
     ibz_gcd(&mut gcd, &a.denom, &b.denom);
     ibz_div(&mut res_a.denom, &mut r, &a.denom, &gcd);
     ibz_div(&mut res_b.denom, &mut r, &b.denom, &gcd);
@@ -128,8 +128,8 @@ pub fn quat_alg_conj(conj: &mut QuatAlgElem, x: &QuatAlgElem) {
 
 /// Reduced norm `Nrd(a) = a · ā` as a fraction `num/denom` (positive, gcd-reduced).
 pub fn quat_alg_norm(res_num: &mut Ibz, res_denom: &mut Ibz, a: &QuatAlgElem, alg: &QuatAlg) {
-    let mut r = Ibz::new();
-    let mut g = Ibz::new();
+    let mut r = Ibz::default();
+    let mut g = Ibz::default();
     let mut norm = QuatAlgElem::default();
     quat_alg_conj(&mut norm, a);
     let conj = norm.clone();
@@ -154,8 +154,8 @@ pub fn quat_alg_scalar(elem: &mut QuatAlgElem, num: &Ibz, denom: &Ibz) {
 
 /// Normalize so `gcd(denom, content(coord)) = 1` and `denom > 0`.
 pub fn quat_alg_normalize(x: &mut QuatAlgElem) {
-    let mut gcd = Ibz::new();
-    let mut r = Ibz::new();
+    let mut gcd = Ibz::default();
+    let mut r = Ibz::default();
     ibz_vec_4_content(&mut gcd, &x.coord);
     let g = gcd.clone();
     ibz_gcd(&mut gcd, &g, &x.denom);
@@ -215,10 +215,10 @@ pub fn quat_alg_elem_mul_by_scalar(res: &mut QuatAlgElem, scalar: &Ibz, elem: &Q
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
     fn elem(d: i32, c: [i32; 4]) -> QuatAlgElem {
         let mut e = QuatAlgElem::default();
@@ -255,13 +255,13 @@ mod tests {
         let alg = QuatAlg::from_ui(11);
         let a = elem(1, [1, 2, 3, 4]);
         let b = elem(1, [5, -1, 2, 0]);
-        let (mut na_n, mut na_d) = (Ibz::new(), Ibz::new());
-        let (mut nb_n, mut nb_d) = (Ibz::new(), Ibz::new());
+        let (mut na_n, mut na_d) = (Ibz::default(), Ibz::default());
+        let (mut nb_n, mut nb_d) = (Ibz::default(), Ibz::default());
         quat_alg_norm(&mut na_n, &mut na_d, &a, &alg);
         quat_alg_norm(&mut nb_n, &mut nb_d, &b, &alg);
         let mut ab = QuatAlgElem::default();
         quat_alg_mul(&mut ab, &a, &b, &alg);
-        let (mut nab_n, mut nab_d) = (Ibz::new(), Ibz::new());
+        let (mut nab_n, mut nab_d) = (Ibz::default(), Ibz::default());
         quat_alg_norm(&mut nab_n, &mut nab_d, &ab, &alg);
         assert_eq!(na_d, 1);
         assert_eq!(nb_d, 1);

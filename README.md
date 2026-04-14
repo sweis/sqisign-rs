@@ -16,14 +16,18 @@ for C-vs-spec discrepancies found during the port, security hardening notes, and
 
 ## Building
 
-Requires Rust 1.75+ (stable). The signing path additionally requires GMP
-(via the `rug` crate) for arbitrary-precision integer arithmetic.
+Requires Rust 1.75+ (stable). The signing path uses arbitrary-precision
+integers; the default backend is [`malachite`](https://crates.io/crates/malachite-nz)
+(pure Rust, no C dependency).
 
 ```sh
-# Full build (keygen + sign + verify)
+# Full build (keygen + sign + verify) — pure Rust
 cargo build --release --features lvl1,sign
 
-# Verification only (no GMP dependency)
+# Opt-in GMP backend via rug (requires libgmp)
+cargo build --release --features lvl1,gmp
+
+# Verification only (no bigint dependency at all)
 cargo build --release --no-default-features --features lvl1
 ```
 
@@ -81,9 +85,11 @@ cargo run --release --features lvl1,sign --example sign_verify
 
 - `lvl1` / `lvl3` / `lvl5` — select the security level (mutually exclusive;
   exactly one must be enabled).
-- `sign` — enable key generation and signing. Pulls in `rug` (GMP). Without
-  this flag the crate builds verification only, matching the C reference's
-  `ENABLE_SIGN=OFF` mode.
+- `sign` — enable key generation and signing using the pure-Rust `malachite`
+  bigint backend. Without this flag the crate builds verification only,
+  matching the C reference's `ENABLE_SIGN=OFF` mode.
+- `gmp` — use GMP (via `rug`) instead of `malachite` for the bigint backend.
+  Slightly faster (~5% on sign); requires libgmp.
 - `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
   replays. Do not enable in production.
 

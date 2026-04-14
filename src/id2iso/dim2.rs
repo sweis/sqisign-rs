@@ -33,8 +33,8 @@ fn fixed_degree_isogeny_impl(
     p12: &mut [ThetaCouplePoint],
     index_alternate_order: usize,
 ) -> i32 {
-    let mut two_pow = Ibz::new();
-    let mut tmp = Ibz::new();
+    let mut two_pow = Ibz::default();
+    let mut tmp = Ibz::default();
     let mut theta = QuatAlgElem::default();
 
     let mut e0 = curves_with_endomorphisms()[index_alternate_order].curve;
@@ -100,8 +100,8 @@ fn fixed_degree_isogeny_impl(
 
     #[cfg(debug_assertions)]
     {
-        let mut test_norm = Ibz::new();
-        let mut test_denom = Ibz::new();
+        let mut test_norm = Ibz::default();
+        let mut test_denom = Ibz::default();
         quat_alg_norm(&mut test_norm, &mut test_denom, &theta, quatalg_pinfty());
         debug_assert!(ibz_is_one(&test_denom) != 0);
         debug_assert!(ibz_cmp(&test_norm, &tmp) == 0);
@@ -264,8 +264,8 @@ fn enumerate_hypercube(
     gram: &IbzMat4x4,
     adjusted_norm: &Ibz,
 ) -> i32 {
-    let mut remain = Ibz::new();
-    let mut norm = Ibz::new();
+    let mut remain = Ibz::default();
+    let mut norm = Ibz::default();
     let mut point = ibz_vec_4_init();
 
     debug_assert!(m > 0);
@@ -346,9 +346,9 @@ fn find_uv_from_lists(
     is_diagonal: bool,
     number_sum_square: i32,
 ) -> i32 {
-    let mut n = Ibz::new();
-    let mut remain = Ibz::new();
-    let mut adjusted_norm = Ibz::new();
+    let mut n = Ibz::default();
+    let mut remain = Ibz::default();
+    let mut adjusted_norm = Ibz::default();
     let mut found = 0;
     ibz_copy(&mut n, target);
 
@@ -420,16 +420,16 @@ pub fn find_uv(
     bpoo: &QuatAlg,
     num_alternate_order: usize,
 ) -> i32 {
-    let mut au = Ibz::new();
-    let mut bu = Ibz::new();
-    let mut av = Ibz::new();
-    let mut bv = Ibz::new();
-    let mut n = Ibz::new();
-    let mut remain = Ibz::new();
+    let mut au = Ibz::default();
+    let mut bu = Ibz::default();
+    let mut av = Ibz::default();
+    let mut bv = Ibz::default();
+    let mut n = Ibz::default();
+    let mut remain = Ibz::default();
     ibz_copy(&mut n, target);
 
     let no = num_alternate_order + 1;
-    let mut adjusted_norm: Vec<Ibz> = (0..no).map(|_| Ibz::new()).collect();
+    let mut adjusted_norm: Vec<Ibz> = (0..no).map(|_| Ibz::default()).collect();
     let mut gram: Vec<IbzMat4x4> = (0..no).map(|_| ibz_mat_4x4_init()).collect();
     let mut reduced: Vec<IbzMat4x4> = (0..no).map(|_| ibz_mat_4x4_init()).collect();
     let mut ideal: Vec<QuatLeftIdeal> = (0..no).map(|_| QuatLeftIdeal::default()).collect();
@@ -504,10 +504,10 @@ pub fn find_uv(
         .map(|_| (0..m4).map(|_| ibz_vec_4_init()).collect())
         .collect();
     let mut small_norms: Vec<Vec<Ibz>> = (0..no)
-        .map(|_| (0..m4).map(|_| Ibz::new()).collect())
+        .map(|_| (0..m4).map(|_| Ibz::default()).collect())
         .collect();
     let mut quotients: Vec<Vec<Ibz>> = (0..no)
-        .map(|_| (0..m4).map(|_| Ibz::new()).collect())
+        .map(|_| (0..m4).map(|_| Ibz::default()).collect())
         .collect();
     let mut indices: Vec<usize> = vec![0; no];
 
@@ -615,9 +615,9 @@ pub fn find_uv(
 
                 #[cfg(debug_assertions)]
                 {
-                    let mut nrm = Ibz::new();
-                    let mut nd = Ibz::new();
-                    let mut chk = Ibz::new();
+                    let mut nrm = Ibz::default();
+                    let mut nd = Ibz::default();
+                    let mut chk = Ibz::default();
                     quat_alg_norm(&mut nrm, &mut nd, beta1, quatalg_pinfty());
                     debug_assert!(ibz_is_one(&nd) != 0);
                     ibz_mul(&mut chk, d1, &ideal[0].norm);
@@ -663,9 +663,9 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     lideal: &QuatLeftIdeal,
     bpoo: &QuatAlg,
 ) -> i32 {
-    let mut tmp = Ibz::new();
-    let mut two_pow = Ibz::new();
-    let mut test1 = Ibz::new();
+    let mut tmp = Ibz::default();
+    let mut two_pow = Ibz::default();
+    let mut test1 = Ibz::default();
     let mut theta = QuatAlgElem::default();
 
     let mut index_order1 = 0usize;
@@ -703,8 +703,8 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
 
     #[cfg(debug_assertions)]
     {
-        let mut pow_check = Ibz::new();
-        let mut tmp_check = Ibz::new();
+        let mut pow_check = Ibz::default();
+        let mut tmp_check = Ibz::default();
         ibz_pow(&mut pow_check, ibz_const_two(), exp as u32);
         ibz_mul(&mut tmp_check, d1, u);
         let p = pow_check.clone();
@@ -981,7 +981,12 @@ pub fn dim2id2iso_arbitrary_isogeny_evaluation(
 ) -> i32 {
     let mut beta1 = QuatAlgElem::default();
     let mut beta2 = QuatAlgElem::default();
-    let (mut u, mut v, mut d1, mut d2) = (Ibz::new(), Ibz::new(), Ibz::new(), Ibz::new());
+    let (mut u, mut v, mut d1, mut d2) = (
+        Ibz::default(),
+        Ibz::default(),
+        Ibz::default(),
+        Ibz::default(),
+    );
     dim2id2iso_ideal_to_isogeny_clapotis(
         &mut beta1,
         &mut beta2,

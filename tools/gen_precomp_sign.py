@@ -92,7 +92,7 @@ def emit_ibz(ibzs, tok):
     idx = int(tok[4:-1])
     sign, limbs = ibzs[idx]
     if sign == 0:
-        return "Ibz::new()"
+        return "Ibz::default()"
     neg = "true" if sign < 0 else "false"
     return f"ibz_lit({neg}, &[{','.join(limbs)}])"
 
@@ -249,20 +249,25 @@ HEADER = """\
 #![allow(clippy::all)]
 
 use std::sync::OnceLock;
-use rug::Integer;
-use rug::integer::Order;
 use crate::quaternion::{
     Ibz, IbzMat2x2, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal,
     QuatPExtremalMaximalOrder,
+};
+use crate::quaternion::intbig::{
+    ibz_copy_digits, ibz_from_i64, ibz_mod, ibz_neg, ibz_pow, ibz_probab_prime,
+    ibz_set_from_str,
 };
 use crate::ec::{EcCurve, EcBasis, EcPoint};
 use crate::gf::{Fp, Fp2};
 
 #[inline]
 fn ibz_lit(neg: bool, limbs: &[u64]) -> Ibz {
-    let mut z = Integer::new();
-    z.assign_digits(limbs, Order::Lsf);
-    if neg { z = -z; }
+    let mut z = Ibz::default();
+    ibz_copy_digits(&mut z, limbs);
+    if neg {
+        let t = z.clone();
+        ibz_neg(&mut z, &t);
+    }
     z
 }
 
@@ -406,56 +411,51 @@ TESTS_GENERIC = r"""
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
-    use rug::ops::RemRounding;
     use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
     #[test]
     fn pinfty_is_prime_p() {
-        // p = c · 2^e - 1.
-        let mut expected = Integer::from(P_COFACTOR_FOR_2F[0]);
-        expected <<= TORSION_EVEN_POWER as u32;
-        expected -= 1;
+        let mut expected = ibz_from_i64(P_COFACTOR_FOR_2F[0] as i64);
+        let mut t = Ibz::default();
+        ibz_pow(&mut t, crate::quaternion::ibz_const_two(), TORSION_EVEN_POWER as u32);
+        let e = expected.clone();
+        crate::quaternion::ibz_mul(&mut expected, &e, &t);
+        let e = expected.clone();
+        crate::quaternion::ibz_sub(&mut expected, &e, crate::quaternion::ibz_const_one());
         assert_eq!(quatalg_pinfty().p, expected);
-        assert_ne!(quatalg_pinfty().p.is_probably_prime(40), rug::integer::IsPrime::No);
+        assert!(ibz_probab_prime(&quatalg_pinfty().p, 40) > 0);
     }
 
     #[test]
     fn extremal_order_0_is_o0() {
         let o0 = &extremal_orders()[0];
-        // Standard maximal order O₀: denom=2, basis=[[2,0,0,1],[0,2,1,0],[0,0,1,0],[0,0,0,1]], q=1.
-        assert_eq!(o0.order.denom, 2);
+        assert_eq!(o0.order.denom, ibz_from_i64(2));
         assert_eq!(o0.q, 1);
-        let exp: [[i32; 4]; 4] = [[2,0,0,1],[0,2,1,0],[0,0,1,0],[0,0,0,1]];
+        let exp: [[i64; 4]; 4] = [[2, 0, 0, 1], [0, 2, 1, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
         for i in 0..4 {
             for j in 0..4 {
-                assert_eq!(o0.order.basis[i][j], exp[i][j], "basis[{i}][{j}]");
+                assert_eq!(o0.order.basis[i][j], ibz_from_i64(exp[i][j]), "basis[{i}][{j}]");
             }
         }
-        // z = i (stored as 2i/2), t = j.
-        assert_eq!(o0.z.denom, 2);
-        assert_eq!(o0.z.coord[0], 0); assert_eq!(o0.z.coord[1], 2);
-        assert_eq!(o0.z.coord[2], 0); assert_eq!(o0.z.coord[3], 0);
-        assert_eq!(o0.t.denom, 1);
-        assert_eq!(o0.t.coord[2], 1);
+        assert_eq!(o0.z.denom, ibz_from_i64(2));
+        assert_eq!(o0.z.coord[1], ibz_from_i64(2));
+        assert_eq!(o0.t.denom, ibz_from_i64(1));
+        assert_eq!(o0.t.coord[2], ibz_from_i64(1));
     }
 
     #[test]
     fn connecting_ideal_0_is_unit() {
         let ci = &connecting_ideals()[0];
-        assert_eq!(ci.norm, 1);
+        assert_eq!(ci.norm, ibz_from_i64(1));
         assert!(ci.parent_order.is_some());
         assert!(std::ptr::eq(ci.parent_order.unwrap(), maxord_o0()));
     }
 
     #[test]
     fn curve_e0_is_a_zero() {
-        // E₀ has Montgomery A=0; its A24 is precomputed and normalized.
         let e0 = curve_e0();
         assert!(e0.is_a24_computed_and_normalized);
         assert_eq!(crate::gf::fp2_is_zero(&e0.a), 0xFFFF_FFFF);
-        // basis_even.P.x must equal precomp::BASIS_E0_PX (cross-check between
-        // the two precomp sources).
         let p = &curves_with_endomorphisms()[0].basis_even.p;
         assert_eq!(p.x.re.0, crate::precomp::BASIS_E0_PX.re.0);
         assert_eq!(p.x.im.0, crate::precomp::BASIS_E0_PX.im.0);
@@ -463,20 +463,24 @@ mod tests {
 
     #[test]
     fn endo_action_i_squares_to_neg_id() {
-        // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^e.
         let cwe = &curves_with_endomorphisms()[0];
         let m = &cwe.action_i;
-        let mut modn = Integer::from(1); modn <<= TORSION_EVEN_POWER as u32;
-        let r = |x: &Integer| -> Integer { x.clone().rem_euc(modn.clone()) };
-        let m2_00 = r(&(m[0][0].clone()*&m[0][0] + m[0][1].clone()*&m[1][0]));
-        let m2_01 = r(&(m[0][0].clone()*&m[0][1] + m[0][1].clone()*&m[1][1]));
-        let m2_10 = r(&(m[1][0].clone()*&m[0][0] + m[1][1].clone()*&m[1][0]));
-        let m2_11 = r(&(m[1][0].clone()*&m[0][1] + m[1][1].clone()*&m[1][1]));
-        let neg1 = modn.clone() - 1;
+        let mut modn = Ibz::default();
+        ibz_pow(&mut modn, crate::quaternion::ibz_const_two(), TORSION_EVEN_POWER as u32);
+        let r = |x: &Ibz| -> Ibz {
+            let mut o = Ibz::default();
+            ibz_mod(&mut o, x, &modn);
+            o
+        };
+        let m2_00 = r(&(m[0][0].clone() * &m[0][0] + m[0][1].clone() * &m[1][0]));
+        let m2_01 = r(&(m[0][0].clone() * &m[0][1] + m[0][1].clone() * &m[1][1]));
+        let m2_10 = r(&(m[1][0].clone() * &m[0][0] + m[1][1].clone() * &m[1][0]));
+        let m2_11 = r(&(m[1][0].clone() * &m[0][1] + m[1][1].clone() * &m[1][1]));
+        let neg1 = &modn - ibz_from_i64(1);
         assert_eq!(m2_00, neg1);
         assert_eq!(m2_11, neg1);
-        assert_eq!(m2_01, 0);
-        assert_eq!(m2_10, 0);
+        assert_eq!(m2_01, ibz_from_i64(0));
+        assert_eq!(m2_10, ibz_from_i64(0));
     }
 
     #[test]
@@ -486,7 +490,7 @@ mod tests {
         assert_eq!(conjugating_elements().len(), n);
         assert_eq!(curves_with_endomorphisms().len(), n);
         assert!(extremal_orders()[n - 1].q > 1);
-        assert!(connecting_ideals()[n - 1].norm > 1);
+        assert!(connecting_ideals()[n - 1].norm > ibz_from_i64(1));
     }
 }
 """
@@ -495,13 +499,15 @@ TESTS_LVL1 = r"""
 #[cfg(test)]
 mod tests_lvl1 {
     use super::*;
-    use rug::Integer;
 
     #[test]
     fn prime_cofactor_value() {
-        let mut expected = Integer::from(1);
-        expected <<= 251;
-        expected += 65;
+        let mut expected = Ibz::default();
+        ibz_set_from_str(
+            &mut expected,
+            "3618502788666131106986593281521497120414687020801267626233049500247285301313",
+            10,
+        );
         assert_eq!(*quat_prime_cofactor(), expected);
     }
 
@@ -512,7 +518,7 @@ mod tests_lvl1 {
             connecting_ideals()[6].norm.to_string(),
             "27640789963059351638707589454869550365"
         );
-        assert_eq!(conjugating_elements()[6].coord[3], 4);
+        assert_eq!(conjugating_elements()[6].coord[3], ibz_from_i64(4));
         assert_eq!(
             curves_with_endomorphisms()[0].action_gen4[1][1].to_string(),
             "391943321623591284286034922686343541417807403958897095695530545493876076147"

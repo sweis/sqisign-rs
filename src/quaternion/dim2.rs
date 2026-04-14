@@ -34,7 +34,7 @@ pub fn ibz_mat_2x2_add(sum: &mut IbzMat2x2, a: &IbzMat2x2, b: &IbzMat2x2) {
 
 /// `det = a11*a22 - a12*a21`.
 pub fn ibz_mat_2x2_det_from_ibz(det: &mut Ibz, a11: &Ibz, a12: &Ibz, a21: &Ibz, a22: &Ibz) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     ibz_mul(&mut prod, a12, a21);
     ibz_mul(det, a11, a22);
     let d = det.clone();
@@ -43,7 +43,7 @@ pub fn ibz_mat_2x2_det_from_ibz(det: &mut Ibz, a11: &Ibz, a12: &Ibz, a21: &Ibz, 
 
 /// `res = mat * vec`.
 pub fn ibz_mat_2x2_eval(res: &mut IbzVec2, mat: &IbzMat2x2, vec: &IbzVec2) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut mv = ibz_vec_2_init();
     ibz_mul(&mut mv[0], &mat[0][0], &vec[0]);
     ibz_mul(&mut prod, &mat[0][1], &vec[1]);
@@ -59,7 +59,7 @@ pub fn ibz_mat_2x2_eval(res: &mut IbzVec2, mat: &IbzMat2x2, vec: &IbzVec2) {
 
 /// `prod = (mat_a * mat_b) mod m` (entrywise reduction during accumulation).
 pub fn ibz_2x2_mul_mod(prod: &mut IbzMat2x2, mat_a: &IbzMat2x2, mat_b: &IbzMat2x2, m: &Ibz) {
-    let mut mul = Ibz::new();
+    let mut mul = Ibz::default();
     let mut sums = ibz_mat_2x2_init();
     for i in 0..2 {
         for j in 0..2 {
@@ -82,8 +82,8 @@ pub fn ibz_2x2_mul_mod(prod: &mut IbzMat2x2, mat_a: &IbzMat2x2, mat_b: &IbzMat2x
 /// Modular inverse of a 2×2 matrix. Returns 1 if `det` is invertible mod `m`,
 /// 0 otherwise (and writes the zero matrix).
 pub fn ibz_mat_2x2_inv_mod(inv: &mut IbzMat2x2, mat: &IbzMat2x2, m: &Ibz) -> i32 {
-    let mut det = Ibz::new();
-    let mut prod = Ibz::new();
+    let mut det = Ibz::default();
+    let mut prod = Ibz::default();
     ibz_mul(&mut det, &mat[0][0], &mat[1][1]);
     let t = det.clone();
     ibz_mod(&mut det, &t, m);
@@ -120,15 +120,15 @@ pub fn ibz_mat_2x2_inv_mod(inv: &mut IbzMat2x2, mat: &IbzMat2x2, m: &Ibz) -> i32
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     #[test]
     fn det2x2() {
-        let mut d = Ibz::new();
+        let mut d = Ibz::default();
         ibz_mat_2x2_det_from_ibz(&mut d, &z(3), &z(2), &z(5), &z(7));
         assert_eq!(d, 11);
     }

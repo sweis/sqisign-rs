@@ -17,19 +17,27 @@ pub type Ibq = [Ibz; 2];
 
 #[inline]
 pub fn ibz_vec_2_init() -> IbzVec2 {
-    [Ibz::new(), Ibz::new()]
+    [Ibz::default(), Ibz::default()]
 }
 #[inline]
 pub fn ibz_vec_4_init() -> IbzVec4 {
-    [Ibz::new(), Ibz::new(), Ibz::new(), Ibz::new()]
+    [
+        Ibz::default(),
+        Ibz::default(),
+        Ibz::default(),
+        Ibz::default(),
+    ]
 }
 #[inline]
 pub fn ibz_mat_2x2_init() -> IbzMat2x2 {
-    [[Ibz::new(), Ibz::new()], [Ibz::new(), Ibz::new()]]
+    [
+        [Ibz::default(), Ibz::default()],
+        [Ibz::default(), Ibz::default()],
+    ]
 }
 #[inline]
 pub fn ibz_mat_4x4_init() -> IbzMat4x4 {
-    core::array::from_fn(|_| core::array::from_fn(|_| Ibz::new()))
+    core::array::from_fn(|_| core::array::from_fn(|_| Ibz::default()))
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +105,7 @@ impl Default for QuatLeftIdeal {
     fn default() -> Self {
         Self {
             lattice: QuatLattice::default(),
-            norm: Ibz::new(),
+            norm: Ibz::default(),
             parent_order: None,
         }
     }

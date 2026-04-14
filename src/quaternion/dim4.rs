@@ -65,7 +65,7 @@ pub fn ibz_vec_4_linear_combination(
     coeff_b: &Ibz,
     vec_b: &IbzVec4,
 ) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut sums = ibz_vec_4_init();
     for i in 0..4 {
         ibz_mul(&mut sums[i], coeff_a, &vec_a[i]);
@@ -83,7 +83,7 @@ pub fn ibz_vec_4_scalar_mul(prod: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) {
 }
 
 pub fn ibz_vec_4_scalar_div(quot: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) -> i32 {
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     let mut ok = 1;
     for i in 0..4 {
         ibz_div(&mut quot[i], &mut r, &vec[i], scalar);
@@ -96,7 +96,7 @@ pub fn ibz_vec_4_scalar_div(quot: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) -> 
 // IbzMat4x4
 
 pub fn ibz_mat_4x4_mul(res: &mut IbzMat4x4, a: &IbzMat4x4, b: &IbzMat4x4) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut mat = ibz_mat_4x4_init();
     for i in 0..4 {
         for j in 0..4 {
@@ -194,7 +194,7 @@ pub fn ibz_mat_4x4_gcd(gcd: &mut Ibz, mat: &IbzMat4x4) {
 }
 
 pub fn ibz_mat_4x4_scalar_div(quot: &mut IbzMat4x4, scalar: &Ibz, mat: &IbzMat4x4) -> i32 {
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     let mut ok = 1;
     for i in 0..4 {
         for j in 0..4 {
@@ -208,8 +208,8 @@ pub fn ibz_mat_4x4_scalar_div(quot: &mut IbzMat4x4, scalar: &Ibz, mat: &IbzMat4x
 // 4×4 inversion via Laplace expansion (geometrictools method).
 
 fn coeff_pmp(out: &mut Ibz, a1: &Ibz, a2: &Ibz, b1: &Ibz, b2: &Ibz, c1: &Ibz, c2: &Ibz) {
-    let mut prod = Ibz::new();
-    let mut sum = Ibz::new();
+    let mut prod = Ibz::default();
+    let mut sum = Ibz::default();
     ibz_mul(&mut sum, a1, a2);
     ibz_mul(&mut prod, b1, b2);
     let t = sum.clone();
@@ -219,8 +219,8 @@ fn coeff_pmp(out: &mut Ibz, a1: &Ibz, a2: &Ibz, b1: &Ibz, b2: &Ibz, c1: &Ibz, c2
 }
 
 fn coeff_mpm(out: &mut Ibz, a1: &Ibz, a2: &Ibz, b1: &Ibz, b2: &Ibz, c1: &Ibz, c2: &Ibz) {
-    let mut prod = Ibz::new();
-    let mut sum = Ibz::new();
+    let mut prod = Ibz::default();
+    let mut sum = Ibz::default();
     ibz_mul(&mut sum, b1, b2);
     ibz_mul(&mut prod, a1, a2);
     let t = sum.clone();
@@ -259,11 +259,11 @@ pub fn ibz_mat_4x4_inv_with_det_as_denom(
     det: &mut Ibz,
     mat: &IbzMat4x4,
 ) -> i32 {
-    let mut prod = Ibz::new();
-    let mut work_det = Ibz::new();
+    let mut prod = Ibz::default();
+    let mut work_det = Ibz::default();
     let mut work = ibz_mat_4x4_init();
-    let mut s: [Ibz; 6] = core::array::from_fn(|_| Ibz::new());
-    let mut c: [Ibz; 6] = core::array::from_fn(|_| Ibz::new());
+    let mut s: [Ibz; 6] = core::array::from_fn(|_| Ibz::default());
+    let mut c: [Ibz; 6] = core::array::from_fn(|_| Ibz::default());
 
     // 2×2 minors.
     for i in 0..3 {
@@ -379,16 +379,16 @@ pub fn ibz_mat_4x4_inv_with_det_as_denom(
     }
 
     if let Some(inv) = inv {
-        ibz_set(&mut prod, (!work_det.is_zero()) as i32);
+        ibz_set(&mut prod, (ibz_is_zero(&work_det) == 0) as i32);
         ibz_mat_4x4_scalar_mul(inv, &prod, &work);
     }
     ibz_copy(det, &work_det);
-    (!det.is_zero()) as i32
+    (ibz_is_zero(det) == 0) as i32
 }
 
 /// `res = mat * vec`.
 pub fn ibz_mat_4x4_eval(res: &mut IbzVec4, mat: &IbzMat4x4, vec: &IbzVec4) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut sum = ibz_vec_4_init();
     for i in 0..4 {
         for j in 0..4 {
@@ -402,7 +402,7 @@ pub fn ibz_mat_4x4_eval(res: &mut IbzVec4, mat: &IbzMat4x4, vec: &IbzVec4) {
 
 /// `res = vecᵀ * mat`.
 pub fn ibz_mat_4x4_eval_t(res: &mut IbzVec4, vec: &IbzVec4, mat: &IbzMat4x4) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut sum = ibz_vec_4_init();
     for i in 0..4 {
         for j in 0..4 {
@@ -416,7 +416,7 @@ pub fn ibz_mat_4x4_eval_t(res: &mut IbzVec4, vec: &IbzVec4, mat: &IbzMat4x4) {
 
 /// Quadratic form evaluation: `res = coordᵀ · qf · coord`.
 pub fn quat_qf_eval(res: &mut Ibz, qf: &IbzMat4x4, coord: &IbzVec4) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let mut sum = ibz_vec_4_init();
     ibz_mat_4x4_eval(&mut sum, qf, coord);
     for i in 0..4 {
@@ -434,10 +434,10 @@ pub fn quat_qf_eval(res: &mut Ibz, qf: &IbzMat4x4, coord: &IbzVec4) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     fn mat_from(rows: [[i64; 4]; 4]) -> IbzMat4x4 {
@@ -451,7 +451,7 @@ mod tests {
         let mut r = ibz_vec_4_init();
         ibz_vec_4_add(&mut r, &a, &b);
         assert_eq!(r[3], 12);
-        let mut g = Ibz::new();
+        let mut g = Ibz::default();
         ibz_vec_4_content(&mut g, &[z(6), z(10), z(14), z(22)]);
         assert_eq!(g, 2);
         ibz_vec_4_linear_combination(&mut r, &z(2), &a, &z(3), &b);
@@ -482,7 +482,7 @@ mod tests {
         // A matrix with known det.
         let m = mat_from([[2, 0, 0, 0], [0, 3, 0, 0], [0, 0, 5, 0], [0, 0, 0, 7]]);
         let mut inv = ibz_mat_4x4_init();
-        let mut det = Ibz::new();
+        let mut det = Ibz::default();
         assert_eq!(
             ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv), &mut det, &m),
             1
@@ -499,7 +499,7 @@ mod tests {
         }
         // A non-diagonal example.
         let m2 = mat_from([[1, 2, 0, 1], [0, 1, 3, 0], [2, 0, 1, 1], [1, 1, 0, 2]]);
-        let mut det2 = Ibz::new();
+        let mut det2 = Ibz::default();
         let mut inv2 = ibz_mat_4x4_init();
         assert_eq!(
             ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv2), &mut det2, &m2),
@@ -515,7 +515,7 @@ mod tests {
         }
         // Singular: det = 0.
         let sing = mat_from([[1, 2, 3, 4], [2, 4, 6, 8], [0, 1, 0, 1], [1, 0, 1, 0]]);
-        let mut det3 = Ibz::new();
+        let mut det3 = Ibz::default();
         assert_eq!(ibz_mat_4x4_inv_with_det_as_denom(None, &mut det3, &sing), 0);
         assert_eq!(det3, 0);
     }
@@ -526,7 +526,7 @@ mod tests {
         let mut id = ibz_mat_4x4_init();
         ibz_mat_4x4_identity(&mut id);
         let v: IbzVec4 = [z(1), z(2), z(3), z(4)];
-        let mut r = Ibz::new();
+        let mut r = Ibz::default();
         quat_qf_eval(&mut r, &id, &v);
         assert_eq!(r, 30);
     }

@@ -27,7 +27,7 @@ use crate::ec::biextension::weil;
 // ---------------------------------------------------------------------------
 
 fn ibz_from_limbs(limbs: &[u64]) -> Ibz {
-    let mut x = Ibz::new();
+    let mut x = Ibz::default();
     ibz_copy_digits(&mut x, limbs);
     x
 }
@@ -79,7 +79,7 @@ impl Drop for SecretKey {
         }
         // Overwrite GMP-backed integers with zero (does not guarantee old limb
         // buffers are scrubbed if a realloc occurred, but clears the final state).
-        let zero = crate::quaternion::Ibz::new();
+        let zero = crate::quaternion::Ibz::default();
         self.secret_ideal.norm.clone_from(&zero);
         for row in self.secret_ideal.lattice.basis.iter_mut() {
             for e in row.iter_mut() {
@@ -183,8 +183,8 @@ fn decode_digits(x: &mut [Digit], enc: &[u8], nbytes: usize) {
 fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
     #[cfg(debug_assertions)]
     {
-        let mut bnd = Ibz::new();
-        let mut absv = Ibz::new();
+        let mut bnd = Ibz::default();
+        let mut absv = Ibz::default();
         ibz_pow(
             &mut bnd,
             ibz_const_two(),
@@ -199,7 +199,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
         ibz_to_digits(&mut d, x);
     } else {
         debug_assert!(sgn);
-        let mut tmp = Ibz::new();
+        let mut tmp = Ibz::default();
         ibz_neg(&mut tmp, x);
         let s = tmp.clone();
         ibz_sub(&mut tmp, &s, ibz_const_one());
@@ -278,7 +278,7 @@ pub fn secret_key_from_bytes(sk: &mut SecretKey, pk: &mut PublicKey, enc: &[u8])
     p += PUBLICKEY_BYTES;
 
     {
-        let mut norm = Ibz::new();
+        let mut norm = Ibz::default();
         let mut gen = QuatAlgElem::default();
         p += ibz_from_bytes(&mut norm, &enc[p..], FP_ENCODED_BYTES, false);
         for k in 0..4 {
@@ -359,7 +359,7 @@ fn compute_challenge_ideal_signature(
 }
 
 fn sample_response(x: &mut QuatAlgElem, lattice: &QuatLattice, lattice_content: &Ibz) {
-    let mut bound = Ibz::new();
+    let mut bound = Ibz::default();
     ibz_pow(&mut bound, ibz_const_two(), SQISIGN_RESPONSE_LENGTH as u32);
     let s = bound.clone();
     ibz_sub(&mut bound, &s, ibz_const_one());
@@ -410,7 +410,7 @@ fn compute_backtracking_signature(
     lattice_content: &mut Ibz,
     remain: &mut Ibz,
 ) {
-    let mut tmp = Ibz::new();
+    let mut tmp = Ibz::default();
     let mut dummy_coord = ibz_vec_4_init();
 
     quat_alg_make_primitive(&mut dummy_coord, &mut tmp, resp_quat, maxord_o0());
@@ -436,10 +436,10 @@ fn compute_random_aux_norm_and_helpers(
     lideal_com_resp: &mut QuatLeftIdeal,
     lideal_commit: &QuatLeftIdeal,
 ) -> u8 {
-    let mut degree_full_resp = Ibz::new();
-    let mut degree_odd_resp = Ibz::new();
-    let mut norm_d = Ibz::new();
-    let mut tmp = Ibz::new();
+    let mut degree_full_resp = Ibz::default();
+    let mut degree_odd_resp = Ibz::default();
+    let mut norm_d = Ibz::default();
+    let mut tmp = Ibz::default();
 
     quat_alg_norm(
         &mut degree_full_resp,
@@ -612,7 +612,7 @@ fn compute_small_chain_isogeny_signature(
     length: i32,
 ) -> i32 {
     let mut ret = 1;
-    let mut two_pow = Ibz::new();
+    let mut two_pow = Ibz::default();
     let mut vec_resp_two = ibz_vec_2_init();
     let mut lideal_resp_two = QuatLeftIdeal::default();
 
@@ -785,10 +785,10 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
     let mut reduced_order: i32 = 0;
     let mut pow_dim2_deg_resp: u8;
 
-    let mut remain = Ibz::new();
-    let mut lattice_content = Ibz::new();
-    let mut random_aux_norm = Ibz::new();
-    let mut degree_resp_inv = Ibz::new();
+    let mut remain = Ibz::default();
+    let mut lattice_content = Ibz::default();
+    let mut random_aux_norm = Ibz::default();
+    let mut degree_resp_inv = Ibz::default();
 
     let mut resp_quat = QuatAlgElem::default();
     let mut lideal_commit = QuatLeftIdeal::default();

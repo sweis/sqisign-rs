@@ -14,8 +14,8 @@ pub fn quat_lattice_bound_parallelogram(
     g: &IbzMat4x4,
     radius: &Ibz,
 ) -> i32 {
-    let mut denom = Ibz::new();
-    let mut rem = Ibz::new();
+    let mut denom = Ibz::default();
+    let mut rem = Ibz::default();
     let mut dual_g = ibz_mat_4x4_init();
 
     let inv_check = ibz_mat_4x4_inv_with_det_as_denom(Some(&mut dual_g), &mut denom, g);
@@ -40,7 +40,7 @@ pub fn quat_lattice_bound_parallelogram(
     #[cfg(debug_assertions)]
     {
         debug_assert!(inv != 0);
-        let mut a = Ibz::new();
+        let mut a = Ibz::default();
         ibz_abs(&mut a, &denom);
         debug_assert!(ibz_is_one(&a) != 0);
     }
@@ -59,8 +59,8 @@ pub fn quat_lattice_sample_from_ball(
     let mut u = ibz_mat_4x4_init();
     let mut g = ibz_mat_4x4_init();
     let mut x = ibz_vec_4_init();
-    let mut rad = Ibz::new();
-    let mut tmp = Ibz::new();
+    let mut rad = Ibz::default();
+    let mut tmp = Ibz::default();
 
     quat_lattice_gram(&mut g, lattice, alg);
     ibz_mul(&mut rad, radius, &lattice.denom);
@@ -111,10 +111,10 @@ pub fn quat_lattice_sample_from_ball(
 
     #[cfg(debug_assertions)]
     {
-        let mut nn = Ibz::new();
-        let mut nd = Ibz::new();
+        let mut nn = Ibz::default();
+        let mut nd = Ibz::default();
         quat_alg_norm(&mut nn, &mut nd, res, alg);
-        let mut bound = Ibz::new();
+        let mut bound = Ibz::default();
         ibz_mul(&mut bound, &nd, radius);
         debug_assert!(ibz_cmp(&nn, &bound) <= 0);
     }
@@ -139,8 +139,8 @@ mod tests {
             quat_lattice_sample_from_ball(&mut res, &lat, &alg, &radius),
             1
         );
-        let mut nn = Ibz::new();
-        let mut nd = Ibz::new();
+        let mut nn = Ibz::default();
+        let mut nd = Ibz::default();
         quat_alg_norm(&mut nn, &mut nd, &res, &alg);
         assert!(nn <= radius * &nd);
         assert_eq!(quat_lattice_contains(None, &lat, &res), 1);

@@ -9,7 +9,7 @@ pub type IbqMat4x4 = [[Ibq; 4]; 4];
 
 #[inline]
 pub fn ibq_init() -> Ibq {
-    [Ibz::new(), Ibz::from(1)]
+    [Ibz::default(), Ibz::from(1)]
 }
 #[inline]
 pub fn ibq_vec_4_init() -> IbqVec4 {
@@ -21,8 +21,8 @@ pub fn ibq_mat_4x4_init() -> IbqMat4x4 {
 }
 
 pub fn ibq_reduce(x: &mut Ibq) {
-    let mut gcd = Ibz::new();
-    let mut r = Ibz::new();
+    let mut gcd = Ibz::default();
+    let mut r = Ibz::default();
     ibz_gcd(&mut gcd, &x[0], &x[1]);
     let n = x[0].clone();
     ibz_div(&mut x[0], &mut r, &n, &gcd);
@@ -33,8 +33,8 @@ pub fn ibq_reduce(x: &mut Ibq) {
 }
 
 pub fn ibq_add(sum: &mut Ibq, a: &Ibq, b: &Ibq) {
-    let mut add = Ibz::new();
-    let mut prod = Ibz::new();
+    let mut add = Ibz::default();
+    let mut prod = Ibz::default();
     ibz_mul(&mut add, &a[0], &b[1]);
     ibz_mul(&mut prod, &b[0], &a[1]);
     ibz_add(&mut sum[0], &add, &prod);
@@ -119,13 +119,13 @@ pub fn ibq_copy(target: &mut Ibq, value: &Ibq) {
 }
 
 pub fn ibq_is_ibz(q: &Ibq) -> i32 {
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     ibz_mod(&mut r, &q[0], &q[1]);
     ibz_is_zero(&r)
 }
 
 pub fn ibq_to_ibz(z: &mut Ibz, q: &Ibq) -> i32 {
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     ibz_div(z, &mut r, &q[0], &q[1]);
     ibz_is_zero(&r)
 }
@@ -133,10 +133,10 @@ pub fn ibq_to_ibz(z: &mut Ibz, q: &Ibq) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
     fn q(n: i64, d: i64) -> Ibq {
         [z(n), z(d)]
@@ -176,7 +176,7 @@ mod tests {
         assert!(ibq_cmp(&a, &q(3, 5)) == 0);
         assert_eq!(ibq_is_ibz(&q(6, 3)), 1);
         assert_eq!(ibq_is_ibz(&q(5, 3)), 0);
-        let mut zz = Ibz::new();
+        let mut zz = Ibz::default();
         assert_eq!(ibq_to_ibz(&mut zz, &q(6, 3)), 1);
         assert_eq!(zz, 2);
     }

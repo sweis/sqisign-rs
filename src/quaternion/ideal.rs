@@ -36,8 +36,8 @@ pub fn quat_lideal_create_principal(
 ) {
     debug_assert!(quat_order_is_maximal(order, alg) != 0);
     debug_assert!(quat_lattice_contains(None, order, x) != 0);
-    let mut norm_n = Ibz::new();
-    let mut norm_d = Ibz::new();
+    let mut norm_n = Ibz::default();
+    let mut norm_d = Ibz::default();
     quat_lattice_alg_elem_mul(&mut lideal.lattice, order, x, alg);
     let l = lideal.lattice.clone();
     quat_lattice_reduce_denom(&mut lideal.lattice, &l);
@@ -67,11 +67,11 @@ pub fn quat_lideal_create(
 }
 
 pub fn quat_lideal_generator(gen: &mut QuatAlgElem, lideal: &QuatLeftIdeal, alg: &QuatAlg) -> i32 {
-    let mut norm_int = Ibz::new();
-    let mut norm_denom = Ibz::new();
-    let mut gcd = Ibz::new();
-    let mut r = Ibz::new();
-    let mut q = Ibz::new();
+    let mut norm_int = Ibz::default();
+    let mut norm_denom = Ibz::default();
+    let mut gcd = Ibz::default();
+    let mut r = Ibz::default();
+    let mut q = Ibz::default();
     let mut vec = ibz_vec_4_init();
     let mut int_norm = 0i32;
     loop {
@@ -109,8 +109,8 @@ pub fn quat_lideal_mul(
     alg: &QuatAlg,
 ) {
     debug_assert!(quat_order_is_maximal(lideal.parent_order.unwrap(), alg) != 0);
-    let mut norm = Ibz::new();
-    let mut norm_d = Ibz::new();
+    let mut norm = Ibz::default();
+    let mut norm_d = Ibz::default();
     quat_lattice_alg_elem_mul(&mut product.lattice, &lideal.lattice, alpha, alg);
     product.parent_order = lideal.parent_order;
     quat_alg_norm(&mut norm, &mut norm_d, alpha, alg);
@@ -192,8 +192,8 @@ pub fn quat_lideal_right_order(order: &mut QuatLattice, lideal: &QuatLeftIdeal, 
 
 pub fn quat_lideal_class_gram(g: &mut IbzMat4x4, lideal: &QuatLeftIdeal, alg: &QuatAlg) {
     quat_lattice_gram(g, &lideal.lattice, alg);
-    let mut divisor = Ibz::new();
-    let mut rmd = Ibz::new();
+    let mut divisor = Ibz::default();
+    let mut rmd = Ibz::default();
     ibz_mul(&mut divisor, &lideal.lattice.denom, &lideal.lattice.denom);
     let d = divisor.clone();
     ibz_mul(&mut divisor, &d, &lideal.norm);
@@ -243,9 +243,9 @@ pub fn quat_lideal_conjugate_without_hnf_dyn(
 }
 
 pub fn quat_order_discriminant(disc: &mut Ibz, order: &QuatLattice, alg: &QuatAlg) -> i32 {
-    let mut det = Ibz::new();
-    let mut sqr = Ibz::new();
-    let mut div = Ibz::new();
+    let mut det = Ibz::default();
+    let mut sqr = Ibz::default();
+    let mut div = Ibz::default();
     let mut transposed = ibz_mat_4x4_init();
     let mut norm = ibz_mat_4x4_init();
     let mut prod = ibz_mat_4x4_init();
@@ -272,7 +272,7 @@ pub fn quat_order_discriminant(disc: &mut Ibz, order: &QuatLattice, alg: &QuatAl
 }
 
 pub fn quat_order_is_maximal(order: &QuatLattice, alg: &QuatAlg) -> i32 {
-    let mut disc = Ibz::new();
+    let mut disc = Ibz::default();
     quat_order_discriminant(&mut disc, order, alg);
     (ibz_cmp(&disc, &alg.p) == 0) as i32
 }
@@ -290,7 +290,7 @@ pub fn quat_lideal_reduce_basis(
     if let Some(po) = lideal.parent_order {
         debug_assert!(quat_order_is_maximal(po, alg) != 0);
     }
-    let mut gram_corrector = Ibz::new();
+    let mut gram_corrector = Ibz::default();
     ibz_mul(
         &mut gram_corrector,
         &lideal.lattice.denom,
@@ -359,9 +359,9 @@ pub fn quat_lideal_prime_norm_reduced_equivalent(
     quat_lideal_reduce_basis(&mut red, &mut gram, &li, alg);
 
     let mut new_alpha = QuatAlgElem::default();
-    let mut tmp = Ibz::new();
-    let mut remainder = Ibz::new();
-    let mut adjusted_norm = Ibz::new();
+    let mut tmp = Ibz::default();
+    let mut remainder = Ibz::default();
+    let mut adjusted_norm = Ibz::default();
     ibz_mul(
         &mut adjusted_norm,
         &lideal.lattice.denom,
@@ -408,11 +408,11 @@ pub fn quat_lideal_prime_norm_reduced_equivalent(
 mod tests {
     use super::super::normeq::quat_lattice_o0_set;
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
     use std::sync::OnceLock;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     fn o0() -> &'static QuatLattice {

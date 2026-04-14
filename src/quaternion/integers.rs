@@ -12,8 +12,8 @@ pub fn ibz_generate_random_prime(
 ) -> i32 {
     debug_assert!(bitsize != 0);
     let extra = is3mod4 as u32;
-    let mut two_pow = Ibz::new();
-    let mut two_powp = Ibz::new();
+    let mut two_pow = Ibz::default();
+    let mut two_powp = Ibz::default();
     ibz_pow(&mut two_pow, ibz_const_two(), bitsize - 1 - extra);
     ibz_pow(&mut two_powp, ibz_const_two(), bitsize - extra);
 
@@ -46,11 +46,11 @@ pub fn ibz_generate_random_prime(
 /// Solve `x² + n·y² = p` for positive `x, y`. Assumes `p` prime.
 /// Returns 1 on success, 0 if no solution exists.
 pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
-    let mut r0 = Ibz::new();
-    let mut r1 = Ibz::new();
-    let mut r2 = Ibz::new();
-    let mut a = Ibz::new();
-    let mut prod = Ibz::new();
+    let mut r0 = Ibz::default();
+    let mut r1 = Ibz::default();
+    let mut r2 = Ibz::default();
+    let mut a = Ibz::default();
+    let mut prod = Ibz::default();
 
     // p = 2
     if ibz_cmp(p, ibz_const_two()) == 0 {
@@ -113,15 +113,15 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     #[test]
     fn cornacchia_small() {
-        let (mut x, mut y) = (Ibz::new(), Ibz::new());
+        let (mut x, mut y) = (Ibz::default(), Ibz::default());
         // n=1: x² + y² = p
         for &(p, ex, ey) in &[(5, 1, 2), (13, 2, 3), (29, 2, 5), (97, 4, 9)] {
             assert_eq!(
@@ -154,11 +154,12 @@ mod tests {
 
     #[test]
     fn cornacchia_large() {
-        let p = Integer::from_str_radix("100000000000000000000000000000000000133", 10).unwrap();
+        let mut p = Ibz::default();
+        ibz_set_from_str(&mut p, "100000000000000000000000000000000000133", 10);
         assert!(ibz_probab_prime(&p, 30) > 0);
-        let (mut x, mut y) = (Ibz::new(), Ibz::new());
+        let (mut x, mut y) = (Ibz::default(), Ibz::default());
         // p ≡ 1 mod 4, so x²+y²=p solvable.
-        assert_eq!(p.mod_u(4), 1);
+        assert_eq!(ibz_mod_ui(&p, 4), 1);
         assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &p), 1);
         assert_eq!(x.clone() * x.clone() + y.clone() * y.clone(), p);
     }

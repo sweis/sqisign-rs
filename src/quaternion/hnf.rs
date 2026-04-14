@@ -6,18 +6,10 @@ use super::dim4::*;
 use super::intbig::*;
 use super::types::*;
 
-/// Extended GCD: `gcd = u·a + v·b`. Direct wrapper of GMP `mpz_gcdext`.
-pub fn ibz_xgcd(gcd: &mut Ibz, u: &mut Ibz, v: &mut Ibz, a: &Ibz, b: &Ibz) {
-    let (g, su, sv) = a.clone().extended_gcd(b.clone(), Ibz::new());
-    *gcd = g;
-    *u = su;
-    *v = sv;
-}
-
 /// `res = x mod m`, but mapped to `(0, m]` instead of `[0, m)`.
 pub fn ibz_mod_not_zero(res: &mut Ibz, x: &Ibz, modn: &Ibz) {
-    let mut m = Ibz::new();
-    let mut t = Ibz::new();
+    let mut m = Ibz::default();
+    let mut t = Ibz::default();
     ibz_mod(&mut m, x, modn);
     ibz_set(&mut t, ibz_is_zero(&m));
     let s = t.clone();
@@ -28,9 +20,9 @@ pub fn ibz_mod_not_zero(res: &mut Ibz, x: &Ibz, modn: &Ibz) {
 /// Centered remainder in `(-m/2, m/2]` (positive when on the boundary).
 pub fn ibz_centered_mod(remainder: &mut Ibz, a: &Ibz, modn: &Ibz) {
     debug_assert!(ibz_cmp(modn, ibz_const_zero()) > 0);
-    let mut tmp = Ibz::new();
-    let mut d = Ibz::new();
-    let mut t = Ibz::new();
+    let mut tmp = Ibz::default();
+    let mut d = Ibz::default();
+    let mut t = Ibz::default();
     ibz_div_floor(&mut d, &mut tmp, modn, ibz_const_two());
     ibz_mod_not_zero(&mut tmp, a, modn);
     ibz_set(&mut t, (ibz_cmp(&tmp, &d) > 0) as i32);
@@ -41,9 +33,9 @@ pub fn ibz_centered_mod(remainder: &mut Ibz, a: &Ibz, modn: &Ibz) {
 
 /// `res = if c { x } else { y }` via arithmetic select (matches C).
 pub fn ibz_conditional_assign(res: &mut Ibz, x: &Ibz, y: &Ibz, c: i32) {
-    let mut s = Ibz::new();
-    let mut t = Ibz::new();
-    let mut r = Ibz::new();
+    let mut s = Ibz::default();
+    let mut t = Ibz::default();
+    let mut r = Ibz::default();
     ibz_set(&mut s, (c != 0) as i32);
     ibz_sub(&mut t, ibz_const_one(), &s);
     ibz_mul(&mut r, &s, x);
@@ -61,8 +53,8 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
         ibz_set(v, 0);
         return;
     }
-    let mut q = Ibz::new();
-    let mut r = Ibz::new();
+    let mut q = Ibz::default();
+    let mut r = Ibz::default();
     let x1 = x.clone();
     let mut y1 = y.clone();
 
@@ -110,8 +102,8 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
 
     #[cfg(debug_assertions)]
     {
-        let mut sum = Ibz::new();
-        let mut prod = Ibz::new();
+        let mut sum = Ibz::default();
+        let mut prod = Ibz::default();
         let mut res = false;
         res |= !(ibz_cmp(d, ibz_const_zero()) >= 0);
         if ibz_is_zero(&x1) != 0 && ibz_is_zero(&y1) != 0 {
@@ -135,7 +127,7 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
 pub fn ibz_mat_4x4_is_hnf(mat: &IbzMat4x4) -> i32 {
     let mut res = true;
     let mut ind = 0;
-    let zero = Ibz::new();
+    let zero = Ibz::default();
     for i in 0..4 {
         for j in 0..i {
             res = res && ibz_is_zero(&mat[i][j]) != 0;
@@ -176,7 +168,7 @@ fn ibz_vec_4_linear_combination_mod(
     vec_b: &IbzVec4,
     modn: &Ibz,
 ) {
-    let mut prod = Ibz::new();
+    let mut prod = Ibz::default();
     let m = modn.clone();
     let mut sums = ibz_vec_4_init();
     for i in 0..4 {
@@ -225,14 +217,14 @@ pub fn ibz_mat_4xn_hnf_mod_core(
     let mut j: i32 = (n - 1) as i32;
     let mut k: i32 = (n - 1) as i32;
 
-    let mut d = Ibz::new();
-    let mut u = Ibz::new();
-    let mut v = Ibz::new();
-    let mut r = Ibz::new();
-    let mut m = Ibz::new();
-    let mut q = Ibz::new();
-    let mut coeff_1 = Ibz::new();
-    let mut coeff_2 = Ibz::new();
+    let mut d = Ibz::default();
+    let mut u = Ibz::default();
+    let mut v = Ibz::default();
+    let mut r = Ibz::default();
+    let mut m = Ibz::default();
+    let mut q = Ibz::default();
+    let mut coeff_1 = Ibz::default();
+    let mut coeff_2 = Ibz::default();
     let mut c = ibz_vec_4_init();
     let mut a: Vec<IbzVec4> = (0..n).map(|h| generators[h].clone()).collect();
     let mut w: [IbzVec4; 4] = core::array::from_fn(|_| ibz_vec_4_init());
@@ -309,48 +301,47 @@ pub fn ibz_mat_4xn_hnf_mod_core(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     #[test]
     fn xgcd_basic() {
-        let (mut g, mut u, mut v) = (Ibz::new(), Ibz::new(), Ibz::new());
+        let (mut g, mut u, mut v) = (Ibz::default(), Ibz::default(), Ibz::default());
         ibz_xgcd(&mut g, &mut u, &mut v, &z(12), &z(18));
-        assert_eq!(g, 6);
-        assert_eq!(u.clone() * 12 + v.clone() * 18, g);
+        assert_eq!(g, z(6));
+        assert_eq!(u.clone() * z(12) + v.clone() * z(18), g);
     }
 
     #[test]
     fn xgcd_with_u_not_0_properties() {
         for &(x, y) in &[(12, 18), (0, 5), (5, 0), (7, 14), (-6, 9), (4, -10)] {
-            let (mut d, mut u, mut v) = (Ibz::new(), Ibz::new(), Ibz::new());
+            let (mut d, mut u, mut v) = (Ibz::default(), Ibz::default(), Ibz::default());
             ibz_xgcd_with_u_not_0(&mut d, &mut u, &mut v, &z(x), &z(y));
-            assert!(d > 0);
-            assert!(u != 0);
-            assert_eq!(u.clone() * x + v.clone() * y, d);
+            assert!(d > z(0));
+            assert!(u != z(0));
+            assert_eq!(u.clone() * z(x) + v.clone() * z(y), d);
             if x != 0 {
-                assert!(Ibz::from(x) * &u > 0);
+                assert!(z(x) * &u > z(0));
             }
         }
-        // Both zero special-case.
-        let (mut d, mut u, mut v) = (Ibz::new(), Ibz::new(), Ibz::new());
+        let (mut d, mut u, mut v) = (Ibz::default(), Ibz::default(), Ibz::default());
         ibz_xgcd_with_u_not_0(&mut d, &mut u, &mut v, &z(0), &z(0));
-        assert_eq!(d, 1);
-        assert_eq!(u, 1);
-        assert_eq!(v, 0);
+        assert_eq!(d, z(1));
+        assert_eq!(u, z(1));
+        assert_eq!(v, z(0));
     }
 
     #[test]
     fn centered_mod() {
         let m = z(7);
         for x in -20..20 {
-            let mut r = Ibz::new();
+            let mut r = Ibz::default();
             ibz_centered_mod(&mut r, &z(x), &m);
             assert!(r > z(-4) && r <= z(3), "x={x} r={r}");
-            assert_eq!((z(x) - &r).clone() % 7, 0);
+            assert_eq!(ibz_mod_ui(&(z(x) - &r), 7), 0);
         }
     }
 
@@ -358,10 +349,10 @@ mod tests {
     fn mod_not_zero() {
         let m = z(5);
         for x in -10..10 {
-            let mut r = Ibz::new();
+            let mut r = Ibz::default();
             ibz_mod_not_zero(&mut r, &z(x), &m);
-            assert!(r > 0 && r <= 5);
-            assert_eq!((z(x) - &r).clone() % 5, 0);
+            assert!(r > z(0) && r <= z(5));
+            assert_eq!(ibz_mod_ui(&(z(x) - &r), 5), 0);
         }
     }
 
@@ -398,7 +389,7 @@ mod tests {
         // These span the index-2 sublattice {v : Σvᵢ even}.
         ibz_mat_4xn_hnf_mod_core(&mut hnf, 8, &gens, &z(16));
         assert_eq!(ibz_mat_4x4_is_hnf(&hnf), 1);
-        let mut det = Ibz::new();
+        let mut det = Ibz::default();
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &hnf);
         assert_eq!(det, 2);
         // Adding e₀ generator yields all of Z^4.

@@ -5,8 +5,7 @@
 //! Clean-room implementation of the subset of operations used by `lll/l2.c`;
 //! the upstream `dpe.h` is LGPL and is not used or referenced here.
 
-use super::intbig::Ibz;
-use rug::Assign;
+use super::intbig::{ibz_get_d_2exp, ibz_set, ibz_set_from_mantissa_shift, Ibz};
 
 /// Value represented is `m · 2^e`. After normalization either `m == 0` or
 /// `0.5 <= |m| < 1`.
@@ -79,48 +78,21 @@ impl Dpe {
     /// Load from a big integer with `mpz_get_d_2exp` semantics: mantissa in
     /// `[0.5, 1)` truncated (not rounded) to 53 bits, plus the exact exponent.
     pub fn set_z(&mut self, z: &Ibz) {
-        if z.is_zero() {
-            *self = Dpe::ZERO;
-            return;
-        }
-        let bits = z.significant_bits() as i64;
-        // Extract exactly the top 53 bits of |z| (truncating any lower bits).
-        let shift = (bits - 53).max(0);
-        let top: Ibz = z.clone().abs() >> (shift as u32);
-        let top_u = top.to_u64().expect("≤53 bits");
-        // top_u has ≤53 bits → conversion to f64 is exact.
-        let m = top_u as f64;
-        let (mn, me) = frexp(m);
-        self.m = if z.is_negative() { -mn } else { mn };
-        self.e = shift + me;
+        let (d, e) = ibz_get_d_2exp(z);
+        self.m = d;
+        self.e = e;
     }
 
     /// Convert to a big integer (truncating any fractional part).
     pub fn get_z(&self, out: &mut Ibz) {
         if self.m == 0.0 {
-            out.assign(0);
+            ibz_set(out, 0);
             return;
         }
         // Mantissa has 53 significant bits; scale to an integer then shift.
         let scaled = self.m * (1u64 << 53) as f64;
         let int_m = scaled.trunc() as i64;
-        out.assign(int_m);
-        let shift = self.e - 53;
-        if shift >= 0 {
-            *out <<= shift as u32;
-        } else {
-            // Truncating division by power of two.
-            let neg = out.is_negative();
-            if neg {
-                let t = out.clone();
-                out.assign(-t);
-            }
-            *out >>= (-shift) as u32;
-            if neg {
-                let t = out.clone();
-                out.assign(-t);
-            }
-        }
+        ibz_set_from_mantissa_shift(out, int_m, self.e - 53);
     }
 
     pub fn set(&mut self, src: &Dpe) {
@@ -218,8 +190,8 @@ impl Dpe {
 
 #[cfg(test)]
 mod tests {
+    use super::super::intbig::{ibz_abs, ibz_div_2exp, ibz_from_i64, ibz_pow, ibz_set_from_str};
     use super::*;
-    use rug::Integer;
 
     fn approx_eq(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-10 * b.abs().max(1.0)
@@ -261,50 +233,47 @@ mod tests {
     #[test]
     fn round_and_get_z() {
         let mut x = Dpe::ZERO;
-        x.set_d(2.5);
         let mut r = Dpe::ZERO;
-        r.round(&x);
-        let mut z = Ibz::new();
-        r.get_z(&mut z);
-        assert_eq!(z, 3); // half-away-from-zero
-        x.set_d(4.5);
-        r.round(&x);
-        r.get_z(&mut z);
-        assert_eq!(z, 5);
-        x.set_d(-2.5);
-        r.round(&x);
-        r.get_z(&mut z);
-        assert_eq!(z, -3);
-        x.set_d(-2.7);
-        r.round(&x);
-        r.get_z(&mut z);
-        assert_eq!(z, -3);
+        let mut z = Ibz::default();
+        for &(v, expect) in &[(2.5, 3), (4.5, 5), (-2.5, -3), (-2.7, -3)] {
+            x.set_d(v);
+            r.round(&x);
+            r.get_z(&mut z);
+            assert_eq!(z, ibz_from_i64(expect), "round({v})");
+        }
     }
 
     #[test]
     fn set_z_get_z_roundtrip() {
-        let big = Integer::from_str_radix("123456789012345678901234567890", 10).unwrap();
+        let mut big = Ibz::default();
+        ibz_set_from_str(&mut big, "123456789012345678901234567890", 10);
         let mut d = Dpe::ZERO;
         d.set_z(&big);
-        let mut back = Ibz::new();
+        let mut back = Ibz::default();
         d.get_z(&mut back);
-        // Only ~53 bits of precision survive.
-        let diff: Ibz = (big.clone() - &back).abs();
-        let allow: Ibz = big.clone() >> 50;
+        let mut diff = Ibz::default();
+        let mut delta = Ibz::default();
+        super::super::intbig::ibz_sub(&mut delta, &big, &back);
+        ibz_abs(&mut diff, &delta);
+        let mut allow = Ibz::default();
+        ibz_div_2exp(&mut allow, &big, 50);
         assert!(diff <= allow, "diff={diff}");
-        // Small ints are exact.
-        d.set_z(&Integer::from(-12345));
+        d.set_z(&ibz_from_i64(-12345));
         d.get_z(&mut back);
-        assert_eq!(back, -12345);
+        assert_eq!(back, ibz_from_i64(-12345));
     }
 
     #[test]
     fn huge_exponents() {
-        // Values way outside f64 range.
         let mut a = Dpe::ZERO;
         let mut b = Dpe::ZERO;
-        a.set_z(&(Ibz::from(1) << 5000));
-        b.set_z(&(Ibz::from(3) << 4999));
+        let mut p = Ibz::default();
+        ibz_pow(&mut p, &ibz_from_i64(2), 5000);
+        a.set_z(&p);
+        let mut p3 = Ibz::default();
+        super::super::intbig::ibz_mul(&mut p3, &p, &ibz_from_i64(3));
+        ibz_div_2exp(&mut p, &p3, 1);
+        b.set_z(&p);
         let mut r = Dpe::ZERO;
         r.div(&a, &b);
         assert!(approx_eq(val(&r), 2.0 / 3.0));

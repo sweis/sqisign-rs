@@ -71,12 +71,12 @@ pub fn quat_represent_integer(
         return 0;
     }
     let mut found = 0i32;
-    let mut cornacchia_target = Ibz::new();
-    let mut adjusted_n_gamma = Ibz::new();
-    let mut q = Ibz::new();
-    let mut bound = Ibz::new();
-    let mut sq_bound = Ibz::new();
-    let mut temp = Ibz::new();
+    let mut cornacchia_target = Ibz::default();
+    let mut adjusted_n_gamma = Ibz::default();
+    let mut q = Ibz::default();
+    let mut bound = Ibz::default();
+    let mut sq_bound = Ibz::default();
+    let mut temp = Ibz::default();
     let mut coeffs = ibz_vec_4_init();
 
     if non_diag != 0 {
@@ -104,7 +104,7 @@ pub fn quat_represent_integer(
     ibz_sub(&mut sq_bound, &t, &temp);
     ibz_sqrt_floor(&mut bound, &sq_bound);
 
-    let mut counter = Ibz::new();
+    let mut counter = Ibz::default();
     let t = temp.clone();
     ibz_mul(&mut temp, &t, &params.algebra.p);
     let t = temp.clone();
@@ -149,7 +149,7 @@ pub fn quat_represent_integer(
         debug_assert!(ibz_cmp(&cornacchia_target, ibz_const_zero()) > 0);
 
         if ibz_probab_prime(&cornacchia_target, params.primality_test_iterations) != 0 {
-            let (mut c0, mut c1) = (Ibz::new(), Ibz::new());
+            let (mut c0, mut c1) = (Ibz::default(), Ibz::default());
             found = ibz_cornacchia_prime(&mut c0, &mut c1, &q, &cornacchia_target);
             coeffs[0] = c0;
             coeffs[1] = c1;
@@ -172,8 +172,8 @@ pub fn quat_represent_integer(
             quat_order_elem_create(gamma, params.order, &coeffs, params.algebra);
             #[cfg(debug_assertions)]
             {
-                let mut nn = Ibz::new();
-                let mut nd = Ibz::new();
+                let mut nn = Ibz::default();
+                let mut nd = Ibz::default();
                 quat_alg_norm(&mut nn, &mut nd, gamma, params.algebra);
                 debug_assert!(ibz_is_one(&nd) != 0);
                 debug_assert!(ibz_cmp(&nn, &adjusted_n_gamma) == 0);
@@ -206,9 +206,9 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
     params: &QuatRepresentIntegerParams,
     prime_cofactor: Option<&Ibz>,
 ) -> i32 {
-    let mut n_temp = Ibz::new();
-    let mut norm_d = Ibz::new();
-    let mut disc = Ibz::new();
+    let mut n_temp = Ibz::default();
+    let mut norm_d = Ibz::default();
+    let mut disc = Ibz::default();
     let mut gen = QuatAlgElem::default();
     let mut gen_rerand = QuatAlgElem::default();
     let mut found = 0i32;
@@ -255,7 +255,7 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
 }
 
 pub fn quat_change_to_o0_basis(vec: &mut IbzVec4, el: &QuatAlgElem) {
-    let mut tmp = Ibz::new();
+    let mut tmp = Ibz::default();
     ibz_copy(&mut vec[2], &el.coord[2]);
     let t = vec[2].clone();
     ibz_add(&mut vec[2], &t, &t);
@@ -280,11 +280,11 @@ pub fn quat_change_to_o0_basis(vec: &mut IbzVec4, el: &QuatAlgElem) {
 mod tests {
     use super::*;
     use crate::common::ctrdrbg;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
     use std::sync::OnceLock;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     fn alg7() -> &'static QuatAlg {
@@ -331,8 +331,8 @@ mod tests {
         let mut gamma = QuatAlgElem::default();
         let ok = quat_represent_integer(&mut gamma, &n, 0, &params);
         assert_eq!(ok, 1);
-        let mut nn = Ibz::new();
-        let mut nd = Ibz::new();
+        let mut nn = Ibz::default();
+        let mut nd = Ibz::default();
         quat_alg_norm(&mut nn, &mut nd, &gamma, alg7());
         assert_eq!(nd, 1);
         assert_eq!(nn, n);

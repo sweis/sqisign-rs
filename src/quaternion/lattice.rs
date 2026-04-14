@@ -8,12 +8,12 @@ use super::intbig::*;
 use super::types::*;
 
 pub fn quat_lattice_reduce_denom(reduced: &mut QuatLattice, lat: &QuatLattice) {
-    let mut gcd = Ibz::new();
+    let mut gcd = Ibz::default();
     ibz_mat_4x4_gcd(&mut gcd, &lat.basis);
     let g = gcd.clone();
     ibz_gcd(&mut gcd, &g, &lat.denom);
     ibz_mat_4x4_scalar_div(&mut reduced.basis, &gcd, &lat.basis);
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     ibz_div(&mut reduced.denom, &mut r, &lat.denom, &gcd);
     let d = reduced.denom.clone();
     ibz_abs(&mut reduced.denom, &d);
@@ -52,7 +52,7 @@ pub fn quat_lattice_conjugate_without_hnf(conj: &mut QuatLattice, lat: &QuatLatt
 
 pub fn quat_lattice_dual_without_hnf(dual: &mut QuatLattice, lat: &QuatLattice) {
     let mut inv = ibz_mat_4x4_init();
-    let mut det = Ibz::new();
+    let mut det = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv), &mut det, &lat.basis);
     let invc = inv.clone();
     ibz_mat_4x4_transpose(&mut inv, &invc);
@@ -63,9 +63,9 @@ pub fn quat_lattice_dual_without_hnf(dual: &mut QuatLattice, lat: &QuatLattice) 
 pub fn quat_lattice_add(res: &mut QuatLattice, lat1: &QuatLattice, lat2: &QuatLattice) {
     let mut generators: Vec<IbzVec4> = (0..8).map(|_| ibz_vec_4_init()).collect();
     let mut tmp = ibz_mat_4x4_init();
-    let mut det1 = Ibz::new();
-    let mut det2 = Ibz::new();
-    let mut detprod = Ibz::new();
+    let mut det1 = Ibz::default();
+    let mut det2 = Ibz::default();
+    let mut detprod = Ibz::default();
 
     ibz_mat_4x4_scalar_mul(&mut tmp, &lat1.denom, &lat2.basis);
     for i in 0..4 {
@@ -140,7 +140,7 @@ pub fn quat_lattice_mul(
     let mut elem_res = ibz_vec_4_init();
     let mut generators: Vec<IbzVec4> = (0..16).map(|_| ibz_vec_4_init()).collect();
     let mut detmat = ibz_mat_4x4_init();
-    let mut det = Ibz::new();
+    let mut det = Ibz::default();
     for k in 0..4 {
         ibz_vec_4_copy_ibz(
             &mut elem1,
@@ -183,8 +183,8 @@ pub fn quat_lattice_contains(
 ) -> i32 {
     let mut work_coord = ibz_vec_4_init();
     let mut inv = ibz_mat_4x4_init();
-    let mut det = Ibz::new();
-    let mut prod = Ibz::new();
+    let mut det = Ibz::default();
+    let mut prod = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv), &mut det, &lat.basis);
     debug_assert!(ibz_is_zero(&det) == 0);
     ibz_mat_4x4_eval(&mut work_coord, &inv, &x.coord);
@@ -202,8 +202,8 @@ pub fn quat_lattice_contains(
 }
 
 pub fn quat_lattice_index(index: &mut Ibz, sublat: &QuatLattice, overlat: &QuatLattice) {
-    let mut tmp = Ibz::new();
-    let mut det = Ibz::new();
+    let mut tmp = Ibz::default();
+    let mut det = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &sublat.basis);
     ibz_mul(&mut tmp, &overlat.denom, &overlat.denom);
     let t = tmp.clone();
@@ -224,7 +224,7 @@ pub fn quat_lattice_index(index: &mut Ibz, sublat: &QuatLattice, overlat: &QuatL
 }
 
 pub fn quat_lattice_hnf(lat: &mut QuatLattice) {
-    let mut modn = Ibz::new();
+    let mut modn = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut modn, &lat.basis);
     let m = modn.clone();
     ibz_abs(&mut modn, &m);
@@ -241,7 +241,7 @@ pub fn quat_lattice_hnf(lat: &mut QuatLattice) {
 
 /// Gram matrix of `lattice` for the bilinear form `2·(x₀y₀ + x₁y₁ + p·x₂y₂ + p·x₃y₃)`.
 pub fn quat_lattice_gram(g: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAlg) {
-    let mut tmp = Ibz::new();
+    let mut tmp = Ibz::default();
     for i in 0..4 {
         for j in 0..=i {
             ibz_set(&mut g[i][j], 0);
@@ -277,7 +277,7 @@ pub fn quat_alg_make_primitive(
     let ok = quat_lattice_contains(Some(primitive_x), order, x);
     debug_assert!(ok != 0);
     ibz_vec_4_content(content, primitive_x);
-    let mut r = Ibz::new();
+    let mut r = Ibz::default();
     for i in 0..4 {
         let t = primitive_x[i].clone();
         ibz_div(&mut primitive_x[i], &mut r, &t, content);
@@ -287,10 +287,10 @@ pub fn quat_alg_make_primitive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rug::Integer;
+    use crate::quaternion::intbig::ibz_from_i64;
 
     fn z(v: i64) -> Ibz {
-        Integer::from(v)
+        ibz_from_i64(v)
     }
 
     fn lat_identity() -> QuatLattice {
@@ -315,7 +315,7 @@ mod tests {
         quat_lattice_intersect(&mut inter, &id, &l2);
         assert_eq!(quat_lattice_equal(&inter, &l2), 1);
         // [Z^4 : 2Z^4] = 16
-        let mut idx = Ibz::new();
+        let mut idx = Ibz::default();
         quat_lattice_index(&mut idx, &l2, &id);
         assert_eq!(idx, 16);
         assert_eq!(quat_lattice_inclusion(&l2, &id), 1);
@@ -331,7 +331,7 @@ mod tests {
         assert_eq!(quat_lattice_contains(Some(&mut coord), &id, &x), 1);
         assert_eq!(coord, [z(4), z(6), z(10), z(14)]);
         let mut prim = ibz_vec_4_init();
-        let mut content = Ibz::new();
+        let mut content = Ibz::default();
         quat_alg_make_primitive(&mut prim, &mut content, &x, &id);
         assert_eq!(content, 2);
         assert_eq!(prim, [z(2), z(3), z(5), z(7)]);
@@ -363,7 +363,7 @@ mod tests {
         let l1 = l.clone();
         quat_lattice_hnf(&mut l);
         assert_eq!(ibz_mat_4x4_equal(&l.basis, &l1.basis), 1);
-        let mut det = Ibz::new();
+        let mut det = Ibz::default();
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &l.basis);
         assert_eq!(det, 1);
     }

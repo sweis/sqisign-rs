@@ -10,7 +10,10 @@ default = ["lvl1", "sign"]
 lvl1 = []
 lvl3 = []
 lvl5 = []
-sign = ["dep:rug", "dep:gmp-mpfr-sys"]
+# Signing path: malachite (pure-Rust) is the default bigint backend.
+sign = ["dep:malachite-nz", "dep:malachite-base"]
+# Opt-in GMP backend via rug. Requires libgmp.
+gmp = ["sign", "dep:rug", "dep:gmp-mpfr-sys"]
 # Exposes DRBG snapshot/restore for deterministic benchmark replays.
 # Do not enable in production — leaks DRBG state.
 bench-internals = []
@@ -19,6 +22,8 @@ bench-internals = []
 sha3 = "0.10"
 zeroize = { version = "1.7", features = ["derive"] }
 aes = "0.8"
+malachite-nz = { version = "0.9", optional = true, default-features = false }
+malachite-base = { version = "0.9", optional = true, default-features = false }
 rug = { version = "1.24", optional = true, features = ["integer", "rational"] }
 gmp-mpfr-sys = { version = "1.6", optional = true, default-features = false }
 
