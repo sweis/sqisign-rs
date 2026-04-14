@@ -11,18 +11,8 @@ and validated against the official NIST KAT test vectors.
 
 ## Status
 
-| Level | Prime | Verify | Sign / Keygen | KAT |
-|-------|-------|--------|---------------|-----|
-| lvl1  | 5·2²⁴⁸ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
-| lvl3  | 65·2³⁷⁶ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
-| lvl5  | 27·2⁵⁰⁰ − 1 | ✅ | ✅ | 100/100 sign + 100/100 verify |
-
-Performance is at parity with the C `ref` build on identical workloads (verify
-~3 ms, sign ~53 ms at lvl1; see PORTING.md § Performance for the controlled
-instruction-count comparison).
-
-See [PORTING.md](PORTING.md) for C-vs-spec discrepancies found during the port,
-security hardening notes, and mutation-testing results.
+Performance is at parity with the C `ref` build on identical workloads. See [PORTING.md](PORTING.md) 
+for C-vs-spec discrepancies found during the port, security hardening notes, and mutation-testing results.
 
 ## Building
 
