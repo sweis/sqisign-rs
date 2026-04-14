@@ -83,7 +83,3 @@ cargo run --release --features lvl1,sign --example sign_verify
 - `sign` — enable key generation and signing. Pulls in `rug` (GMP). Without
   this flag the crate builds verification only, matching the C reference's
   `ENABLE_SIGN=OFF` mode.
-
-## License
-
-Apache-2.0. See `LICENSE`.
