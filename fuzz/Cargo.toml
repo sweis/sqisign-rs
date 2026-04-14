@@ -1,0 +1,44 @@
+[package]
+name = "sqisign-rs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.sqisign-rs]
+path = ".."
+default-features = false
+features = ["lvl1"]
+
+[[bin]]
+name = "fuzz_verify"
+path = "fuzz_targets/fuzz_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decode_sig"
+path = "fuzz_targets/fuzz_decode_sig.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decode_pk"
+path = "fuzz_targets/fuzz_decode_pk.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_fp2_decode"
+path = "fuzz_targets/fuzz_fp2_decode.rs"
+test = false
+doc = false
+bench = false

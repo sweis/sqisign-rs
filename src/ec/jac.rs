@@ -23,19 +23,13 @@ pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> u32 {
     fp2_mul(&mut t2, &p.x, &t0);
     fp2_sqr(&mut t1, &p.z);
     fp2_mul(&mut t3, &q.x, &t1);
-    let s = t2;
-    fp2_sub(&mut t2, &s, &t3);
+    fp2_sub_ip(&mut t2, &t3);
 
-    let s = t0;
-    fp2_mul(&mut t0, &s, &q.z);
-    let s = t0;
-    fp2_mul(&mut t0, &p.y, &s);
-    let s = t1;
-    fp2_mul(&mut t1, &s, &p.z);
-    let s = t1;
-    fp2_mul(&mut t1, &q.y, &s);
-    let s = t0;
-    fp2_sub(&mut t0, &s, &t1);
+    fp2_mul_ip(&mut t0, &q.z);
+    fp2_mul_ip(&mut t0, &p.y);
+    fp2_mul_ip(&mut t1, &p.z);
+    fp2_mul_ip(&mut t1, &q.y);
+    fp2_sub_ip(&mut t0, &t1);
 
     fp2_is_zero(&t0) & fp2_is_zero(&t2)
 }
@@ -44,8 +38,7 @@ pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> u32 {
 pub fn jac_to_xz(p: &mut EcPoint, xy: &JacPoint) {
     fp2_copy(&mut p.x, &xy.x);
     fp2_copy(&mut p.z, &xy.z);
-    let s = p.z;
-    fp2_sqr(&mut p.z, &s);
+    fp2_sqr_ip(&mut p.z);
 
     let mut one = Fp2::default();
     fp2_set_one(&mut one);
@@ -92,8 +85,7 @@ pub fn jac_from_ws(q: &mut JacPoint, p: &JacPoint, ao3: &Fp2, curve: &EcCurve) {
     if fp2_is_zero(&curve.a) == 0 {
         let mut t = Fp2::default();
         fp2_sqr(&mut t, &p.z);
-        let s = t;
-        fp2_mul(&mut t, &s, ao3);
+        fp2_mul_ip(&mut t, ao3);
         fp2_sub(&mut q.x, &p.x, &t);
     }
     fp2_copy(&mut q.y, &p.y);
@@ -123,30 +115,22 @@ pub fn jac_dbl(q: &mut JacPoint, p: &JacPoint, ac: &EcCurve) {
 
     fp2_sqr(&mut t0, &p.x);
     fp2_add(&mut t1, &t0, &t0);
-    let s = t0;
-    fp2_add(&mut t0, &s, &t1);
+    fp2_add_ip(&mut t0, &t1);
     fp2_sqr(&mut t1, &p.z);
     fp2_mul(&mut t2, &p.x, &ac.a);
-    let s = t2;
-    fp2_add(&mut t2, &s, &s);
-    let s = t2;
-    fp2_add(&mut t2, &t1, &s);
-    let s = t2;
-    fp2_mul(&mut t2, &t1, &s);
-    let s = t2;
-    fp2_add(&mut t2, &t0, &s);
+    fp2_dbl_ip(&mut t2);
+    fp2_add_ip(&mut t2, &t1);
+    fp2_mul_ip(&mut t2, &t1);
+    fp2_add_ip(&mut t2, &t0);
     fp2_mul(&mut q.z, &p.y, &p.z);
     let qz = q.z;
     fp2_add(&mut q.z, &qz, &qz);
     fp2_sqr(&mut t0, &q.z);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &ac.a);
+    fp2_mul_ip(&mut t0, &ac.a);
     fp2_sqr(&mut t1, &p.y);
-    let s = t1;
-    fp2_add(&mut t1, &s, &s);
+    fp2_dbl_ip(&mut t1);
     fp2_add(&mut t3, &p.x, &p.x);
-    let s = t3;
-    fp2_mul(&mut t3, &t1, &s);
+    fp2_mul_ip(&mut t3, &t1);
     fp2_sqr(&mut q.x, &t2);
     let qx = q.x;
     fp2_sub(&mut q.x, &qx, &t0);
@@ -158,8 +142,7 @@ pub fn jac_dbl(q: &mut JacPoint, p: &JacPoint, ac: &EcCurve) {
     fp2_sub(&mut q.y, &t3, &qx);
     let qy = q.y;
     fp2_mul(&mut q.y, &qy, &t2);
-    let s = t1;
-    fp2_sqr(&mut t1, &s);
+    fp2_sqr_ip(&mut t1);
     let qy = q.y;
     fp2_sub(&mut q.y, &qy, &t1);
     let qy = q.y;
@@ -254,10 +237,8 @@ pub fn jac_add(r: &mut JacPoint, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
 
     fp2_mul(&mut v1, &t1, &q.z);
     fp2_mul(&mut t2, &t0, &p.z);
-    let s = v1;
-    fp2_mul(&mut v1, &s, &p.y);
-    let s = t2;
-    fp2_mul(&mut t2, &s, &q.y);
+    fp2_mul_ip(&mut v1, &p.y);
+    fp2_mul_ip(&mut t2, &q.y);
     fp2_sub(&mut dy, &t2, &v1);
     fp2_mul(&mut u2, &t0, &q.x);
     fp2_mul(&mut u1, &t1, &p.x);
@@ -265,21 +246,14 @@ pub fn jac_add(r: &mut JacPoint, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
 
     fp2_add(&mut t1, &p.y, &p.y);
     fp2_add(&mut t2, &ac.a, &ac.a);
-    let s = t2;
-    fp2_mul(&mut t2, &s, &p.x);
-    let s = t2;
-    fp2_add(&mut t2, &s, &t0);
-    let s = t2;
-    fp2_mul(&mut t2, &s, &t0);
+    fp2_mul_ip(&mut t2, &p.x);
+    fp2_add_ip(&mut t2, &t0);
+    fp2_mul_ip(&mut t2, &t0);
     fp2_sqr(&mut t0, &p.x);
-    let s = t2;
-    fp2_add(&mut t2, &s, &t0);
-    let s = t2;
-    fp2_add(&mut t2, &s, &t0);
-    let s = t2;
-    fp2_add(&mut t2, &s, &t0);
-    let s = t2;
-    fp2_mul(&mut t2, &s, &q.z);
+    fp2_add_ip(&mut t2, &t0);
+    fp2_add_ip(&mut t2, &t0);
+    fp2_add_ip(&mut t2, &t0);
+    fp2_mul_ip(&mut t2, &q.z);
 
     let ctl = fp2_is_zero(&dx) & fp2_is_zero(&dy);
     let sdx = dx;
@@ -309,8 +283,7 @@ pub fn jac_add(r: &mut JacPoint, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
     let ry = r.y;
     fp2_mul(&mut r.y, &ry, &dy);
     fp2_mul(&mut t3, &t2, &dx);
-    let s = t3;
-    fp2_mul(&mut t3, &s, &v1);
+    fp2_mul_ip(&mut t3, &v1);
     let ry = r.y;
     fp2_sub(&mut r.y, &ry, &t3);
 
@@ -337,32 +310,22 @@ pub fn jac_to_xz_add_components(out: &mut AddComponents, p: &JacPoint, q: &JacPo
     fp2_mul(&mut t2, &p.x, &t1);
     fp2_mul(&mut t3, &t0, &q.x);
     fp2_mul(&mut t4, &p.y, &q.z);
-    let s = t4;
-    fp2_mul(&mut t4, &s, &t1);
+    fp2_mul_ip(&mut t4, &t1);
     fp2_mul(&mut t5, &p.z, &q.y);
-    let s = t5;
-    fp2_mul(&mut t5, &s, &t0);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &t1);
+    fp2_mul_ip(&mut t5, &t0);
+    fp2_mul_ip(&mut t0, &t1);
     fp2_mul(&mut t6, &t4, &t5);
     fp2_add(&mut out.v, &t6, &t6);
-    let s = t4;
-    fp2_sqr(&mut t4, &s);
-    let s = t5;
-    fp2_sqr(&mut t5, &s);
-    let s = t4;
-    fp2_add(&mut t4, &s, &t5);
+    fp2_sqr_ip(&mut t4);
+    fp2_sqr_ip(&mut t5);
+    fp2_add_ip(&mut t4, &t5);
     fp2_add(&mut t5, &t2, &t3);
     fp2_add(&mut t6, &t3, &t3);
-    let s = t6;
-    fp2_sub(&mut t6, &t5, &s);
-    let s = t6;
-    fp2_sqr(&mut t6, &s);
+    fp2_rsub_ip(&mut t6, &t5);
+    fp2_sqr_ip(&mut t6);
     fp2_mul(&mut t1, &ac.a, &t0);
-    let s = t1;
-    fp2_add(&mut t1, &t5, &s);
-    let s = t1;
-    fp2_mul(&mut t1, &s, &t6);
+    fp2_add_ip(&mut t1, &t5);
+    fp2_mul_ip(&mut t1, &t6);
     fp2_sub(&mut out.u, &t4, &t1);
     fp2_mul(&mut out.w, &t6, &t0);
 }

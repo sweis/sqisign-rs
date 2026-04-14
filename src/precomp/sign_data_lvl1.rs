@@ -37,6 +37,8 @@ pub fn quatalg_pinfty() -> &'static QuatAlg {
     static V: OnceLock<QuatAlg> = OnceLock::new();
     V.get_or_init(|| QuatAlg { p: ibz_lit(false, &[0xffffffffffffffff,0xffffffffffffffff,0xffffffffffffffff,0x4ffffffffffffff]) })
 }
+pub const NUM_ALTERNATE_EXTREMAL_ORDERS: usize = 6;
+pub const NUM_ALTERNATE_STARTING_CURVES: usize = 6;
 pub fn extremal_orders() -> &'static [QuatPExtremalMaximalOrder; 7] {
     static V: OnceLock<[QuatPExtremalMaximalOrder; 7]> = OnceLock::new();
     V.get_or_init(|| [
@@ -105,31 +107,21 @@ pub fn curves_with_endomorphisms() -> &'static [CurveWithEndomorphismRing; 7] {
 pub fn curve_e0() -> &'static EcCurve { &curves_with_endomorphisms()[0].curve }
 pub fn basis_even() -> &'static EcBasis { &curves_with_endomorphisms()[0].basis_even }
 
-pub const NUM_ALTERNATE_EXTREMAL_ORDERS: usize = 6;
-pub const NUM_ALTERNATE_STARTING_CURVES: usize = 6;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use rug::Integer;
     use rug::ops::RemRounding;
+    use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
     #[test]
     fn pinfty_is_prime_p() {
-        // p = 5 * 2^248 - 1
-        let mut expected = Integer::from(5);
-        expected <<= 248;
+        // p = c · 2^e - 1.
+        let mut expected = Integer::from(P_COFACTOR_FOR_2F[0]);
+        expected <<= TORSION_EVEN_POWER as u32;
         expected -= 1;
         assert_eq!(quatalg_pinfty().p, expected);
-    }
-
-    #[test]
-    fn prime_cofactor_value() {
-        // 2^251 + 65 (from limbs [0x41, 0, 0, 0x800000000000000])
-        let mut expected = Integer::from(1);
-        expected <<= 251;
-        expected += 65;
-        assert_eq!(*quat_prime_cofactor(), expected);
+        assert_ne!(quatalg_pinfty().p.is_probably_prime(40), rug::integer::IsPrime::No);
     }
 
     #[test]
@@ -175,10 +167,10 @@ mod tests {
 
     #[test]
     fn endo_action_i_squares_to_neg_id() {
-        // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^248.
+        // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^e.
         let cwe = &curves_with_endomorphisms()[0];
         let m = &cwe.action_i;
-        let mut modn = Integer::from(1); modn <<= 248;
+        let mut modn = Integer::from(1); modn <<= TORSION_EVEN_POWER as u32;
         let r = |x: &Integer| -> Integer { x.clone().rem_euc(modn.clone()) };
         let m2_00 = r(&(m[0][0].clone()*&m[0][0] + m[0][1].clone()*&m[1][0]));
         let m2_01 = r(&(m[0][0].clone()*&m[0][1] + m[0][1].clone()*&m[1][1]));
@@ -192,8 +184,31 @@ mod tests {
     }
 
     #[test]
+    fn all_populated() {
+        let n = extremal_orders().len();
+        assert_eq!(connecting_ideals().len(), n);
+        assert_eq!(conjugating_elements().len(), n);
+        assert_eq!(curves_with_endomorphisms().len(), n);
+        assert!(extremal_orders()[n - 1].q > 1);
+        assert!(connecting_ideals()[n - 1].norm > 1);
+    }
+}
+
+#[cfg(test)]
+mod tests_lvl1 {
+    use super::*;
+    use rug::Integer;
+
+    #[test]
+    fn prime_cofactor_value() {
+        let mut expected = Integer::from(1);
+        expected <<= 251;
+        expected += 65;
+        assert_eq!(*quat_prime_cofactor(), expected);
+    }
+
+    #[test]
     fn c_golden_cross_check() {
-        // Values dumped from the C build (tools: /tmp/dump_precomp.c).
         assert_eq!(extremal_orders()[6].q, 97);
         assert_eq!(
             connecting_ideals()[6].norm.to_string(),
@@ -208,16 +223,5 @@ mod tests {
             curves_with_endomorphisms()[0].basis_even.q.x.re.0[0],
             0x21dd55b97832f
         );
-    }
-
-    #[test]
-    fn all_seven_populated() {
-        assert_eq!(extremal_orders().len(), 7);
-        assert_eq!(connecting_ideals().len(), 7);
-        assert_eq!(conjugating_elements().len(), 7);
-        assert_eq!(curves_with_endomorphisms().len(), 7);
-        // Spot-check that later entries have non-trivial data.
-        assert!(extremal_orders()[6].q > 1);
-        assert!(connecting_ideals()[6].norm > 1);
     }
 }

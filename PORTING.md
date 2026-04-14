@@ -60,6 +60,80 @@ Each item analysed against the SQIsign Round-2 spec (2025-07-07) and call-site u
 - `quaternion/dpe.rs`: clean-room `round` used ties-to-even; C `round()` is half-away-from-zero. This single tie-case at LLL step 1102 (`u=4.5`) desynchronized the entire KAT-0 keygen.
 - `quaternion/normeq.rs`: used spec-correct `rem_euclid(4)` instead of C's truncating `%`, breaking DRBG sync.
 
+## Security hardening (Rust improvements over C)
+
+| Area | Finding | Status |
+|---|---|---|
+| **DoS via `backtracking`** | A malicious signature with `backtracking ≥ 128` makes `check_canonical_basis_change_matrix` compute a negative shift; `as u32` wraps to ~4e9 and `multiple_mp_shiftl` burns ~18ms (release) or panics on `>> 64` overflow at exactly 128 (debug). **Same bug in C (UB shift).** | **Fixed**: early `return false` when `shift ≤ 0`. Output unchanged (signature would be rejected later anyway). Regression test `reject_adversarial_backtracking`. Worth upstream issue. |
+| Constant-time | `select_ct`/`swap_ct`/`fp_select`/`fp_cswap` are mask-xor based, no branches. `xDBLMUL` ladder is CT. The `kbits=1` branch in `ec_biscalar_mul` is data-dependent but only reachable with `f=1`, which never occurs on the verify path (always `f ≥ HD_EXTRA_TORSION=2`). Signing is variable-time by design (uses GMP). | OK |
+| Panics on adversarial input (verify) | Audited `unwrap`/`expect`/`panic!`/`unreachable!` reachable from `crypto_sign_open`: `ec/mod.rs:791` and `hd/theta_isogenies.rs:51` are genuinely unreachable (`x & 1` ∈ {0,1}, `x & 3` ∈ {0..3}). `try_into().unwrap()` calls are on fixed-size stack-array slices (infallible). `fips202` panics are programmer-error only. **Exception**: `find_na_x_coord` `debug_assert!` at basis.rs:245 fires if attacker supplies `hint` with `hint_a` bit not matching `is_square(A)` — debug-mode crash only; release proceeds and rejects later. | Debug-only; matches C `assert`. |
+| Loop bounds | `find_na_x_coord`/`find_nqr_factor` loops are probabilistically bounded (~2 iterations expected, density ½). All other verify-path loops bounded by `TORSION_EVEN_POWER`/`SQISIGN_RESPONSE_LENGTH` constants. | OK |
+| `unsafe` | Single block: `intbig.rs` calls `gmp::mpz_get_si` directly for exact `ibz_get` semantics (signing-only, KAT-determinism). `#![warn(unsafe_code)]` lint enabled. | Justified |
+| Secret zeroization | `DrbgState` derives `ZeroizeOnDrop`. `SecretKey` impls `Drop` zeroizing field-element/basis components and overwriting `rug::Integer` values with 0. **Limitation**: GMP may have realloc'd intermediate limb buffers that are not scrubbed; `rug` provides no zeroize hook. The serialized sk byte buffer should also be zeroized by callers. | Best-effort |
+| Unused deps | `subtle` was declared but never used (CT primitives are hand-masked). | **Removed** |
+
+## Performance
+
+Controlled comparison on **identical workload** (KAT-0 seed, deterministic), measured
+with `perf stat -e instructions:u` (run-to-run stable to ±1k; cycle counts are
+noisy under concurrent load and shown for reference only). C is the `ref` build
+linked against system GMP 6.2.1. Harnesses: `tools/perf/`.
+
+| Op (KAT-0) | C ref instr | Rust instr | Rust/C | C cycles | Rust cycles |
+|---|---|---|---|---|---|
+| verify | 49.3 M | 52.1 M | **1.06** | 20.5 M | 23.7 M¹ |
+| keygen | 682.1 M | 339.8 M | **0.50** | 287.3 M | 161.9 M |
+| sign | 1440.9 M | 784.5 M | **0.54** | 551.7 M | 339.6 M |
+
+¹ Cycle counts are from single runs under ~100-load-average (cargo-mutants -j16
+running concurrently); treat as ±15%.
+
+**Verify** (no DRBG, no GMP): Rust executes 6% more instructions; cycles roughly
+at parity. The remaining gap is the Fp2-temp pattern that LLVM mostly but not
+fully eliminates.
+
+**Keygen/sign**: Rust ~2× faster — but this is **AES-NI vs bitsliced software
+AES**, not algorithm-level. `perf record` shows the C `ref` build spends 52% of
+keygen in `br_aes_ct64_*` (BearSSL constant-time bitsliced AES, since `ref`
+deliberately avoids CPU-specific code), while the Rust `aes` crate auto-detects
+AES-NI and the DRBG cost is ~0%. C's `broadwell` build type would also use
+AES-NI. Excluding AES, the GMP-heavy portion is comparable (both use fat-binary
+GMP with runtime CPU dispatch).
+
+The earlier table that showed Rust 1.3-1.5× **slower** was wrong — it compared
+Rust on KAT-0 against C `benchmark_lvl1` medians over random instances. Keygen
+and sign have high variance (C's own benchmark: keygen stddev 70.6 Mcyc on a
+117.7 Mcyc median), and KAT-0 happens to be ~2.4× harder than median.
+
+**Wall-clock** (`benches/bench.rs`, release, lvl1, KAT-0, light load):
+verify 3.2 ms · keygen 24.9 ms · sign 58.5 ms · 100× full-KAT (kg+sign+verify) 8.0 s.
+
+Optimizations applied: `fp2_*_ip` in-place ops (288 sites) and DRBG key-schedule
+caching (~1% combined improvement; LTO already eliminated most aliasing temps).
+`#[inline(always)]` on the modarith backend was tried and reverted (I-cache bloat).
+
+Open opportunities:
+- Port the C `broadwell` AVX2 `fp_*` backend (largest remaining win for verify).
+
+## Mutation testing (verify path)
+
+`cargo mutants` configured in `.cargo/mutants.toml` — scoped to `mp/gf/ec/hd/verification` with `--lib` only. Sign-only/dead/debug code is excluded by name there with rationale comments.
+
+| Run | Mutants | Missed | Caught | Notes |
+|---|---|---|---|---|
+| Initial (`--lib`) | 1681 | 279 | 1265 | 75% |
+| + targeted unit tests | 1606 | 142 | 1317 | 82% |
+| + diverse-KAT lib test, equiv-mut excludes | 1461 | 103 | 1235 | 93% (49 unviable, 74 timeout = effectively caught) |
+
+Tests added (15): `mp::{parity, digit_nonzero_ct_top_bit_only, multiple_shiftl_exact_radix}`, `ec::{validity_predicates, torsion_predicates, biscalar_mul_kbits1, dbl_iter_normalize_threshold, jac_predicates_and_init, singular_isogeny_consistency, basis_from_bad_hint_rejected, xdbladd_nonnormalized_a24}`, `verification::{reject_malformed_inputs, hash_to_challenge_stable, verify_diverse_kats}`.
+
+**Real bug found via mutation analysis**: `ec_is_basis_four_torsion` used Rust bitwise `!` on a u32 where C uses logical `!`; on a degenerate basis with P=Q it returned `0xFFFFFFFE` (truthy) instead of 0. Unreachable on the verify path (only called when `pow_dim2_deg_resp == 0`, never in lvl1 KATs) but a real divergence from C. Fixed.
+
+Residual survivors fall into:
+- **Equivalent mutations** (~20): bit-disjoint `^`↔`|` in funnel shifts/carry-OR; extra Newton iterations in `mp_inv_2e`; `hash_to_challenge` mask is always all-ones (`2·SECURITY_BITS` is a multiple of 64 at every level).
+- **Error-path validity checks in `hd/theta_isogenies.rs`** (~40): `verify_two_torsion`, `gluing_compute`, `theta_isogeny_compute`, `splitting_compute` zero-coordinate guards. Valid signatures never trigger these; tampering tends to fail upstream first. Would need a fuzzer-found invariant-violating sig to exercise.
+- **Strategy/allocation tuning** in `theta_chain_compute_impl`/`ec_eval_even_strategy` (~15): mutations change the doubling/isogeny tradeoff but produce the same correct result via a different (slower) path.
+
 ## Design decisions
 
 - Feature flags `lvl1`/`lvl3`/`lvl5` select the prime; only one active per build.

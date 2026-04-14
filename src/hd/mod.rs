@@ -9,8 +9,9 @@ use crate::ec::{
     JacPoint,
 };
 use crate::gf::{
-    fp2_add, fp2_copy, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_neg, fp2_select, fp2_set_one,
-    fp2_set_zero, fp2_sqr, fp2_sub, Fp2,
+    fp2_add, fp2_add_ip, fp2_copy, fp2_dbl_ip, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_mul_ip,
+    fp2_neg, fp2_neg_ip, fp2_rsub_ip, fp2_select, fp2_set_one, fp2_set_zero, fp2_sqr, fp2_sqr_ip,
+    fp2_sub, fp2_sub_ip, Fp2,
 };
 
 mod theta_isogenies;
@@ -306,8 +307,41 @@ pub fn pointwise_square(out: &mut ThetaPoint, in_: &ThetaPoint) {
 #[inline]
 pub fn to_squared_theta(out: &mut ThetaPoint, in_: &ThetaPoint) {
     pointwise_square(out, in_);
-    let s = *out;
-    hadamard(out, &s);
+    hadamard_ip(out);
+}
+
+/// In-place Hadamard. The transform reads all inputs into locals before
+/// writing, so it is alias-safe.
+#[inline]
+pub fn hadamard_ip(r: &mut ThetaPoint) {
+    let mut t1 = Fp2::default();
+    let mut t2 = Fp2::default();
+    let mut t3 = Fp2::default();
+    let mut t4 = Fp2::default();
+    fp2_add(&mut t1, &r.x, &r.y);
+    fp2_sub(&mut t2, &r.x, &r.y);
+    fp2_add(&mut t3, &r.z, &r.t);
+    fp2_sub(&mut t4, &r.z, &r.t);
+    fp2_add(&mut r.x, &t1, &t3);
+    fp2_add(&mut r.y, &t2, &t4);
+    fp2_sub(&mut r.z, &t1, &t3);
+    fp2_sub(&mut r.t, &t2, &t4);
+}
+
+/// In-place coordinate-wise squaring.
+#[inline]
+pub fn pointwise_square_ip(r: &mut ThetaPoint) {
+    fp2_sqr_ip(&mut r.x);
+    fp2_sqr_ip(&mut r.y);
+    fp2_sqr_ip(&mut r.z);
+    fp2_sqr_ip(&mut r.t);
+}
+
+/// In-place `to_squared_theta`.
+#[inline]
+pub fn to_squared_theta_ip(r: &mut ThetaPoint) {
+    pointwise_square_ip(r);
+    hadamard_ip(r);
 }
 
 /// Fill the eight cached products on a theta structure.
@@ -341,26 +375,25 @@ pub fn theta_precomputation(a: &mut ThetaStructure) {
 /// out ← [2]·in on the theta structure A.
 pub fn double_point(out: &mut ThetaPoint, a: &mut ThetaStructure, in_: &ThetaPoint) {
     to_squared_theta(out, in_);
-    let s = out.x; fp2_sqr(&mut out.x, &s);
-    let s = out.y; fp2_sqr(&mut out.y, &s);
-    let s = out.z; fp2_sqr(&mut out.z, &s);
-    let s = out.t; fp2_sqr(&mut out.t, &s);
+    fp2_sqr_ip(&mut out.x);
+    fp2_sqr_ip(&mut out.y);
+    fp2_sqr_ip(&mut out.z);
+    fp2_sqr_ip(&mut out.t);
 
     if !a.precomputation {
         theta_precomputation(a);
     }
-    let s = out.x; fp2_mul(&mut out.x, &s, &a.yzt0_d);
-    let s = out.y; fp2_mul(&mut out.y, &s, &a.xzt0_d);
-    let s = out.z; fp2_mul(&mut out.z, &s, &a.xyt0_d);
-    let s = out.t; fp2_mul(&mut out.t, &s, &a.xyz0_d);
+    fp2_mul_ip(&mut out.x, &a.yzt0_d);
+    fp2_mul_ip(&mut out.y, &a.xzt0_d);
+    fp2_mul_ip(&mut out.z, &a.xyt0_d);
+    fp2_mul_ip(&mut out.t, &a.xyz0_d);
 
-    let s = *out;
-    hadamard(out, &s);
+    hadamard_ip(out);
 
-    let s = out.x; fp2_mul(&mut out.x, &s, &a.yzt0);
-    let s = out.y; fp2_mul(&mut out.y, &s, &a.xzt0);
-    let s = out.z; fp2_mul(&mut out.z, &s, &a.xyt0);
-    let s = out.t; fp2_mul(&mut out.t, &s, &a.xyz0);
+    fp2_mul_ip(&mut out.x, &a.yzt0);
+    fp2_mul_ip(&mut out.y, &a.xzt0);
+    fp2_mul_ip(&mut out.z, &a.xyt0);
+    fp2_mul_ip(&mut out.t, &a.xyz0);
 }
 
 /// out ← [2ᵉˣᵖ]·in on the theta structure A.

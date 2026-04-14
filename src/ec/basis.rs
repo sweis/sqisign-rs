@@ -13,12 +13,9 @@ pub fn ec_recover_y(y: &mut Fp2, px: &Fp2, curve: &EcCurve) -> u32 {
     let mut t0 = Fp2::default();
     fp2_sqr(&mut t0, px);
     fp2_mul(y, &t0, &curve.a);
-    let s = *y;
-    fp2_add(y, &s, px);
-    let s = t0;
-    fp2_mul(&mut t0, &s, px);
-    let s = *y;
-    fp2_add(y, &s, &t0);
+    fp2_add_ip(y, px);
+    fp2_mul_ip(&mut t0, px);
+    fp2_add_ip(y, &t0);
     fp2_sqrt_verify(y)
 }
 
@@ -33,61 +30,41 @@ fn difference_point(pq: &mut EcPoint, p: &EcPoint, q: &EcPoint, curve: &EcCurve)
     fp2_mul(&mut t0, &p.x, &q.x);
     fp2_mul(&mut t1, &p.z, &q.z);
     fp2_sub(&mut bxx, &t0, &t1);
-    let s = bxx;
-    fp2_sqr(&mut bxx, &s);
-    let s = bxx;
-    fp2_mul(&mut bxx, &s, &curve.c);
+    fp2_sqr_ip(&mut bxx);
+    fp2_mul_ip(&mut bxx, &curve.c);
     fp2_add(&mut bxz, &t0, &t1);
     fp2_mul(&mut t0, &p.x, &q.z);
     fp2_mul(&mut t1, &p.z, &q.x);
     fp2_add(&mut bzz, &t0, &t1);
-    let s = bxz;
-    fp2_mul(&mut bxz, &s, &bzz);
+    fp2_mul_ip(&mut bxz, &bzz);
     fp2_sub(&mut bzz, &t0, &t1);
-    let s = bzz;
-    fp2_sqr(&mut bzz, &s);
-    let s = bzz;
-    fp2_mul(&mut bzz, &s, &curve.c);
-    let s = bxz;
-    fp2_mul(&mut bxz, &s, &curve.c);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &t1);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &curve.a);
-    let s = t0;
-    fp2_add(&mut t0, &s, &s);
-    let s = bxz;
-    fp2_add(&mut bxz, &s, &t0);
+    fp2_sqr_ip(&mut bzz);
+    fp2_mul_ip(&mut bzz, &curve.c);
+    fp2_mul_ip(&mut bxz, &curve.c);
+    fp2_mul_ip(&mut t0, &t1);
+    fp2_mul_ip(&mut t0, &curve.a);
+    fp2_dbl_ip(&mut t0);
+    fp2_add_ip(&mut bxz, &t0);
 
     fp_copy(&mut t0.re, &curve.c.re);
     fp_neg(&mut t0.im, &curve.c.im);
-    let s = t0;
-    fp2_sqr(&mut t0, &s);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &curve.c);
+    fp2_sqr_ip(&mut t0);
+    fp2_mul_ip(&mut t0, &curve.c);
     fp_copy(&mut t1.re, &p.z.re);
     fp_neg(&mut t1.im, &p.z.im);
-    let s = t1;
-    fp2_sqr(&mut t1, &s);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &t1);
+    fp2_sqr_ip(&mut t1);
+    fp2_mul_ip(&mut t0, &t1);
     fp_copy(&mut t1.re, &q.z.re);
     fp_neg(&mut t1.im, &q.z.im);
-    let s = t1;
-    fp2_sqr(&mut t1, &s);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &t1);
-    let s = bxx;
-    fp2_mul(&mut bxx, &s, &t0);
-    let s = bxz;
-    fp2_mul(&mut bxz, &s, &t0);
-    let s = bzz;
-    fp2_mul(&mut bzz, &s, &t0);
+    fp2_sqr_ip(&mut t1);
+    fp2_mul_ip(&mut t0, &t1);
+    fp2_mul_ip(&mut bxx, &t0);
+    fp2_mul_ip(&mut bxz, &t0);
+    fp2_mul_ip(&mut bzz, &t0);
 
     fp2_sqr(&mut t0, &bxz);
     fp2_mul(&mut t1, &bxx, &bzz);
-    let s = t0;
-    fp2_sub(&mut t0, &s, &t1);
+    fp2_sub_ip(&mut t0, &t1);
     fp2_sqrt(&mut t0);
     fp2_add(&mut pq.x, &bxz, &t0);
     fp2_copy(&mut pq.z, &bzz);
@@ -118,32 +95,21 @@ pub fn lift_basis_normalized(
     let qx = q.x;
     fp2_add(&mut v2, &qx, &v1);
     fp2_sub(&mut v3, &qx, &v1);
-    let s = v3;
-    fp2_sqr(&mut v3, &s);
-    let s = v3;
-    fp2_mul(&mut v3, &s, &b.pmq.x);
+    fp2_sqr_ip(&mut v3);
+    fp2_mul_ip(&mut v3, &b.pmq.x);
     fp2_add(&mut v1, &e.a, &e.a);
-    let s = v1;
-    fp2_mul(&mut v1, &s, &q.z);
-    let s = v2;
-    fp2_add(&mut v2, &s, &v1);
+    fp2_mul_ip(&mut v1, &q.z);
+    fp2_add_ip(&mut v2, &v1);
     fp2_mul(&mut v4, &p.x, &q.x);
-    let s = v4;
-    fp2_add(&mut v4, &s, &q.z);
-    let s = v2;
-    fp2_mul(&mut v2, &s, &v4);
-    let s = v1;
-    fp2_mul(&mut v1, &s, &q.z);
-    let s = v2;
-    fp2_sub(&mut v2, &s, &v1);
-    let s = v2;
-    fp2_mul(&mut v2, &s, &b.pmq.z);
+    fp2_add_ip(&mut v4, &q.z);
+    fp2_mul_ip(&mut v2, &v4);
+    fp2_mul_ip(&mut v1, &q.z);
+    fp2_sub_ip(&mut v2, &v1);
+    fp2_mul_ip(&mut v2, &b.pmq.z);
     fp2_sub(&mut q.y, &v3, &v2);
     fp2_add(&mut v1, &p.y, &p.y);
-    let s = v1;
-    fp2_mul(&mut v1, &s, &q.z);
-    let s = v1;
-    fp2_mul(&mut v1, &s, &b.pmq.z);
+    fp2_mul_ip(&mut v1, &q.z);
+    fp2_mul_ip(&mut v1, &b.pmq.z);
     let qx = q.x;
     fp2_mul(&mut q.x, &qx, &v1);
     let qz = q.z;
@@ -176,12 +142,10 @@ fn is_on_curve(x: &Fp2, curve: &EcCurve) -> u32 {
     debug_assert!(fp2_is_one(&curve.c) != 0);
     let mut t0 = Fp2::default();
     fp2_add(&mut t0, x, &curve.a);
-    let s = t0;
-    fp2_mul(&mut t0, &s, x);
+    fp2_mul_ip(&mut t0, x);
     let s = t0;
     fp2_add_one(&mut t0, &s);
-    let s = t0;
-    fp2_mul(&mut t0, &s, x);
+    fp2_mul_ip(&mut t0, x);
     fp2_is_square(&t0)
 }
 
@@ -220,11 +184,9 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
         fp_copy(&mut t0.im, &b);
 
         fp2_sqr(&mut t1, &curve.a);
-        let s = t0;
-        fp2_mul(&mut t0, &s, &t1);
+        fp2_mul_ip(&mut t0, &t1);
         fp2_sqr(&mut t1, &z);
-        let s = t0;
-        fp2_sub(&mut t0, &s, &t1);
+        fp2_sub_ip(&mut t0, &t1);
         if fp2_is_square(&t0) == 0 {
             break;
         }
@@ -232,10 +194,8 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
 
     fp2_copy(x, &z);
     fp2_inv(x);
-    let s = *x;
-    fp2_mul(x, &s, &curve.a);
-    let s = *x;
-    fp2_neg(x, &s);
+    fp2_mul_ip(x, &curve.a);
+    fp2_neg_ip(x);
 
     if n <= 128 { (n - 1) as u8 } else { 0 }
 }
@@ -250,8 +210,7 @@ fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
         fp2_mul_small(x, &curve.a, n as u32);
     }
     while is_on_curve(x, curve) == 0 {
-        let s = *x;
-        fp2_add(x, &s, &curve.a);
+        fp2_add_ip(x, &curve.a);
         n = n.wrapping_add(1);
     }
     if n < 128 { n } else { 0 }
@@ -348,10 +307,8 @@ pub fn ec_curve_to_basis_2f_from_hint(
         fp_set_one(&mut p.x.re);
         fp_set_small(&mut p.x.im, hint_p as u64);
         fp2_inv(&mut p.x);
-        let s = p.x;
-        fp2_mul(&mut p.x, &s, &curve.a);
-        let s = p.x;
-        fp2_neg(&mut p.x, &s);
+        fp2_mul_ip(&mut p.x, &curve.a);
+        fp2_neg_ip(&mut p.x);
     }
     fp2_set_one(&mut p.z);
 

@@ -84,6 +84,19 @@ cargo run --release --features lvl1,sign --example sign_verify
   this flag the crate builds verification only, matching the C reference's
   `ENABLE_SIGN=OFF` mode.
 
+## Fuzzing
+
+Fuzz targets live in `fuzz/` and require `cargo install cargo-fuzz` (nightly
+toolchain). Targets cover the verification path only (no GMP dependency).
+
+```sh
+cargo fuzz run fuzz_verify
+```
+
+Available targets: `fuzz_verify`, `fuzz_decode_sig`, `fuzz_decode_pk`,
+`fuzz_fp2_decode`. A small KAT-derived seed corpus is checked in under
+`fuzz/corpus/fuzz_verify/`; regenerate with `python3 fuzz/seed_corpus.py`.
+
 ## License
 
 Apache-2.0. See `LICENSE`.

@@ -1,0 +1,22 @@
+commit,timestamp,verify,keygen,sign,note
+6de43a5+dirty,2026-04-14T18:30:34Z,verify=3.197ms,keygen=24.912ms,sign=58.526ms,bench-profile-lto-fix (mean; before mutants load)
+# Wall-clock rows below use min-of-N but remain noisy under concurrent cargo-mutants -j16 (load avg ~100-115).
+# Opt 3 (#[inline(always)] on hot fns) was tested, regressed (I-cache bloat with LTO already on); fully reverted.
+6de43a5+dirty,2026-04-14T18:38:23Z,verify=3.468ms,keygen=27.164ms,sign=62.802ms,baseline-min
+6de43a5+dirty,2026-04-14T18:38:32Z,verify=3.508ms,keygen=26.973ms,sign=62.418ms,baseline-min-2
+6de43a5+dirty,2026-04-14T18:39:31Z,verify=3.340ms,keygen=27.230ms,sign=59.333ms,opt2-drbg-cache-keysched
+6de43a5+dirty,2026-04-14T18:46:56Z,verify=3.501ms,keygen=48.285ms,sign=98.531ms,opt1-inplace-fp2-ops (noise)
+6de43a5+dirty,2026-04-14T18:47:46Z,verify=5.728ms,keygen=44.146ms,sign=107.558ms,opt1-inplace-fp2-ops-2 (noise)
+# Load-invariant comparison via perf-stat instructions:u (deterministic to ~1k instr):
+#   200x verify:       committed 10459.2M -> with-opts 10428.3M   = -0.30%
+#   sign_verify (2kg+1sign+3vfy): committed 1512.5M -> with-opts 1495.5M = -1.13%
+# Bottom line: Opt2 (DRBG key-sched cache) gives a real ~1% on sign-heavy workloads.
+# Opt1 (288 in-place fp2 rewrites) saves ~0.3% on verify; LLVM was already SROA'ing most temps under LTO.
+#
+# === Controlled C-vs-Rust comparison (KAT-0, identical workload, perf instructions:u) ===
+# Earlier "Rust 1.3-1.5x slower" claim was wrong (compared different workloads). Corrected:
+6de43a5+dirty,2026-04-14T19:05:00Z,verify=52.14M-instr,keygen=339.8M-instr,sign=784.5M-instr,controlled-comparison-rust
+C-ref-sysGMP,2026-04-14T19:05:00Z,verify=49.34M-instr,keygen=682.1M-instr,sign=1440.9M-instr,controlled-comparison-c
+# Ratios Rust/C: verify 1.06, keygen 0.50, sign 0.54.
+# The 2x keygen/sign win is AES-NI (Rust `aes` crate auto-detect) vs C ref's bitsliced
+# software AES (br_aes_ct64_* = 52% of C keygen profile). Verify (no DRBG/GMP) is at parity.

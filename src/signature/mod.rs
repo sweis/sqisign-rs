@@ -57,6 +57,40 @@ pub struct SecretKey {
     pub canonical_basis: EcBasis,
 }
 
+// Best-effort zeroization. `rug::Integer` (inside QuatLeftIdeal/IbzMat2x2) does
+// not zero its heap allocation on drop, so the ideal/matrix limbs may persist.
+// See PORTING.md "Security hardening" for details.
+impl Drop for SecretKey {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.curve.a.re.0.zeroize();
+        self.curve.a.im.0.zeroize();
+        self.curve.c.re.0.zeroize();
+        self.curve.c.im.0.zeroize();
+        for p in [&mut self.canonical_basis.p, &mut self.canonical_basis.q, &mut self.canonical_basis.pmq] {
+            p.x.re.0.zeroize();
+            p.x.im.0.zeroize();
+            p.z.re.0.zeroize();
+            p.z.im.0.zeroize();
+        }
+        // Overwrite GMP-backed integers with zero (does not guarantee old limb
+        // buffers are scrubbed if a realloc occurred, but clears the final state).
+        let zero = crate::quaternion::Ibz::new();
+        self.secret_ideal.norm.clone_from(&zero);
+        for row in self.secret_ideal.lattice.basis.iter_mut() {
+            for e in row.iter_mut() {
+                e.clone_from(&zero);
+            }
+        }
+        self.secret_ideal.lattice.denom.clone_from(&zero);
+        for row in self.mat_ba_can_to_ba0_two.iter_mut() {
+            for e in row.iter_mut() {
+                e.clone_from(&zero);
+            }
+        }
+    }
+}
+
 pub fn secret_key_init(sk: &mut SecretKey) {
     *sk = SecretKey::default();
     ec_curve_init(&mut sk.curve);

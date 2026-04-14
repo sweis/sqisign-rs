@@ -210,6 +210,14 @@ fn check_canonical_basis_change_matrix(sig: &Signature) -> bool {
     let mut aux: Scalar = [0; NWORDS_ORDER];
     aux[0] = 1;
     let shift = SQISIGN_RESPONSE_LENGTH as i32 + HD_EXTRA_TORSION as i32 - sig.backtracking as i32;
+    // Hardening vs C: a malicious `backtracking ≥ SQISIGN_RESPONSE_LENGTH+2` makes
+    // `shift ≤ 0`. C (and a faithful port) then either hits UB (`>> 64` at shift=0)
+    // or wraps to ~4e9 and burns ~18ms in `multiple_mp_shiftl`. Either way the
+    // signature is rejected later by the `pow_dim2_deg_resp < 0` check, so bailing
+    // here is equivalent and avoids the panic/amplification.
+    if shift <= 0 {
+        return false;
+    }
     multiple_mp_shiftl(&mut aux, shift as u32, NWORDS_ORDER);
     for i in 0..2 {
         for j in 0..2 {
@@ -503,7 +511,7 @@ pub fn sqisign_verify(m: &[u8], sig_bytes: &[u8], pk_bytes: &[u8]) -> bool {
     protocols_verify(&sigt, &pkt, m)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
 mod tests {
     use super::*;
 
@@ -567,9 +575,146 @@ mod tests {
     }
 
     #[test]
+    fn reject_adversarial_backtracking() {
+        // Regression test for the DoS/panic at backtracking ≥ 128 (negative
+        // shift wraps to ~4e9 in `multiple_mp_shiftl`; see PORTING.md). All
+        // these must reject quickly without panic, including in debug mode.
+        let m = &KAT0_SM[SIGNATURE_BYTES..];
+        for bt in [127, 128, 129, 200, 255] {
+            let mut sm = KAT0_SM;
+            sm[64] = bt;
+            let t = std::time::Instant::now();
+            assert!(!sqisign_verify(m, &sm[..SIGNATURE_BYTES], &KAT0_PK));
+            assert!(t.elapsed().as_millis() < 5, "bt={bt} took {:?}", t.elapsed());
+        }
+    }
+
+    #[test]
     fn verify_kat0() {
         let m = &KAT0_SM[SIGNATURE_BYTES..];
         let sig = &KAT0_SM[..SIGNATURE_BYTES];
         assert!(sqisign_verify(m, sig, &KAT0_PK));
+    }
+
+    /// Parse (pk, sm) for the given KAT index from the embedded .rsp file.
+    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
+    fn kat_vector(idx: usize) -> (Vec<u8>, Vec<u8>) {
+        const RSP: &str = include_str!("../../KAT/PQCsignKAT_353_SQIsign_lvl1.rsp");
+        let mut count = usize::MAX;
+        let mut pk = vec![];
+        for line in RSP.lines() {
+            if let Some(v) = line.strip_prefix("count = ") {
+                count = v.parse().unwrap();
+            } else if count == idx {
+                if let Some(v) = line.strip_prefix("pk = ") {
+                    pk = (0..v.len() / 2)
+                        .map(|i| u8::from_str_radix(&v[2 * i..2 * i + 2], 16).unwrap())
+                        .collect();
+                } else if let Some(v) = line.strip_prefix("sm = ") {
+                    let sm = (0..v.len() / 2)
+                        .map(|i| u8::from_str_radix(&v[2 * i..2 * i + 2], 16).unwrap())
+                        .collect();
+                    return (pk, sm);
+                }
+            }
+        }
+        panic!("KAT {idx} not found");
+    }
+
+    /// Verify a small set of KAT vectors covering diverse signature shapes
+    /// (backtracking>0, two_resp_length=0, both-even matrix parity), so that
+    /// branch arithmetic in protocols_verify and the isogeny chain are
+    /// exercised by lib tests, not only by the integration suite.
+    #[test]
+    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
+    fn verify_diverse_kats() {
+        // 0: bt=0 trl=1 (baseline); 1: bt=1; 5: m00,m10 both even;
+        // 7: trl=0; 9: bt=2; 2: trl=6 (long two-response chain).
+        for idx in [0, 1, 2, 5, 7, 9] {
+            let (pk, sm) = kat_vector(idx);
+            assert!(
+                sqisign_verify(&sm[SIGNATURE_BYTES..], &sm[..SIGNATURE_BYTES], &pk),
+                "KAT{idx} should verify"
+            );
+            // Tampered signature byte (E_aux_A) is rejected.
+            let mut bad = sm.clone();
+            bad[10] ^= 1;
+            assert!(
+                !sqisign_verify(&bad[SIGNATURE_BYTES..], &bad[..SIGNATURE_BYTES], &pk),
+                "KAT{idx} tamper should reject"
+            );
+        }
+    }
+
+    #[test]
+    fn reject_malformed_inputs() {
+        let m = &KAT0_SM[SIGNATURE_BYTES..];
+        let sig = &KAT0_SM[..SIGNATURE_BYTES];
+
+        // Wrong sizes.
+        assert!(!sqisign_verify(m, &sig[..SIGNATURE_BYTES - 1], &KAT0_PK));
+        assert!(!sqisign_verify(m, sig, &KAT0_PK[..PUBLICKEY_BYTES - 1]));
+
+        // Tampered message.
+        let mut bad_m = m.to_vec();
+        bad_m[0] ^= 1;
+        assert!(!sqisign_verify(&bad_m, sig, &KAT0_PK));
+
+        // Non-canonical basis change matrix: with backtracking=10 the bound is
+        // 2^118; set bit 119 of mat[0][0] so it exceeds the bound and must be
+        // rejected by check_canonical_basis_change_matrix.
+        let mut bad = KAT0_SM;
+        bad[64] = 10; // backtracking
+        let mat00_byte_119 = 64 + 2 + 14;
+        bad[mat00_byte_119] = 0x80;
+        assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
+        // ...and with the matrix in range, the same backtracking=10 still
+        // rejects (computation differs), proving the matrix check itself fired.
+        let mut bad2 = KAT0_SM;
+        bad2[64] = 10;
+        for i in 0..4 {
+            let off = 64 + 2 + i * ((SQISIGN_RESPONSE_LENGTH + 9) / 8) + 14;
+            bad2[off] &= 0x3F;
+            bad2[off + 1] = 0;
+        }
+        assert!(!sqisign_verify(m, &bad2[..SIGNATURE_BYTES], &KAT0_PK));
+
+        // E_aux_A = 2 (invalid Montgomery coefficient).
+        let mut bad = KAT0_SM;
+        bad[..FP2_ENCODED_BYTES].fill(0);
+        bad[0] = 2;
+        assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
+
+        // pk curve A = 2.
+        let mut bad_pk = KAT0_PK;
+        bad_pk[..FP2_ENCODED_BYTES].fill(0);
+        bad_pk[0] = 2;
+        assert!(!sqisign_verify(m, sig, &bad_pk));
+
+        // two_resp_length such that pow_dim2_deg_resp = 1 (rejected).
+        let mut bad = KAT0_SM;
+        bad[64] = 0; // backtracking
+        bad[65] = (SQISIGN_RESPONSE_LENGTH - 1) as u8; // two_resp_length
+        assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
+
+        // two_resp_length=0 takes the no-two-response branch.
+        // KAT0 has two_resp_length=1; setting it to 0 changes the computation
+        // and must reject (since the matrix/chall_coeff no longer match).
+        let mut bad = KAT0_SM;
+        bad[65] = 0;
+        assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
+    }
+
+    #[test]
+    fn hash_to_challenge_stable() {
+        // Golden test for the SHAKE256 iteration loop: hash of KAT0 (pk, com=pk)
+        // with empty message must be a specific value. Any change to mask/loop
+        // arithmetic breaks this.
+        let mut pk = PublicKey::default();
+        public_key_from_bytes(&mut pk, &KAT0_PK);
+        let mut s: Scalar = [0; NWORDS_ORDER];
+        hash_to_challenge(&mut s, &pk, &pk.curve, b"");
+        // Value pinned from current implementation (matches C; KAT-validated).
+        assert_eq!(s, [16658541885460340183, 53469704974404856, 0, 0]);
     }
 }

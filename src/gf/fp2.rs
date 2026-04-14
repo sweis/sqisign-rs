@@ -90,23 +90,22 @@ pub fn fp2_neg(x: &mut Fp2, y: &Fp2) {
 }
 
 /// (y.re + y.im·i)(z.re + z.im·i), via Karatsuba.
+#[inline]
 pub fn fp2_mul(x: &mut Fp2, y: &Fp2, z: &Fp2) {
     let mut t0 = Fp::default();
     let mut t1 = Fp::default();
 
     fp_add(&mut t0, &y.re, &y.im);
     fp_add(&mut t1, &z.re, &z.im);
-    let s0 = t0;
-    fp_mul(&mut t0, &s0, &t1);
+    fp_mul_ip(&mut t0, &t1);
     fp_mul(&mut t1, &y.im, &z.im);
     fp_mul(&mut x.re, &y.re, &z.re);
     fp_sub(&mut x.im, &t0, &t1);
-    let im = x.im;
-    fp_sub(&mut x.im, &im, &x.re);
-    let re = x.re;
-    fp_sub(&mut x.re, &re, &t1);
+    fp_sub_ip(&mut x.im, &x.re);
+    fp_sub_ip(&mut x.re, &t1);
 }
 
+#[inline]
 pub fn fp2_sqr(x: &mut Fp2, y: &Fp2) {
     let mut sum = Fp::default();
     let mut diff = Fp::default();
@@ -114,9 +113,78 @@ pub fn fp2_sqr(x: &mut Fp2, y: &Fp2) {
     fp_add(&mut sum, &y.re, &y.im);
     fp_sub(&mut diff, &y.re, &y.im);
     fp_mul(&mut x.im, &y.re, &y.im);
-    let im = x.im;
-    fp_add(&mut x.im, &im, &im);
+    fp_dbl_ip(&mut x.im);
     fp_mul(&mut x.re, &sum, &diff);
+}
+
+// ---------------------------------------------------------------------------
+// In-place variants for the common `let s = x; fp2_op(&mut x, &s, ...)` pattern.
+// These avoid an Fp2 (80B) caller-side copy by doing the work at the Fp level.
+// ---------------------------------------------------------------------------
+
+/// `r *= b`.
+#[inline]
+pub fn fp2_mul_ip(r: &mut Fp2, b: &Fp2) {
+    let mut t0 = Fp::default();
+    let mut t1 = Fp::default();
+    fp_add(&mut t0, &r.re, &r.im);
+    fp_add(&mut t1, &b.re, &b.im);
+    fp_mul_ip(&mut t0, &t1);
+    fp_mul(&mut t1, &r.im, &b.im);
+    fp_mul_ip(&mut r.re, &b.re);
+    fp_sub(&mut r.im, &t0, &t1);
+    fp_sub_ip(&mut r.im, &r.re);
+    fp_sub_ip(&mut r.re, &t1);
+}
+
+/// `r = r²`.
+#[inline]
+pub fn fp2_sqr_ip(r: &mut Fp2) {
+    let mut sum = Fp::default();
+    let mut diff = Fp::default();
+    fp_add(&mut sum, &r.re, &r.im);
+    fp_sub(&mut diff, &r.re, &r.im);
+    fp_mul_ip(&mut r.im, &r.re);
+    fp_dbl_ip(&mut r.im);
+    fp_mul(&mut r.re, &sum, &diff);
+}
+
+/// `r += b`.
+#[inline]
+pub fn fp2_add_ip(r: &mut Fp2, b: &Fp2) {
+    fp_add_ip(&mut r.re, &b.re);
+    fp_add_ip(&mut r.im, &b.im);
+}
+
+/// `r -= b`.
+#[inline]
+pub fn fp2_sub_ip(r: &mut Fp2, b: &Fp2) {
+    fp_sub_ip(&mut r.re, &b.re);
+    fp_sub_ip(&mut r.im, &b.im);
+}
+
+/// `r = b - r`.
+#[inline]
+pub fn fp2_rsub_ip(r: &mut Fp2, b: &Fp2) {
+    let mut t = Fp::default();
+    fp_sub(&mut t, &b.re, &r.re);
+    r.re = t;
+    fp_sub(&mut t, &b.im, &r.im);
+    r.im = t;
+}
+
+/// `r = -r`.
+#[inline]
+pub fn fp2_neg_ip(r: &mut Fp2) {
+    fp_neg_ip(&mut r.re);
+    fp_neg_ip(&mut r.im);
+}
+
+/// `r = 2r`.
+#[inline]
+pub fn fp2_dbl_ip(r: &mut Fp2) {
+    fp_dbl_ip(&mut r.re);
+    fp_dbl_ip(&mut r.im);
 }
 
 pub fn fp2_inv(x: &mut Fp2) {
@@ -125,15 +193,11 @@ pub fn fp2_inv(x: &mut Fp2) {
 
     fp_sqr(&mut t0, &x.re);
     fp_sqr(&mut t1, &x.im);
-    let s = t0;
-    fp_add(&mut t0, &s, &t1);
+    fp_add_ip(&mut t0, &t1);
     fp_inv(&mut t0);
-    let re = x.re;
-    fp_mul(&mut x.re, &re, &t0);
-    let im = x.im;
-    fp_mul(&mut x.im, &im, &t0);
-    let im = x.im;
-    fp_neg(&mut x.im, &im);
+    fp_mul_ip(&mut x.re, &t0);
+    fp_mul_ip(&mut x.im, &t0);
+    fp_neg_ip(&mut x.im);
 }
 
 pub fn fp2_is_square(x: &Fp2) -> u32 {
@@ -141,8 +205,7 @@ pub fn fp2_is_square(x: &Fp2) -> u32 {
     let mut t1 = Fp::default();
     fp_sqr(&mut t0, &x.re);
     fp_sqr(&mut t1, &x.im);
-    let s = t0;
-    fp_add(&mut t0, &s, &t1);
+    fp_add_ip(&mut t0, &t1);
     fp_is_square(&t0)
 }
 
@@ -251,11 +314,9 @@ pub fn fp2_pow_vartime(out: &mut Fp2, x: &Fp2, exp: &[Digit]) {
     for &word in exp.iter() {
         for i in 0..RADIX {
             if (word >> i) & 1 == 1 {
-                let o = *out;
-                fp2_mul(out, &o, &acc);
+                fp2_mul_ip(out, &acc);
             }
-            let a = acc;
-            fp2_sqr(&mut acc, &a);
+            fp2_sqr_ip(&mut acc);
         }
     }
 }
@@ -487,6 +548,51 @@ mod tests {
     }
 
     #[test]
+    fn inplace_ops_match_three_arg() {
+        let mut prng = Prng(0x21);
+        for _ in 0..ITERS {
+            let a = fp2_random(&mut prng);
+            let b = fp2_random(&mut prng);
+            let mut r3 = Fp2::default();
+
+            let mut r = a;
+            fp2_mul_ip(&mut r, &b);
+            fp2_mul(&mut r3, &a, &b);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_sqr_ip(&mut r);
+            fp2_sqr(&mut r3, &a);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_add_ip(&mut r, &b);
+            fp2_add(&mut r3, &a, &b);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_sub_ip(&mut r, &b);
+            fp2_sub(&mut r3, &a, &b);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_rsub_ip(&mut r, &b);
+            fp2_sub(&mut r3, &b, &a);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_neg_ip(&mut r);
+            fp2_neg(&mut r3, &a);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+
+            let mut r = a;
+            fp2_dbl_ip(&mut r);
+            fp2_add(&mut r3, &a, &a);
+            assert_ne!(fp2_is_equal(&r, &r3), 0);
+        }
+    }
+
+    #[test]
     fn squaring() {
         let mut prng = Prng(0x15);
         for _ in 0..ITERS {
@@ -561,6 +667,7 @@ mod tests {
 
     /// Golden vectors extracted from the C reference implementation
     /// (libsqisign_gf_lvl1.a, RADIX_64, ref build).
+    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
     #[test]
     fn golden_c_vectors() {
         let mut enc = [0u8; FP2_ENCODED_BYTES];

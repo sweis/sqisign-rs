@@ -1,0 +1,83 @@
+# cargo-mutants configuration
+# Scope: verify-path correctness modules. Signing path (quaternion/id2iso/signature)
+# is excluded — exhaustively exercised by kat_sign integration test and slow.
+
+examine_globs = [
+    "src/mp/**/*.rs",
+    "src/gf/**/*.rs",
+    "src/ec/**/*.rs",
+    "src/hd/**/*.rs",
+    "src/verification/**/*.rs",
+]
+exclude_globs = [
+    # Level-specific GF primes are tested by their own KAT; only exercise the active level.
+    "src/gf/fp_p65376.rs",
+    "src/gf/fp_p27500.rs",
+]
+
+# Debug/print/test-only helpers — mutations are unobservable.
+exclude_re = [
+    "_print",
+    "test_point_order_twof",
+    "test_basis_order_twof",
+    "test_jac_order_twof",
+    "test_couple_point_order_twof",
+    "Debug for",
+    # Dead code ported faithfully from C (documented in PORTING.md):
+    "bswap_digit",
+    "mp_mul2",
+    "mod2r",
+    "modsign",
+    "modcmv",
+    "fn add_carry",
+    "copy_jac_point",
+    "add_couple_jac_points",
+    "public_key_init",
+    # Sign-only (exercised by kat_sign integration test, not verify-path lib tests):
+    "theta_chain_compute_and_eval$",
+    "theta_chain_compute_and_eval ",
+    "theta_chain_compute_and_eval_randomized",
+    "sample_random_index",
+    "theta_isogeny_compute_4",
+    "theta_isogeny_compute_2",
+    "double_couple_point_iter",
+    "gluing_eval_point_special_case",
+    "set_base_change_matrix_from_precomp",
+    "base_change_matrix_multiplication",
+    "ec_dlog_2_tate",
+    "tate_dlog_partial",
+    "ec_isomorphism",
+    "ec_iso_eval",
+    "fp2_pow_vartime",
+    "public_key_to_bytes",
+    "ec_curve_to_basis_2f_to_hint",
+    "find_na_x_coord",
+    # Only exercised when pushing points through theta chain (sign-only):
+    "theta_point_to_montgomery_point",
+    "theta_product_structure_to_elliptic_product",
+    # Test helpers:
+    "hex_literal",
+    "hex_nibble",
+    "kat_vector",
+    # Equivalent mutations (extra Newton iterations / disjoint-bit XOR vs OR):
+    "in mp_inv_2e",
+    "in mp_invert_matrix",
+    "with \\^ in addc",
+    "with \\^ in subc",
+    "with \\| in shiftr",
+    "with \\| in shiftl",
+    "with \\^ in modshl",
+    "with \\^ in modshr",
+    "with \\^ in modqr",
+    "in adc",
+    "with \\^ in fp2_sqrt",
+    # hash_to_challenge mask: 2*SECURITY_BITS is a multiple of 64 at all
+    # parameter levels, so the mask is always all-ones and these ops are dead.
+    "in hash_to_challenge",
+    # Debug-only diagnostic block (eprintln on order mismatch):
+    "in challenge_and_aux_basis_verify",
+]
+
+additional_cargo_args = ["--no-default-features", "--features", "lvl1"]
+additional_cargo_test_args = ["--lib"]
+test_tool = "cargo"

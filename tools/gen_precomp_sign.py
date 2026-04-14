@@ -8,7 +8,9 @@ struct layouts to produce Rust OnceLock-backed constructors.
 """
 import re, sys, pathlib
 
-C_DIR = pathlib.Path("/root/src/personal-hacking/the-sqisign/src/precomp/ref/lvl1")
+LEVEL = sys.argv[1] if len(sys.argv) > 1 else "lvl1"
+assert LEVEL in ("lvl1", "lvl3", "lvl5")
+C_DIR = pathlib.Path(f"/root/src/personal-hacking/the-sqisign/src/precomp/ref/{LEVEL}")
 OUT_DIR = pathlib.Path("/root/src/personal-hacking/sqisign-rs/src/precomp")
 
 # ---------------------------------------------------------------------------
@@ -105,7 +107,8 @@ def take_fp(s):
         limbs.append(s.next())
         if s.peek() == ",": s.next()
     s.expect("}")
-    assert len(limbs) == 5, f"expected 5 fp limbs, got {len(limbs)}"
+    nw = {"lvl1": 5, "lvl3": 7, "lvl5": 9}[LEVEL]
+    assert len(limbs) == nw, f"expected {nw} fp limbs, got {len(limbs)}"
     return f"Fp([{','.join(limbs)}])"
 
 def take_fp2(s):
@@ -241,7 +244,7 @@ def take_curve_with_endo(s, ibzs):
 
 HEADER = """\
 // SPDX-License-Identifier: Apache-2.0
-//! Precomputed signing-path constants (lvl1).
+//! Precomputed signing-path constants (""" + LEVEL + """).
 //! Auto-generated from the C reference by `tools/gen_precomp_sign.py`.
 #![allow(clippy::all)]
 
@@ -286,48 +289,38 @@ def gen_quaternion_data():
                f"    static V: OnceLock<QuatAlg> = OnceLock::new();\n"
                f"    V.get_or_init(|| QuatAlg {{ p: {p} }})\n}}\n")
 
-    # const quat_p_extremal_maximal_order_t EXTREMAL_ORDERS[7] = { ... } ;
-    s.expect("const"); s.expect("quat_p_extremal_maximal_order_t")
-    s.expect("EXTREMAL_ORDERS"); s.expect("["); s.expect("7"); s.expect("]"); s.expect("=")
-    s.expect("{")
-    eords = []
-    for _ in range(7):
-        eords.append(take_quat_p_extremal_maximal_order(s, ibzs))
-        if s.peek() == ",": s.next()
-    s.expect("}"); s.expect(";")
+    def take_array(typename, name, taker):
+        s.expect("const"); s.expect(typename)
+        s.expect(name); s.expect("["); n = int(s.next()); s.expect("]"); s.expect("=")
+        s.expect("{")
+        items = []
+        for _ in range(n):
+            items.append(taker(s, ibzs))
+            if s.peek() == ",": s.next()
+        s.expect("}"); s.expect(";")
+        return n, items
+
+    n, eords = take_array("quat_p_extremal_maximal_order_t", "EXTREMAL_ORDERS",
+                          take_quat_p_extremal_maximal_order)
+    out.append(f"pub const NUM_ALTERNATE_EXTREMAL_ORDERS: usize = {n - 1};\n")
+    out.append(f"pub const NUM_ALTERNATE_STARTING_CURVES: usize = {n - 1};\n")
     body = ",\n            ".join(eords)
-    out.append(f"pub fn extremal_orders() -> &'static [QuatPExtremalMaximalOrder; 7] {{\n"
-               f"    static V: OnceLock<[QuatPExtremalMaximalOrder; 7]> = OnceLock::new();\n"
+    out.append(f"pub fn extremal_orders() -> &'static [QuatPExtremalMaximalOrder; {n}] {{\n"
+               f"    static V: OnceLock<[QuatPExtremalMaximalOrder; {n}]> = OnceLock::new();\n"
                f"    V.get_or_init(|| [\n            {body}\n        ])\n}}\n")
     out.append("pub fn maxord_o0() -> &'static QuatLattice { &extremal_orders()[0].order }\n")
     out.append("pub fn standard_extremal_order() -> &'static QuatPExtremalMaximalOrder { &extremal_orders()[0] }\n")
 
-    # const quat_left_ideal_t CONNECTING_IDEALS[7] = { ... } ;
-    s.expect("const"); s.expect("quat_left_ideal_t")
-    s.expect("CONNECTING_IDEALS"); s.expect("["); s.expect("7"); s.expect("]"); s.expect("=")
-    s.expect("{")
-    cids = []
-    for _ in range(7):
-        cids.append(take_quat_left_ideal_nostrict(s, ibzs))
-        if s.peek() == ",": s.next()
-    s.expect("}"); s.expect(";")
+    n, cids = take_array("quat_left_ideal_t", "CONNECTING_IDEALS", take_quat_left_ideal_nostrict)
     body = ",\n            ".join(cids)
-    out.append(f"pub fn connecting_ideals() -> &'static [QuatLeftIdeal; 7] {{\n"
-               f"    static V: OnceLock<[QuatLeftIdeal; 7]> = OnceLock::new();\n"
+    out.append(f"pub fn connecting_ideals() -> &'static [QuatLeftIdeal; {n}] {{\n"
+               f"    static V: OnceLock<[QuatLeftIdeal; {n}]> = OnceLock::new();\n"
                f"    V.get_or_init(|| [\n            {body}\n        ])\n}}\n")
 
-    # const quat_alg_elem_t CONJUGATING_ELEMENTS[7] = { ... } ;
-    s.expect("const"); s.expect("quat_alg_elem_t")
-    s.expect("CONJUGATING_ELEMENTS"); s.expect("["); s.expect("7"); s.expect("]"); s.expect("=")
-    s.expect("{")
-    cels = []
-    for _ in range(7):
-        cels.append(take_quat_alg_elem(s, ibzs))
-        if s.peek() == ",": s.next()
-    s.expect("}"); s.expect(";")
+    n, cels = take_array("quat_alg_elem_t", "CONJUGATING_ELEMENTS", take_quat_alg_elem)
     body = ",\n            ".join(cels)
-    out.append(f"pub fn conjugating_elements() -> &'static [QuatAlgElem; 7] {{\n"
-               f"    static V: OnceLock<[QuatAlgElem; 7]> = OnceLock::new();\n"
+    out.append(f"pub fn conjugating_elements() -> &'static [QuatAlgElem; {n}] {{\n"
+               f"    static V: OnceLock<[QuatAlgElem; {n}]> = OnceLock::new();\n"
                f"    V.get_or_init(|| [\n            {body}\n        ])\n}}\n")
 
     return "".join(out)
@@ -370,16 +363,16 @@ pub struct CurveWithEndomorphismRing {
 """)
 
     s.expect("const"); s.expect("curve_with_endomorphism_ring_t")
-    s.expect("CURVES_WITH_ENDOMORPHISMS"); s.expect("["); s.expect("7"); s.expect("]"); s.expect("=")
+    s.expect("CURVES_WITH_ENDOMORPHISMS"); s.expect("["); n = int(s.next()); s.expect("]"); s.expect("=")
     s.expect("{")
     cwe = []
-    for _ in range(7):
+    for _ in range(n):
         cwe.append(take_curve_with_endo(s, ibzs))
         if s.peek() == ",": s.next()
     s.expect("}"); s.expect(";")
     body = ",\n            ".join(cwe)
-    out.append(f"pub fn curves_with_endomorphisms() -> &'static [CurveWithEndomorphismRing; 7] {{\n"
-               f"    static V: OnceLock<[CurveWithEndomorphismRing; 7]> = OnceLock::new();\n"
+    out.append(f"pub fn curves_with_endomorphisms() -> &'static [CurveWithEndomorphismRing; {n}] {{\n"
+               f"    static V: OnceLock<[CurveWithEndomorphismRing; {n}]> = OnceLock::new();\n"
                f"    V.get_or_init(|| [\n            {body}\n        ])\n}}\n")
     out.append("pub fn curve_e0() -> &'static EcCurve { &curves_with_endomorphisms()[0].curve }\n")
     out.append("pub fn basis_even() -> &'static EcBasis { &curves_with_endomorphisms()[0].basis_even }\n")
@@ -402,35 +395,29 @@ def main():
     body += gen_quaternion_data()
     body += "\n// --- endomorphism_action.c ---\n"
     body += gen_endomorphism_action()
-    body += "\npub const NUM_ALTERNATE_EXTREMAL_ORDERS: usize = 6;\n"
-    body += "pub const NUM_ALTERNATE_STARTING_CURVES: usize = 6;\n"
-    body += TESTS
-    (OUT_DIR / "sign_data.rs").write_text(body)
-    print(f"wrote {OUT_DIR/'sign_data.rs'} ({len(body)} bytes)")
+    body += TESTS_GENERIC
+    if LEVEL == "lvl1":
+        body += TESTS_LVL1
+    out = OUT_DIR / f"sign_data_{LEVEL}.rs"
+    out.write_text(body)
+    print(f"wrote {out} ({len(body)} bytes)")
 
-TESTS = r"""
+TESTS_GENERIC = r"""
 #[cfg(test)]
 mod tests {
     use super::*;
     use rug::Integer;
     use rug::ops::RemRounding;
+    use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
     #[test]
     fn pinfty_is_prime_p() {
-        // p = 5 * 2^248 - 1
-        let mut expected = Integer::from(5);
-        expected <<= 248;
+        // p = c · 2^e - 1.
+        let mut expected = Integer::from(P_COFACTOR_FOR_2F[0]);
+        expected <<= TORSION_EVEN_POWER as u32;
         expected -= 1;
         assert_eq!(quatalg_pinfty().p, expected);
-    }
-
-    #[test]
-    fn prime_cofactor_value() {
-        // 2^251 + 65 (from limbs [0x41, 0, 0, 0x800000000000000])
-        let mut expected = Integer::from(1);
-        expected <<= 251;
-        expected += 65;
-        assert_eq!(*quat_prime_cofactor(), expected);
+        assert_ne!(quatalg_pinfty().p.is_probably_prime(40), rug::integer::IsPrime::No);
     }
 
     #[test]
@@ -476,10 +463,10 @@ mod tests {
 
     #[test]
     fn endo_action_i_squares_to_neg_id() {
-        // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^248.
+        // The 2×2 action of i on the even-torsion basis must square to -1 mod 2^e.
         let cwe = &curves_with_endomorphisms()[0];
         let m = &cwe.action_i;
-        let mut modn = Integer::from(1); modn <<= 248;
+        let mut modn = Integer::from(1); modn <<= TORSION_EVEN_POWER as u32;
         let r = |x: &Integer| -> Integer { x.clone().rem_euc(modn.clone()) };
         let m2_00 = r(&(m[0][0].clone()*&m[0][0] + m[0][1].clone()*&m[1][0]));
         let m2_01 = r(&(m[0][0].clone()*&m[0][1] + m[0][1].clone()*&m[1][1]));
@@ -493,8 +480,33 @@ mod tests {
     }
 
     #[test]
+    fn all_populated() {
+        let n = extremal_orders().len();
+        assert_eq!(connecting_ideals().len(), n);
+        assert_eq!(conjugating_elements().len(), n);
+        assert_eq!(curves_with_endomorphisms().len(), n);
+        assert!(extremal_orders()[n - 1].q > 1);
+        assert!(connecting_ideals()[n - 1].norm > 1);
+    }
+}
+"""
+
+TESTS_LVL1 = r"""
+#[cfg(test)]
+mod tests_lvl1 {
+    use super::*;
+    use rug::Integer;
+
+    #[test]
+    fn prime_cofactor_value() {
+        let mut expected = Integer::from(1);
+        expected <<= 251;
+        expected += 65;
+        assert_eq!(*quat_prime_cofactor(), expected);
+    }
+
+    #[test]
     fn c_golden_cross_check() {
-        // Values dumped from the C build (tools: /tmp/dump_precomp.c).
         assert_eq!(extremal_orders()[6].q, 97);
         assert_eq!(
             connecting_ideals()[6].norm.to_string(),
@@ -509,17 +521,6 @@ mod tests {
             curves_with_endomorphisms()[0].basis_even.q.x.re.0[0],
             0x21dd55b97832f
         );
-    }
-
-    #[test]
-    fn all_seven_populated() {
-        assert_eq!(extremal_orders().len(), 7);
-        assert_eq!(connecting_ideals().len(), 7);
-        assert_eq!(conjugating_elements().len(), 7);
-        assert_eq!(curves_with_endomorphisms().len(), 7);
-        // Spot-check that later entries have non-trivial data.
-        assert!(extremal_orders()[6].q > 1);
-        assert!(connecting_ideals()[6].norm > 1);
     }
 }
 """

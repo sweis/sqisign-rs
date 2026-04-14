@@ -12,20 +12,21 @@ use std::sync::Mutex;
 /// AES-256 CTR-DRBG state. Exposed so callers (e.g. parallel tests) can hold
 /// independent instances; the global [`randombytes`] wrappers use a shared
 /// instance to match the C API.
-#[derive(Clone)]
+#[derive(Clone, zeroize::Zeroize, zeroize::ZeroizeOnDrop)]
 pub struct DrbgState {
     key: [u8; 32],
     v: [u8; 16],
     reseed_counter: u32,
 }
 
-fn aes256_ecb(key: &[u8; 32], ctr: &[u8; 16], out: &mut [u8; 16]) {
-    let cipher = Aes256::new(GenericArray::from_slice(key));
+#[inline]
+fn aes256_ecb(cipher: &Aes256, ctr: &[u8; 16], out: &mut [u8; 16]) {
     let mut block = GenericArray::clone_from_slice(ctr);
     cipher.encrypt_block(&mut block);
     out.copy_from_slice(&block);
 }
 
+#[inline]
 fn increment_v(v: &mut [u8; 16]) {
     for j in (0..16).rev() {
         if v[j] == 0xff {
@@ -37,12 +38,18 @@ fn increment_v(v: &mut [u8; 16]) {
     }
 }
 
-fn ctr_drbg_update(provided_data: Option<&[u8; 48]>, key: &mut [u8; 32], v: &mut [u8; 16]) {
+/// Derive next key/V from three blocks of `cipher`, mixing in `provided_data`.
+fn ctr_drbg_update(
+    cipher: &Aes256,
+    provided_data: Option<&[u8; 48]>,
+    key: &mut [u8; 32],
+    v: &mut [u8; 16],
+) {
     let mut temp = [0u8; 48];
     for i in 0..3 {
         increment_v(v);
         let mut block = [0u8; 16];
-        aes256_ecb(key, v, &mut block);
+        aes256_ecb(cipher, v, &mut block);
         temp[16 * i..16 * (i + 1)].copy_from_slice(&block);
     }
     if let Some(pd) = provided_data {
@@ -66,7 +73,8 @@ impl DrbgState {
         }
         let mut key = [0u8; 32];
         let mut v = [0u8; 16];
-        ctr_drbg_update(Some(&seed_material), &mut key, &mut v);
+        let cipher = Aes256::new(GenericArray::from_slice(&key));
+        ctr_drbg_update(&cipher, Some(&seed_material), &mut key, &mut v);
         DrbgState {
             key,
             v,
@@ -76,12 +84,14 @@ impl DrbgState {
 
     /// Fill `x` with the next bytes from this DRBG instance.
     pub fn fill(&mut self, x: &mut [u8]) {
+        // Expand the key schedule once per call, not per block.
+        let cipher = Aes256::new(GenericArray::from_slice(&self.key));
         let mut block = [0u8; 16];
         let mut i = 0;
         let mut xlen = x.len();
         while xlen > 0 {
             increment_v(&mut self.v);
-            aes256_ecb(&self.key, &self.v, &mut block);
+            aes256_ecb(&cipher, &self.v, &mut block);
             if xlen > 15 {
                 x[i..i + 16].copy_from_slice(&block);
                 i += 16;
@@ -91,7 +101,7 @@ impl DrbgState {
                 xlen = 0;
             }
         }
-        ctr_drbg_update(None, &mut self.key, &mut self.v);
+        ctr_drbg_update(&cipher, None, &mut self.key, &mut self.v);
         self.reseed_counter += 1;
     }
 }
@@ -114,6 +124,21 @@ pub fn randombytes_init_full(
     _security_strength: i32,
 ) {
     *DRBG_CTX.lock().unwrap() = Some(DrbgState::new(entropy_input, personalization));
+}
+
+/// Snapshot the global DRBG state for deterministic benchmark replays.
+/// Gated because it exposes secret DRBG state (key + counter).
+#[cfg(feature = "bench-internals")]
+#[doc(hidden)]
+pub fn snapshot() -> DrbgState {
+    DRBG_CTX.lock().unwrap().clone().expect("DRBG not initialized")
+}
+
+/// Restore the global DRBG state from a snapshot.
+#[cfg(feature = "bench-internals")]
+#[doc(hidden)]
+pub fn restore(s: &DrbgState) {
+    *DRBG_CTX.lock().unwrap() = Some(s.clone());
 }
 
 /// Fill `x` with deterministic pseudo-random bytes from the global DRBG.

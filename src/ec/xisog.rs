@@ -21,19 +21,14 @@ pub fn xisog_2_singular(kps: &mut EcKps2, b24: &mut EcPoint, mut a24: EcPoint) {
     let mut four = Fp2::default();
     fp2_set_small(&mut four, 4);
     fp2_add(&mut t0, &a24.x, &a24.x);
-    let s = t0;
-    fp2_sub(&mut t0, &s, &a24.z);
-    let s = t0;
-    fp2_add(&mut t0, &s, &s);
+    fp2_sub_ip(&mut t0, &a24.z);
+    fp2_dbl_ip(&mut t0);
     fp2_inv(&mut a24.z);
-    let s = t0;
-    fp2_mul(&mut t0, &s, &a24.z);
+    fp2_mul_ip(&mut t0, &a24.z);
     fp2_copy(&mut kps.k.x, &t0);
     fp2_add(&mut b24.x, &t0, &t0);
-    let s = t0;
-    fp2_sqr(&mut t0, &s);
-    let s = t0;
-    fp2_sub(&mut t0, &s, &four);
+    fp2_sqr_ip(&mut t0);
+    fp2_sub_ip(&mut t0, &four);
     fp2_sqrt(&mut t0);
     fp2_neg(&mut kps.k.z, &t0);
     fp2_add(&mut b24.z, &t0, &t0);
@@ -62,8 +57,7 @@ pub fn xisog_4(kps: &mut EcKps4, b: &mut EcPoint, p: &EcPoint) {
     fp2_sub(&mut k1x, &p.x, &p.z);
     let s = k0z;
     fp2_add(&mut k0x, &s, &s);
-    let s = k0x;
-    fp2_add(&mut k0x, &s, &s);
+    fp2_dbl_ip(&mut k0x);
 
     kps.k[0].x = k0x;
     kps.k[0].z = k0z;
@@ -83,8 +77,7 @@ pub fn xeval_2(r: &mut [EcPoint], q: &[EcPoint], kps: &EcKps2) {
         fp2_mul(&mut t2, &kps.k.x, &t1);
         fp2_mul(&mut t1, &kps.k.z, &t0);
         fp2_add(&mut t0, &t2, &t1);
-        let s = t1;
-        fp2_sub(&mut t1, &t2, &s);
+        fp2_rsub_ip(&mut t1, &t2);
         fp2_mul(&mut r[j].x, &q[j].x, &t0);
         fp2_mul(&mut r[j].z, &q[j].z, &t1);
     }
@@ -97,10 +90,8 @@ pub fn xeval_2_singular(r: &mut [EcPoint], q: &[EcPoint], kps: &EcKps2) {
     for i in 0..q.len() {
         fp2_mul(&mut t0, &q[i].x, &q[i].z);
         fp2_mul(&mut t1, &kps.k.x, &q[i].z);
-        let s = t1;
-        fp2_add(&mut t1, &s, &q[i].x);
-        let s = t1;
-        fp2_mul(&mut t1, &s, &q[i].x);
+        fp2_add_ip(&mut t1, &q[i].x);
+        fp2_mul_ip(&mut t1, &q[i].x);
         fp2_sqr(&mut r[i].x, &q[i].z);
         let rx = r[i].x;
         fp2_add(&mut r[i].x, &rx, &t1);
@@ -117,21 +108,17 @@ pub fn xeval_4(r: &mut [EcPoint], q: &[EcPoint], kps: &EcKps4) {
         fp2_sub(&mut t1, &q[i].x, &q[i].z);
         fp2_mul(&mut r[i].x, &t0, &kps.k[1].x);
         fp2_mul(&mut r[i].z, &t1, &kps.k[2].x);
-        let s = t0;
-        fp2_mul(&mut t0, &s, &t1);
-        let s = t0;
-        fp2_mul(&mut t0, &s, &kps.k[0].x);
+        fp2_mul_ip(&mut t0, &t1);
+        fp2_mul_ip(&mut t0, &kps.k[0].x);
         let (rx, rz) = (r[i].x, r[i].z);
         fp2_add(&mut t1, &rx, &rz);
         fp2_sub(&mut r[i].z, &rx, &rz);
-        let s = t1;
-        fp2_sqr(&mut t1, &s);
+        fp2_sqr_ip(&mut t1);
         let rz = r[i].z;
         fp2_sqr(&mut r[i].z, &rz);
         fp2_add(&mut r[i].x, &t0, &t1);
         let rz = r[i].z;
-        let s = t0;
-        fp2_sub(&mut t0, &s, &rz);
+        fp2_sub_ip(&mut t0, &rz);
         let rx = r[i].x;
         fp2_mul(&mut r[i].x, &rx, &t1);
         let rz = r[i].z;
@@ -140,22 +127,30 @@ pub fn xeval_4(r: &mut [EcPoint], q: &[EcPoint], kps: &EcKps4) {
 }
 
 /// In-place wrapper for `xeval_2` (handles C aliasing pattern `xeval_2(R, R, ...)`).
+/// Each output element depends only on the same-index input, so a per-element
+/// snapshot suffices — no heap allocation.
 #[inline]
 pub fn xeval_2_inplace(r: &mut [EcPoint], kps: &EcKps2) {
-    let q: Vec<EcPoint> = r.to_vec();
-    xeval_2(r, &q, kps);
+    for j in 0..r.len() {
+        let q = r[j];
+        xeval_2(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+    }
 }
 
 /// In-place wrapper for `xeval_2_singular`.
 #[inline]
 pub fn xeval_2_singular_inplace(r: &mut [EcPoint], kps: &EcKps2) {
-    let q: Vec<EcPoint> = r.to_vec();
-    xeval_2_singular(r, &q, kps);
+    for j in 0..r.len() {
+        let q = r[j];
+        xeval_2_singular(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+    }
 }
 
 /// In-place wrapper for `xeval_4`.
 #[inline]
 pub fn xeval_4_inplace(r: &mut [EcPoint], kps: &EcKps4) {
-    let q: Vec<EcPoint> = r.to_vec();
-    xeval_4(r, &q, kps);
+    for j in 0..r.len() {
+        let q = r[j];
+        xeval_4(core::slice::from_mut(&mut r[j]), core::slice::from_ref(&q), kps);
+    }
 }

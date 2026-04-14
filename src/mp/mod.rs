@@ -612,4 +612,34 @@ mod tests {
         assert!(mp_is_zero(&m10, N));
         assert!(mp_is_one(&m11, N));
     }
+
+    #[test]
+    fn parity() {
+        assert!(mp_is_even(&[0u64, 0]));
+        assert!(!mp_is_odd(&[0u64, 0]));
+        assert!(mp_is_odd(&[1u64, 0]));
+        assert!(!mp_is_even(&[1u64, 0]));
+        assert!(mp_is_odd(&[u64::MAX, u64::MAX]));
+        assert!(mp_is_even(&[2u64, 7]));
+    }
+
+    #[test]
+    fn digit_nonzero_ct_top_bit_only() {
+        // Regression for x | -x vs x ^ -x: when x = 2^63, -x = 2^63, so x ^ -x = 0.
+        assert_eq!(is_digit_nonzero_ct(1u64 << 63), 1);
+        assert_eq!(is_digit_nonzero_ct(0), 0);
+        assert_eq!(is_digit_zero_ct(1u64 << 63), 0);
+    }
+
+    #[test]
+    fn multiple_shiftl_exact_radix() {
+        // Shift of exactly 64 must enter the loop once (63) then finish with 1.
+        let mut x = [1u64, 0, 0];
+        multiple_mp_shiftl(&mut x, 64, 3);
+        assert_eq!(x, [0, 1, 0]);
+        let mut x = [1u64, 0, 0];
+        multiple_mp_shiftl(&mut x, 127, 3);
+        assert_eq!(x, [0, 1u64 << 63, 0]);
+    }
+
 }

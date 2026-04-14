@@ -10,7 +10,7 @@
 
 use crate::gf::{
     fp2_add, fp2_batched_inv, fp2_copy, fp2_frob, fp2_inv, fp2_is_equal, fp2_is_one, fp2_is_zero,
-    fp2_mul, fp2_select, fp2_set_one, fp2_sqr, fp2_sub, Fp2,
+    fp2_mul, fp2_mul_ip, fp2_select, fp2_set_one, fp2_sqr, fp2_sqr_ip, fp2_sub, Fp2,
 };
 use crate::mp::{mp_add, multiple_mp_shiftl, Digit};
 use crate::precomp::{NWORDS_ORDER, P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
@@ -239,10 +239,8 @@ fn weil_n(r: &mut Fp2, pd: &PairingParams) {
     monodromy_i(&mut r1, pd, false);
     fp2_mul(r, &r0.x, &r1.z);
     fp2_inv(r);
-    let s = *r;
-    fp2_mul(r, &s, &r0.z);
-    let s = *r;
-    fp2_mul(r, &s, &r1.x);
+    fp2_mul_ip(r, &r0.z);
+    fp2_mul_ip(r, &r1.x);
 }
 
 // ---------------------------------------------------------------------------
@@ -278,11 +276,9 @@ pub fn clear_cofac(r: &mut Fp2, a: &Fp2) {
     let x = *a;
     fp2_copy(r, a);
     while exp > 0 {
-        let s = *r;
-        fp2_sqr(r, &s);
+        fp2_sqr_ip(r);
         if exp & 1 != 0 {
-            let s = *r;
-            fp2_mul(r, &s, &x);
+            fp2_mul_ip(r, &x);
         }
         exp >>= 1;
     }
@@ -325,8 +321,7 @@ pub fn reduced_tate(
     let s = *r;
     clear_cofac(r, &s);
     for _ in 0..e_diff {
-        let s = *r;
-        fp2_sqr(r, &s);
+        fp2_sqr_ip(r);
     }
 }
 
@@ -349,8 +344,7 @@ fn fp2_dlog_2e_rec(
         if fp2_is_one(&pows_f[stacklen - 1]) != 0 {
             *a = [0; NWORDS_ORDER];
             for i in 0..stacklen - 1 {
-                let s = pows_g[i];
-                fp2_sqr(&mut pows_g[i], &s);
+                fp2_sqr_ip(&mut pows_g[i]);
             }
             return true;
         }
@@ -590,8 +584,7 @@ fn weil_dlog(
 
     fp2_batched_inv(&mut w1);
     for i in 0..5 {
-        let s = w1[i];
-        fp2_mul(&mut w1[i], &s, &w2[i]);
+        fp2_mul_ip(&mut w1[i], &w2[i]);
     }
 
     fp2_dlog_2e(r2, &w1[1], &w1[0], pd.e as i32);
@@ -715,16 +708,14 @@ fn tate_dlog_partial(
 
     fp2_batched_inv(&mut w2);
     for i in 0..5 {
-        let s = w1[i];
-        fp2_mul(&mut w1[i], &s, &w2[i]);
+        fp2_mul_ip(&mut w1[i], &w2[i]);
     }
 
     for i in 0..5 {
         let s = w1[i];
         clear_cofac(&mut w1[i], &s);
         for _ in 0..e_diff {
-            let s = w1[i];
-            fp2_sqr(&mut w1[i], &s);
+            fp2_sqr_ip(&mut w1[i]);
         }
     }
 
@@ -794,8 +785,7 @@ mod tests {
     fn fp2_exp_2e(r: &mut Fp2, e: u32, x: &Fp2) {
         fp2_copy(r, x);
         for _ in 0..e {
-            let s = *r;
-            fp2_sqr(r, &s);
+            fp2_sqr_ip(r);
         }
     }
 
