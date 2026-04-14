@@ -281,7 +281,14 @@ pub fn ibz_significant_bits(a: &Ibz) -> u64 {
 }
 #[inline]
 pub fn ibz_get_bit(a: &Ibz, i: u64) -> bool {
-    a.abs().bit_vartime(i as u32)
+    // Match GMP/malachite: negatives are infinite-precision two's-complement,
+    // i.e. bit_i(a) = bit_i(!( |a| − 1 )) for a < 0.
+    if neg(a) {
+        let m = a.abs().wrapping_sub(&Ubz::ONE);
+        !m.bit_vartime(i as u32)
+    } else {
+        a.abs().bit_vartime(i as u32)
+    }
 }
 
 #[inline]
@@ -365,6 +372,9 @@ pub fn ibz_set_from_str(i: &mut Ibz, s: &str, base: i32) -> i32 {
         Some(rest) => (true, rest),
         None => (false, s),
     };
+    if body.is_empty() {
+        return 0;
+    }
     let mut acc = Ubz::ZERO;
     let bb = Ubz::from_u64(base as u64);
     for c in body.chars() {
@@ -403,6 +413,12 @@ pub fn ibz_copy_digits(target: &mut Ibz, dig: &[Digit]) {
     let mut words = [0u64; IBZ_LIMBS];
     words[..dig.len()].copy_from_slice(dig);
     *target = from_abs_sign(Ubz::from_words(words), false);
+}
+
+/// Overwrite the value with zeros. `Int<L>` is plain stack data.
+pub fn ibz_secure_clear(x: &mut Ibz) {
+    let words: &mut [u64; IBZ_LIMBS] = x.as_mut();
+    zeroize::Zeroize::zeroize(words.as_mut_slice());
 }
 
 /// Write `ibz` to `target` as little-endian u64 limbs, zero-padding to len.
@@ -505,6 +521,11 @@ pub fn ibz_xgcd(gcd: &mut Ibz, u: &mut Ibz, v: &mut Ibz, a: &Ibz, b: &Ibz) {
     if r.cmp_vartime(&half) == Ordering::Greater {
         r = r.wrapping_sub(&bog_i);
     }
+    // GMP edge case: when |b| = 2g (so |b/g| = 2, half = 1, r ∈ {0,1}),
+    // mpz_gcdext picks u = sgn(a). Our centring can only yield 0 or 1 here.
+    if bog == Ubz::from_u64(2) {
+        r = if neg(a) { Ibz::MINUS_ONE } else { Ibz::ONE };
+    }
     *u = r;
     // v = (g − u·a) / b  (exact since u·a + v·b = g).
     let num = gcd.wrapping_sub(&u.wrapping_mul(a));
@@ -560,6 +581,9 @@ pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> i32 {
 
 #[inline]
 pub fn ibz_sqrt_floor(sqrt: &mut Ibz, a: &Ibz) {
+    // rug/malachite panic on negative input; align rather than silently
+    // returning sqrt(|a|).
+    debug_assert!(!neg(a), "ibz_sqrt_floor of negative");
     *sqrt = from_abs_sign(a.abs().floor_sqrt_vartime(), false);
 }
 
@@ -675,9 +699,7 @@ fn strong_lucas_prp(n: &Ubz) -> bool {
 }
 
 pub fn ibz_probab_prime(n: &Ibz, _reps: i32) -> i32 {
-    if !ibz_is_positive(n) {
-        return 0;
-    }
+    // GMP tests |n|.
     let nn = n.abs();
     if nn.cmp_vartime(&Ubz::from_u64(2)) == Ordering::Less {
         return 0;

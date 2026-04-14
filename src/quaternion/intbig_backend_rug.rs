@@ -199,6 +199,22 @@ pub fn ibz_size_in_base(a: &Ibz, base: i32) -> i32 {
 pub fn ibz_copy_digits(target: &mut Ibz, dig: &[Digit]) {
     target.assign_digits(dig, Order::Lsf);
 }
+
+/// Overwrite the limb buffer with zeros and set the value to 0.
+#[allow(unsafe_code)]
+pub fn ibz_secure_clear(x: &mut Ibz) {
+    // SAFETY: rug's Integer is a transparent wrapper over mpz_t. We zero the
+    // allocated limb buffer (`_mp_d[0.._mp_alloc]`) before setting size to 0.
+    unsafe {
+        let raw = x.as_raw_mut();
+        let alloc = (*raw).alloc as usize;
+        if alloc > 0 {
+            let limbs = core::slice::from_raw_parts_mut((*raw).d.as_ptr(), alloc);
+            zeroize::Zeroize::zeroize(limbs);
+        }
+        (*raw).size = 0;
+    }
+}
 pub fn ibz_to_digits(target: &mut [Digit], ibz: &Ibz) {
     debug_assert!(!ibz.is_negative());
     for d in target.iter_mut() {

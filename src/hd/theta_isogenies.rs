@@ -959,6 +959,9 @@ fn theta_chain_compute_impl(
     verify: bool,
     randomize: bool,
 ) -> i32 {
+    // The strategy initialisation at `todo[0] = (n - 2 + extra)` requires this;
+    // verify-path callers already guarantee it via the pow_dim2_deg_resp gate.
+    debug_assert!(n >= 2 || extra_torsion);
     let num_p = p12.len();
 
     let mut theta = ThetaStructure::default();

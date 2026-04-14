@@ -125,7 +125,12 @@ pub fn lift_basis_normalized(
 }
 
 /// Lift an x-only basis to a Jacobian pair, normalizing first.
+/// Returns 0 if any input projective coordinate is zero (point at infinity);
+/// otherwise the batched inverse would silently zero `e.a`.
 pub fn lift_basis(p: &mut JacPoint, q: &mut JacPoint, b: &mut EcBasis, e: &mut EcCurve) -> u32 {
+    if (fp2_is_zero(&b.p.z) | fp2_is_zero(&e.c)) != 0 {
+        return 0;
+    }
     let mut inverses = [b.p.z, e.c];
     fp2_batched_inv(&mut inverses);
     fp2_set_one(&mut b.p.z);
@@ -166,8 +171,16 @@ fn clear_cofactor_for_maximal_even_order(p: &mut EcPoint, curve: &mut EcCurve, f
     }
 }
 
-/// Find a NQR factor -1/(1+ib); returns hint b (or 0 on overflow).
-fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
+/// Hard cap on basis-search iterations. Honest curves succeed within a few
+/// iterations (failure probability < 2⁻¹²⁸), but an adversarial A on the
+/// verify path can make `find_nqr_factor` non-terminating (e.g. Re(A²)=2
+/// forces Im(t0)=0 so t0 is always a square in Fp²). The C reference loops
+/// unbounded; we cap and return `None` so the caller can reject.
+const BASIS_SEARCH_CAP: u16 = 256;
+
+/// Find a NQR factor -1/(1+ib); returns hint b, or `None` if no NQR is found
+/// within `BASIS_SEARCH_CAP` candidates (adversarial A).
+fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
     let mut n: u16 = start as u16;
     let mut b = Fp::default();
     let mut tmp = Fp::default();
@@ -175,9 +188,13 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
     let mut t0 = Fp2::default();
     let mut t1 = Fp2::default();
 
+    let cap = n.saturating_add(BASIS_SEARCH_CAP);
     loop {
         let mut qr_b = true;
         while qr_b {
+            if n >= cap {
+                return None;
+            }
             fp_set_small(&mut tmp, (n as u64) * (n as u64) + 1);
             qr_b = fp_is_square(&tmp) != 0;
             n += 1;
@@ -203,11 +220,7 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
     fp2_mul_ip(x, &curve.a);
     fp2_neg_ip(x);
 
-    if n <= 128 {
-        (n - 1) as u8
-    } else {
-        0
-    }
+    Some(if n <= 128 { (n - 1) as u8 } else { 0 })
 }
 
 /// Find smallest n ≥ start with x(P) = n·A on-curve; returns hint n (or 0 on overflow).
@@ -217,22 +230,22 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
 /// `from_hint` reaches this with attacker-chosen A and hint, so we drop the
 /// assert; the post-hoc validation in `ec_curve_to_basis_2f_from_hint`
 /// rejects the resulting basis if it is malformed.
-fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> u8 {
-    let mut n = start;
+fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
+    let mut n: u16 = start as u16;
     if n == 1 {
         fp2_copy(x, &curve.a);
     } else {
         fp2_mul_small(x, &curve.a, n as u32);
     }
+    let cap = n.saturating_add(BASIS_SEARCH_CAP);
     while is_on_curve(x, curve) == 0 {
+        if n >= cap {
+            return None;
+        }
         fp2_add_ip(x, &curve.a);
-        n = n.wrapping_add(1);
+        n += 1;
     }
-    if n < 128 {
-        n
-    } else {
-        0
-    }
+    Some(if n < 128 { n as u8 } else { 0 })
 }
 
 /// Precomputed E₀ basis specialised for A=0.
@@ -274,7 +287,10 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
         find_na_x_coord(&mut p.x, curve, 1)
     } else {
         find_nqr_factor(&mut p.x, curve, 1)
-    };
+    }
+    // Signing path: caller supplies an honest curve, so the search succeeds
+    // with probability > 1 − 2⁻²⁵⁶. If it ever fails the curve is degenerate.
+    .expect("basis search failed on honest curve");
 
     fp2_set_one(&mut p.z);
     fp2_add(&mut q.x, &curve.a, &p.x);
@@ -315,10 +331,13 @@ pub fn ec_curve_to_basis_2f_from_hint(
     let mut q = EcPoint::default();
 
     if hint_p == 0 {
-        if !hint_a {
-            find_na_x_coord(&mut p.x, curve, 128);
+        let ok = if !hint_a {
+            find_na_x_coord(&mut p.x, curve, 128)
         } else {
-            find_nqr_factor(&mut p.x, curve, 128);
+            find_nqr_factor(&mut p.x, curve, 128)
+        };
+        if ok.is_none() {
+            return 0;
         }
     } else if !hint_a {
         fp2_mul_small(&mut p.x, &curve.a, hint_p as u32);

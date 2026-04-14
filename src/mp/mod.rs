@@ -152,9 +152,13 @@ pub fn mp_shiftl(x: &mut [Digit], shift: u32, nwords: usize) {
     x[0] <<= shift;
 }
 
-/// Left shift by an arbitrary `shift` (may exceed `RADIX-1`).
+/// Left shift by an arbitrary `shift` (may exceed `RADIX-1`). Shift of 0 is a
+/// no-op (the C reference would hit UB via `>> 64` in `shiftl`).
 #[inline]
 pub fn multiple_mp_shiftl(x: &mut [Digit], shift: u32, nwords: usize) {
+    if shift == 0 {
+        return;
+    }
     let mut t = shift as i64;
     while t > (RADIX - 1) as i64 {
         mp_shiftl(x, RADIX - 1, nwords);
@@ -638,5 +642,13 @@ mod tests {
         let mut x = [1u64, 0, 0];
         multiple_mp_shiftl(&mut x, 127, 3);
         assert_eq!(x, [0, 1u64 << 63, 0]);
+    }
+
+    #[test]
+    fn multiple_shiftl_zero_is_nop() {
+        // Previously panicked in debug via `>> 64` in the funnel shift.
+        let mut x = [3u64, 5, 7];
+        multiple_mp_shiftl(&mut x, 0, 3);
+        assert_eq!(x, [3, 5, 7]);
     }
 }

@@ -80,6 +80,7 @@ fn fixed_degree_isogeny_impl(
     let ret = quat_represent_integer(&mut theta, &tmp, 1, &ri_params);
     debug_assert!(ibz_is_even(&tmp) == 0);
     if ret == 0 {
+        #[cfg(debug_assertions)]
         eprintln!(
             "represent integer failed for the alternate order number {} and for a target of size \
              {} for a u of size {} with length = {}",

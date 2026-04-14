@@ -137,12 +137,15 @@ pub fn public_key_to_bytes(enc: &mut [u8], pk: &PublicKey) {
     enc[FP2_ENCODED_BYTES] = pk.hint_pk;
 }
 
-pub fn public_key_from_bytes(pk: &mut PublicKey, enc: &[u8]) {
+/// Decode a public key. Returns `false` if the field-element encoding is
+/// non-canonical (limb value ≥ p); the C reference discards this status.
+pub fn public_key_from_bytes(pk: &mut PublicKey, enc: &[u8]) -> bool {
     debug_assert_eq!(enc.len(), PUBLICKEY_BYTES);
     *pk = PublicKey::default();
-    fp2_decode(&mut pk.curve.a, &enc[..FP2_ENCODED_BYTES]);
+    let ok = fp2_decode(&mut pk.curve.a, &enc[..FP2_ENCODED_BYTES]);
     fp2_set_one(&mut pk.curve.c);
     pk.hint_pk = enc[FP2_ENCODED_BYTES];
+    ok == 0xFFFF_FFFF
 }
 
 pub fn signature_to_bytes(enc: &mut [u8], sig: &Signature) {
@@ -171,10 +174,12 @@ pub fn signature_to_bytes(enc: &mut [u8], sig: &Signature) {
     debug_assert_eq!(p, SIGNATURE_BYTES);
 }
 
-pub fn signature_from_bytes(sig: &mut Signature, enc: &[u8]) {
+/// Decode a signature. Returns `false` if the field-element encoding is
+/// non-canonical (limb value ≥ p); the C reference discards this status.
+pub fn signature_from_bytes(sig: &mut Signature, enc: &[u8]) -> bool {
     debug_assert_eq!(enc.len(), SIGNATURE_BYTES);
     let mut p = 0;
-    fp2_decode(&mut sig.e_aux_a, &enc[..FP2_ENCODED_BYTES]);
+    let ok = fp2_decode(&mut sig.e_aux_a, &enc[..FP2_ENCODED_BYTES]);
     p += FP2_ENCODED_BYTES;
     sig.backtracking = enc[p];
     p += 1;
@@ -195,6 +200,7 @@ pub fn signature_from_bytes(sig: &mut Signature, enc: &[u8]) {
     sig.hint_chall = enc[p];
     p += 1;
     debug_assert_eq!(p, SIGNATURE_BYTES);
+    ok == 0xFFFF_FFFF
 }
 
 // ---------------------------------------------------------------------------
@@ -513,8 +519,12 @@ pub fn sqisign_verify(m: &[u8], sig_bytes: &[u8], pk_bytes: &[u8]) -> bool {
     }
     let mut pkt = PublicKey::default();
     let mut sigt = Signature::default();
-    public_key_from_bytes(&mut pkt, pk_bytes);
-    signature_from_bytes(&mut sigt, sig_bytes);
+    if !public_key_from_bytes(&mut pkt, pk_bytes) {
+        return false;
+    }
+    if !signature_from_bytes(&mut sigt, sig_bytes) {
+        return false;
+    }
     protocols_verify(&sigt, &pkt, m)
 }
 
@@ -734,6 +744,69 @@ mod tests {
         // and must reject (since the matrix/chall_coeff no longer match).
         let mut bad = KAT0_SM;
         bad[65] = 0;
+        assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
+    }
+
+    #[test]
+    fn reject_adversarial_nqr_dos() {
+        // Regression for the find_nqr_factor infinite-loop DoS: with a public-key
+        // curve A satisfying Re(A²)=2 and hint_pk=1 (hint_a=true, hint_p=0), the
+        // entangled-basis NQR search never terminates because Im(ib·A²-(1+ib)²)=0
+        // for every b. The C reference loops unbounded; we cap the search and
+        // reject. A = √2 ∈ Fp works since p ≡ 7 (mod 8).
+        use crate::gf::{fp_is_square, fp_set_small, fp_sqrt, FP2_ENCODED_BYTES};
+        let mut a = Fp2::default();
+        fp_set_small(&mut a.re, 2);
+        assert!(fp_is_square(&a.re) != 0);
+        fp_sqrt(&mut a.re);
+        let mut pk = [0u8; PUBLICKEY_BYTES];
+        fp2_encode(&mut pk[..FP2_ENCODED_BYTES], &a);
+        pk[FP2_ENCODED_BYTES] = 1; // hint_pk = 1
+
+        let m = &KAT0_SM[SIGNATURE_BYTES..];
+        let t = std::time::Instant::now();
+        assert!(!sqisign_verify(m, &KAT0_SM[..SIGNATURE_BYTES], &pk));
+        assert!(t.elapsed() < std::time::Duration::from_millis(100));
+
+        // Same attack via sig.e_aux_a: take KAT0 sig, replace e_aux_a with √2,
+        // set hint_aux=1.
+        let mut sig = KAT0_SM;
+        fp2_encode(&mut sig[..FP2_ENCODED_BYTES], &a);
+        sig[SIGNATURE_BYTES - 2] = 1; // hint_aux
+        let t = std::time::Instant::now();
+        assert!(!sqisign_verify(m, &sig[..SIGNATURE_BYTES], &KAT0_PK));
+        assert!(t.elapsed() < std::time::Duration::from_millis(100));
+    }
+
+    #[test]
+    fn reject_noncanonical_encoding() {
+        // PK or sig field-element bytes ≥ p must be rejected at decode time
+        // rather than silently mapping to A=0 (j=1728).
+        let m = &KAT0_SM[SIGNATURE_BYTES..];
+        let mut bad_pk = KAT0_PK;
+        for b in bad_pk[..32].iter_mut() {
+            *b = 0xFF;
+        }
+        assert!(!sqisign_verify(m, &KAT0_SM[..SIGNATURE_BYTES], &bad_pk));
+
+        let mut bad_sig = KAT0_SM;
+        for b in bad_sig[..32].iter_mut() {
+            *b = 0xFF;
+        }
+        assert!(!sqisign_verify(m, &bad_sig[..SIGNATURE_BYTES], &KAT0_PK));
+    }
+
+    #[test]
+    fn reject_zero_matrix_gracefully() {
+        // An all-zero basis-change matrix collapses the basis to O. This is
+        // not rejected at decode time (honest signatures can have det≡0 mod 2),
+        // but the lift_basis guard and theta-chain order checks must reject it
+        // gracefully rather than corrupt the curve or hang.
+        let m = &KAT0_SM[SIGNATURE_BYTES..];
+        let mut bad = KAT0_SM;
+        for b in bad[66..66 + 4 * 17].iter_mut() {
+            *b = 0;
+        }
         assert!(!sqisign_verify(m, &bad[..SIGNATURE_BYTES], &KAT0_PK));
     }
 

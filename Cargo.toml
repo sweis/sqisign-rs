@@ -23,12 +23,12 @@ bench-internals = []
 [dependencies]
 sha3 = "0.10"
 zeroize = { version = "1.7", features = ["derive"] }
-aes = "0.8"
+aes = { version = "0.8", features = ["zeroize"] }
 malachite-nz = { version = "0.9", optional = true, default-features = false }
 malachite-base = { version = "0.9", optional = true, default-features = false }
 rug = { version = "1.24", optional = true, features = ["integer", "rational"] }
 gmp-mpfr-sys = { version = "1.6", optional = true, default-features = false }
-crypto-bigint = { version = "0.7.3", features = ["alloc"], optional = true }
+crypto-bigint = { version = "0.7.3", features = ["alloc", "zeroize"], optional = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)', 'cfg(ibz_audit)'] }

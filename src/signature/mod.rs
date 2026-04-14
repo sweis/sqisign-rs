@@ -77,19 +77,20 @@ impl Drop for SecretKey {
             p.z.re.0.zeroize();
             p.z.im.0.zeroize();
         }
-        // Overwrite GMP-backed integers with zero (does not guarantee old limb
-        // buffers are scrubbed if a realloc occurred, but clears the final state).
-        let zero = crate::quaternion::Ibz::default();
-        self.secret_ideal.norm.clone_from(&zero);
+        // Scrub bigint limb buffers. The rug and crypto-bigint backends scrub the
+        // current allocation; the malachite backend is best-effort (no public
+        // mutable limb access). Buffers from prior reallocations are never
+        // covered — see PORTING.md.
+        ibz_secure_clear(&mut self.secret_ideal.norm);
         for row in self.secret_ideal.lattice.basis.iter_mut() {
             for e in row.iter_mut() {
-                e.clone_from(&zero);
+                ibz_secure_clear(e);
             }
         }
-        self.secret_ideal.lattice.denom.clone_from(&zero);
+        ibz_secure_clear(&mut self.secret_ideal.lattice.denom);
         for row in self.mat_ba_can_to_ba0_two.iter_mut() {
             for e in row.iter_mut() {
-                e.clone_from(&zero);
+                ibz_secure_clear(e);
             }
         }
     }
@@ -194,7 +195,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
         debug_assert!(ibz_cmp(&absv, &bnd) < 0);
     }
     let ndigits = (nbytes + 7) / 8;
-    let mut d = vec![0u64; ndigits];
+    let mut d = zeroize::Zeroizing::new(vec![0u64; ndigits]);
     if ibz_cmp(x, ibz_const_zero()) >= 0 {
         ibz_to_digits(&mut d, x);
     } else {
@@ -204,6 +205,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
         let s = tmp.clone();
         ibz_sub(&mut tmp, &s, ibz_const_one());
         ibz_to_digits(&mut d, &tmp);
+        ibz_secure_clear(&mut tmp);
         for di in d.iter_mut() {
             *di = !*di;
         }
@@ -215,7 +217,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
 fn ibz_from_bytes(x: &mut Ibz, enc: &[u8], nbytes: usize, sgn: bool) -> usize {
     debug_assert!(nbytes > 0);
     let ndigits = (nbytes + 7) / 8;
-    let mut d = vec![0u64; ndigits];
+    let mut d = zeroize::Zeroizing::new(vec![0u64; ndigits]);
     decode_digits(&mut d, enc, nbytes);
     if sgn && (enc[nbytes - 1] >> 7) != 0 {
         let s = 7 - (ndigits * 8 - nbytes);
@@ -274,7 +276,8 @@ pub fn secret_key_to_bytes(enc: &mut [u8], sk: &SecretKey, pk: &PublicKey) {
 pub fn secret_key_from_bytes(sk: &mut SecretKey, pk: &mut PublicKey, enc: &[u8]) {
     debug_assert_eq!(enc.len(), SECRETKEY_BYTES);
     let mut p = 0;
-    public_key_from_bytes(pk, &enc[..PUBLICKEY_BYTES]);
+    let ok = public_key_from_bytes(pk, &enc[..PUBLICKEY_BYTES]);
+    debug_assert!(ok, "non-canonical pk encoding inside sk");
     p += PUBLICKEY_BYTES;
 
     {

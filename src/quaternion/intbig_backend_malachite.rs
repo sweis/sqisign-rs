@@ -270,6 +270,19 @@ pub fn ibz_copy_digits(target: &mut Ibz, dig: &[Digit]) {
     track(target);
 }
 
+/// Best-effort secure clear. Malachite does not expose mutable access to its
+/// internal limb `Vec`, so this overwrites the value bit-by-bit (forcing the
+/// existing buffer to all-zero bits) before reassigning. Intermediate buffers
+/// from prior reallocations are not covered.
+pub fn ibz_secure_clear(x: &mut Ibz) {
+    use malachite_base::num::logic::traits::BitAccess;
+    let bits = ibz_significant_bits(x);
+    for i in 0..bits {
+        x.clear_bit(i);
+    }
+    *x = Integer::from(0);
+}
+
 /// Write `ibz` to `target` as little-endian u64 limbs, zero-padding to len.
 pub fn ibz_to_digits(target: &mut [Digit], ibz: &Ibz) {
     debug_assert!(!ibz_is_negative(ibz));
@@ -498,11 +511,8 @@ fn strong_lucas_prp(n: &Natural) -> bool {
 }
 
 /// `mpz_probab_prime_p`-compatible primality. Returns 2 for small certain
-/// primes, 1 for probable primes, 0 for composites.
+/// primes, 1 for probable primes, 0 for composites. GMP tests |n|, so we do too.
 pub fn ibz_probab_prime(n: &Ibz, _reps: i32) -> i32 {
-    if !ibz_is_positive(n) {
-        return 0;
-    }
     let nn: &Natural = n.unsigned_abs_ref();
     if *nn < Natural::TWO {
         return 0;

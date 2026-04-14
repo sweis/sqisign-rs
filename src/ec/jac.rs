@@ -148,11 +148,13 @@ pub fn jac_dbl(q: &mut JacPoint, p: &JacPoint, ac: &EcCurve) {
     let qy = q.y;
     fp2_sub(&mut q.y, &qy, &t1);
 
-    let neg_flag = flag.wrapping_neg();
+    // C passes `-flag` (uint32) which yields 1, violating the 0/-1 contract;
+    // harmless there because the doubling formula already gives O for O. We
+    // pass the mask directly so the select is well-defined.
     let qx = q.x;
-    fp2_select(&mut q.x, &qx, &p.x, neg_flag);
+    fp2_select(&mut q.x, &qx, &p.x, flag);
     let qz = q.z;
-    fp2_select(&mut q.z, &qz, &p.z, neg_flag);
+    fp2_select(&mut q.z, &qz, &p.z, flag);
 }
 
 /// Weierstrass modified-Jacobian doubling. Cost 3M + 5S.
@@ -202,11 +204,13 @@ pub fn jac_dblw(q: &mut JacPoint, u: &mut Fp2, p: &JacPoint, t: &Fp2) {
     let su = *u;
     fp2_add(u, &su, &su);
 
-    let neg_flag = flag.wrapping_neg();
+    // C passes `-flag` (uint32) which yields 1, violating the 0/-1 contract;
+    // harmless there because the doubling formula already gives O for O. We
+    // pass the mask directly so the select is well-defined.
     let qx = q.x;
-    fp2_select(&mut q.x, &qx, &p.x, neg_flag);
+    fp2_select(&mut q.x, &qx, &p.x, flag);
     let qz = q.z;
-    fp2_select(&mut q.z, &qz, &p.z, neg_flag);
+    fp2_select(&mut q.z, &qz, &p.z, flag);
 }
 
 #[inline]

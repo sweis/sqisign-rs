@@ -461,4 +461,59 @@ mod tests {
         );
         assert_eq!(ibz_probab_prime(&c, 30), 0);
     }
+
+    // ---- Backend-convergence regressions (must agree with GMP semantics). ----
+
+    #[test]
+    fn probab_prime_tests_abs() {
+        // GMP tests |n|; previous malachite/cryptobigint backends returned 0.
+        assert!(ibz_probab_prime(&ibz_from_i64(-7), 20) > 0);
+        assert!(ibz_probab_prime(&ibz_from_i64(-9), 20) == 0);
+        assert!(ibz_probab_prime(&ibz_from_i64(-1), 20) == 0);
+    }
+
+    #[test]
+    fn get_bit_twos_complement_on_negatives() {
+        // -3 = ...11101₂. GMP/malachite use infinite two's-complement.
+        let m3 = ibz_from_i64(-3);
+        assert!(ibz_get_bit(&m3, 0));
+        assert!(!ibz_get_bit(&m3, 1));
+        assert!(ibz_get_bit(&m3, 2));
+        assert!(ibz_get_bit(&m3, 5));
+        assert!(ibz_get_bit(&m3, 63));
+    }
+
+    #[test]
+    fn xgcd_matches_gmp_on_2g_edge() {
+        // GMP convention: when |b| = 2g, u = sgn(a).
+        let mut g = ibz_new();
+        let mut u = ibz_new();
+        let mut v = ibz_new();
+        for &(a, b, eg, eu, ev) in &[
+            (-3i64, 2i64, 1i64, -1i64, -1i64),
+            (-6, 4, 2, -1, -1),
+            (3, 2, 1, 1, -1),
+            (6, -4, 2, 1, 1),
+        ] {
+            ibz_xgcd(&mut g, &mut u, &mut v, &ibz_from_i64(a), &ibz_from_i64(b));
+            assert_eq!(ibz_cmp(&g, &ibz_from_i64(eg)), 0, "g({a},{b})");
+            assert_eq!(ibz_cmp(&u, &ibz_from_i64(eu)), 0, "u({a},{b})");
+            assert_eq!(ibz_cmp(&v, &ibz_from_i64(ev)), 0, "v({a},{b})");
+        }
+    }
+
+    #[test]
+    fn set_from_str_rejects_empty() {
+        let mut i = ibz_new();
+        assert_eq!(ibz_set_from_str(&mut i, "", 10), 0);
+        assert_eq!(ibz_set_from_str(&mut i, "-", 10), 0);
+    }
+
+    #[test]
+    fn secure_clear_yields_zero() {
+        let mut x = ibz_new();
+        ibz_set_from_str(&mut x, "123456789012345678901234567890", 10);
+        ibz_secure_clear(&mut x);
+        assert_eq!(ibz_cmp(&x, ibz_const_zero()), 0);
+    }
 }
