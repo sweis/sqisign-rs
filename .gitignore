@@ -7,3 +7,4 @@ mutants.out*/
 /fuzz/coverage/
 /fuzz/corpus/*
 !/fuzz/corpus/fuzz_verify/kat_*
+tests/wycheproof_sqisign_*.json
