@@ -30,3 +30,8 @@ pub use ec_params::*;
 pub use e0_basis::*;
 pub use hd_splitting_transforms::*;
 pub use torsion_constants::*;
+
+#[cfg(feature = "sign")]
+pub mod sign_data;
+#[cfg(feature = "sign")]
+pub use sign_data::*;

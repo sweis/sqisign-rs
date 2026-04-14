@@ -102,12 +102,15 @@ fn kat_verify_reject_tampered() {
 }
 
 #[test]
-#[ignore = "signing not yet implemented"]
 #[cfg(feature = "sign")]
 fn kat_sign() {
     use sqisign_rs::{common::ctrdrbg, nistapi};
     let vectors = parse_kat_file(kat_path().to_str().unwrap());
-    for v in &vectors {
+    let limit = std::env::var("KAT_SIGN_LIMIT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(vectors.len());
+    for v in vectors.iter().take(limit) {
         ctrdrbg::randombytes_init(&v.seed);
         let (pk, sk) = nistapi::crypto_sign_keypair().expect("keypair");
         assert_eq!(pk, v.pk.as_slice(), "pk count {}", v.count);

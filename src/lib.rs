@@ -12,9 +12,7 @@ pub mod mp;
 pub mod gf;
 pub mod ec;
 pub mod precomp;
-#[cfg(not(quaternion_isolation))]
 pub mod hd;
-#[cfg(not(quaternion_isolation))]
 pub mod verification;
 
 #[cfg(feature = "sign")]
@@ -24,7 +22,6 @@ pub mod id2iso;
 #[cfg(feature = "sign")]
 pub mod signature;
 
-#[cfg(not(quaternion_isolation))]
 pub mod nistapi;
 
 pub mod params;
