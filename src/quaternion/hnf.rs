@@ -340,8 +340,8 @@ mod tests {
         for x in -20..20 {
             let mut r = Ibz::default();
             ibz_centered_mod(&mut r, &z(x), &m);
-            assert!(r > z(-4) && r <= z(3), "x={x} r={r}");
-            assert_eq!(ibz_mod_ui(&(z(x) - &r), 7), 0);
+            assert!(r > z(-4) && r <= z(3), "x={x} r={r:?}");
+            assert_eq!(ibz_mod_ui(&(z(x) - r), 7), 0);
         }
     }
 
@@ -352,7 +352,7 @@ mod tests {
             let mut r = Ibz::default();
             ibz_mod_not_zero(&mut r, &z(x), &m);
             assert!(r > z(0) && r <= z(5));
-            assert_eq!(ibz_mod_ui(&(z(x) - &r), 5), 0);
+            assert_eq!(ibz_mod_ui(&(z(x) - r), 5), 0);
         }
     }
 
@@ -366,7 +366,7 @@ mod tests {
         ibz_mat_4xn_hnf_mod_core(&mut hnf, 4, &gens, &z(625));
         for i in 0..4 {
             for j in 0..4 {
-                assert_eq!(hnf[i][j], if i == j { 5 } else { 0 }, "[{i}][{j}]");
+                assert_eq!(hnf[i][j], if i == j { z(5) } else { z(0) }, "[{i}][{j}]");
             }
         }
         assert_eq!(ibz_mat_4x4_is_hnf(&hnf), 1);
@@ -391,12 +391,12 @@ mod tests {
         assert_eq!(ibz_mat_4x4_is_hnf(&hnf), 1);
         let mut det = Ibz::default();
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &hnf);
-        assert_eq!(det, 2);
+        assert_eq!(det, z(2));
         // Adding e₀ generator yields all of Z^4.
         let mut gens2 = gens;
         gens2.push([z(1), z(0), z(0), z(0)]);
         ibz_mat_4xn_hnf_mod_core(&mut hnf, 9, &gens2, &z(16));
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &hnf);
-        assert_eq!(det, 1);
+        assert_eq!(det, z(1));
     }
 }

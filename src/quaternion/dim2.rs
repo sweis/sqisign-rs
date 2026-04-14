@@ -130,7 +130,7 @@ mod tests {
     fn det2x2() {
         let mut d = Ibz::default();
         ibz_mat_2x2_det_from_ibz(&mut d, &z(3), &z(2), &z(5), &z(7));
-        assert_eq!(d, 11);
+        assert_eq!(d, z(11));
     }
 
     #[test]
@@ -140,17 +140,17 @@ mod tests {
         let v: IbzVec2 = [z(5), z(6)];
         let mut r = ibz_vec_2_init();
         ibz_mat_2x2_eval(&mut r, &m, &v);
-        assert_eq!(r[0], 17);
-        assert_eq!(r[1], 39);
+        assert_eq!(r[0], z(17));
+        assert_eq!(r[1], z(39));
 
         let modn = z(7);
         let mut p = ibz_mat_2x2_init();
         ibz_2x2_mul_mod(&mut p, &m, &m, &modn);
         // [[1,2],[3,4]]² = [[7,10],[15,22]] → mod 7 = [[0,3],[1,1]]
-        assert_eq!(p[0][0], 0);
-        assert_eq!(p[0][1], 3);
-        assert_eq!(p[1][0], 1);
-        assert_eq!(p[1][1], 1);
+        assert_eq!(p[0][0], z(0));
+        assert_eq!(p[0][1], z(3));
+        assert_eq!(p[1][0], z(1));
+        assert_eq!(p[1][1], z(1));
     }
 
     #[test]
@@ -162,10 +162,10 @@ mod tests {
         assert_eq!(ibz_mat_2x2_inv_mod(&mut inv, &m, &modn), 1);
         let mut prod = ibz_mat_2x2_init();
         ibz_2x2_mul_mod(&mut prod, &m, &inv, &modn);
-        assert_eq!(prod[0][0], 1);
-        assert_eq!(prod[0][1], 0);
-        assert_eq!(prod[1][0], 0);
-        assert_eq!(prod[1][1], 1);
+        assert_eq!(prod[0][0], z(1));
+        assert_eq!(prod[0][1], z(0));
+        assert_eq!(prod[1][0], z(0));
+        assert_eq!(prod[1][1], z(1));
         // Non-invertible: det = 0 mod 5
         ibz_mat_2x2_set(&mut m, 1, 2, 2, 4);
         assert_eq!(ibz_mat_2x2_inv_mod(&mut inv, &m, &z(5)), 0);

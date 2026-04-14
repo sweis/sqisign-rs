@@ -334,7 +334,7 @@ mod tests {
         let mut nn = Ibz::default();
         let mut nd = Ibz::default();
         quat_alg_norm(&mut nn, &mut nd, &gamma, alg7());
-        assert_eq!(nd, 1);
+        assert_eq!(nd, z(1));
         assert_eq!(nn, n);
         assert_eq!(quat_lattice_contains(None, &o0ext().order, &gamma), 1);
     }

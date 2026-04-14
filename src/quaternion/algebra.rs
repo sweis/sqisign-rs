@@ -263,13 +263,13 @@ mod tests {
         quat_alg_mul(&mut ab, &a, &b, &alg);
         let (mut nab_n, mut nab_d) = (Ibz::default(), Ibz::default());
         quat_alg_norm(&mut nab_n, &mut nab_d, &ab, &alg);
-        assert_eq!(na_d, 1);
-        assert_eq!(nb_d, 1);
-        assert_eq!(nab_d, 1);
+        assert_eq!(na_d, z(1));
+        assert_eq!(nb_d, z(1));
+        assert_eq!(nab_d, z(1));
         assert_eq!(nab_n, na_n.clone() * nb_n.clone());
         // Direct: Nrd(a) = a0² + a1² + p(a2² + a3²) for denom 1.
         let expect = 1 + 4 + 11 * (9 + 16);
-        assert_eq!(na_n, expect);
+        assert_eq!(na_n, z(expect));
     }
 
     #[test]
@@ -281,9 +281,9 @@ mod tests {
         let mut xxb = QuatAlgElem::default();
         quat_alg_mul(&mut xxb, &x, &xb, &alg);
         // x·x̄ is real (i,j,k components zero).
-        assert_eq!(xxb.coord[1], 0);
-        assert_eq!(xxb.coord[2], 0);
-        assert_eq!(xxb.coord[3], 0);
+        assert_eq!(xxb.coord[1], z(0));
+        assert_eq!(xxb.coord[2], z(0));
+        assert_eq!(xxb.coord[3], z(0));
     }
 
     #[test]
@@ -293,15 +293,15 @@ mod tests {
         let mut s = QuatAlgElem::default();
         quat_alg_add(&mut s, &a, &b);
         quat_alg_normalize(&mut s);
-        assert_eq!(s.denom, 6);
-        assert_eq!(s.coord[0], 5);
+        assert_eq!(s.denom, z(6));
+        assert_eq!(s.coord[0], z(5));
     }
 
     #[test]
     fn normalize_sign_and_gcd() {
         let mut x = elem(-4, [2, 6, 10, 14]);
         quat_alg_normalize(&mut x);
-        assert_eq!(x.denom, 2);
+        assert_eq!(x.denom, z(2));
         assert_eq!(x.coord, [z(-1), z(-3), z(-5), z(-7)]);
     }
 

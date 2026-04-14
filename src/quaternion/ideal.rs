@@ -443,7 +443,7 @@ mod tests {
         let mut lideal = QuatLeftIdeal::default();
         quat_lideal_create(&mut lideal, &x, &n, o0(), &alg);
         // Nrd(x) = 1+1+7 = 9 = 3², gcd with N=3 → norm should divide 3.
-        assert!(lideal.norm == 3 || lideal.norm == 1);
+        assert!(lideal.norm == z(3) || lideal.norm == z(1));
         // Find a generator and recreate.
         let mut gen = QuatAlgElem::default();
         assert_eq!(quat_lideal_generator(&mut gen, &lideal, &alg), 1);

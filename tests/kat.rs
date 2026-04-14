@@ -132,4 +132,6 @@ fn kat_sign() {
         let sm = nistapi::crypto_sign(&v.msg, &sk).expect("sign");
         assert_eq!(sm, v.sm, "sm count {}", v.count);
     }
+    #[cfg(ibz_audit)]
+    sqisign_rs::quaternion::ibz_audit_report();
 }

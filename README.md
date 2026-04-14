@@ -90,6 +90,10 @@ cargo run --release --features lvl1,sign --example sign_verify
   matching the C reference's `ENABLE_SIGN=OFF` mode.
 - `gmp` — use GMP (via `rug`) instead of `malachite` for the bigint backend.
   Slightly faster (~5% on sign); requires libgmp.
+- `cryptobigint` — use [`crypto-bigint`](https://crates.io/crates/crypto-bigint)
+  as a fixed-precision bigint backend. Much slower (~400× on sign) since every
+  integer is sized to the worst-case HNF intermediate; provided for users who
+  want a minimal, audited dependency set.
 - `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
   replays. Do not enable in production.
 

@@ -54,7 +54,9 @@ impl QuatAlg {
         Self { p: p.clone() }
     }
     pub fn from_ui(p: u32) -> Self {
-        Self { p: Ibz::from(p) }
+        Self {
+            p: super::intbig::ibz_from_i64(i64::from(p)),
+        }
     }
 }
 

@@ -10,7 +10,10 @@
 #[cfg(feature = "gmp")]
 #[path = "intbig_backend_rug.rs"]
 mod backend;
-#[cfg(not(feature = "gmp"))]
+#[cfg(all(not(feature = "gmp"), feature = "cryptobigint"))]
+#[path = "intbig_backend_cryptobigint.rs"]
+mod backend;
+#[cfg(all(not(feature = "gmp"), not(feature = "cryptobigint")))]
 #[path = "intbig_backend_malachite.rs"]
 mod backend;
 

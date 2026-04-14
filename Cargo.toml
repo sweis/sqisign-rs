@@ -14,6 +14,8 @@ lvl5 = []
 sign = ["dep:malachite-nz", "dep:malachite-base"]
 # Opt-in GMP backend via rug. Requires libgmp.
 gmp = ["sign", "dep:rug", "dep:gmp-mpfr-sys"]
+# Opt-in fixed-precision crypto-bigint backend (pure Rust, audited width).
+cryptobigint = ["sign", "dep:crypto-bigint"]
 # Exposes DRBG snapshot/restore for deterministic benchmark replays.
 # Do not enable in production — leaks DRBG state.
 bench-internals = []
@@ -26,9 +28,10 @@ malachite-nz = { version = "0.9", optional = true, default-features = false }
 malachite-base = { version = "0.9", optional = true, default-features = false }
 rug = { version = "1.24", optional = true, features = ["integer", "rational"] }
 gmp-mpfr-sys = { version = "1.6", optional = true, default-features = false }
+crypto-bigint = { version = "0.7.3", features = ["alloc"], optional = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)', 'cfg(ibz_audit)'] }
 unsafe_code = "warn"
 missing_debug_implementations = "warn"
 
@@ -69,6 +72,10 @@ hex = "0.4"
 
 [[example]]
 name = "sign_verify"
+required-features = ["sign"]
+
+[[example]]
+name = "_ibz_audit"
 required-features = ["sign"]
 
 [[bench]]

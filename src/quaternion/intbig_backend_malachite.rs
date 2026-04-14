@@ -21,6 +21,33 @@ use malachite_nz::natural::Natural;
 
 pub type Ibz = Integer;
 
+#[cfg(ibz_audit)]
+mod audit {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering as AO};
+    static MAX_BITS: AtomicU64 = AtomicU64::new(0);
+    pub fn track(x: &Ibz) {
+        MAX_BITS.fetch_max(x.significant_bits(), AO::Relaxed);
+    }
+    pub fn report() {
+        eprintln!("[ibz_audit] max_bits = {}", MAX_BITS.load(AO::Relaxed));
+    }
+}
+#[cfg(ibz_audit)]
+pub use audit::report as ibz_audit_report;
+#[cfg(ibz_audit)]
+#[inline]
+fn track(x: &Ibz) {
+    audit::track(x);
+}
+#[cfg(not(ibz_audit))]
+#[inline]
+fn track(_: &Ibz) {}
+#[inline]
+fn track_mul(x: &Ibz) {
+    track(x);
+}
+
 // ---------------------------------------------------------------------------
 // Construction / assignment
 
@@ -51,14 +78,17 @@ pub fn ibz_swap(a: &mut Ibz, b: &mut Ibz) {
 #[inline]
 pub fn ibz_add(sum: &mut Ibz, a: &Ibz, b: &Ibz) {
     *sum = a + b;
+    track(sum);
 }
 #[inline]
 pub fn ibz_sub(diff: &mut Ibz, a: &Ibz, b: &Ibz) {
     *diff = a - b;
+    track(diff);
 }
 #[inline]
 pub fn ibz_mul(prod: &mut Ibz, a: &Ibz, b: &Ibz) {
     *prod = a * b;
+    track_mul(prod);
 }
 #[inline]
 pub fn ibz_neg(neg: &mut Ibz, a: &Ibz) {
@@ -124,6 +154,7 @@ pub fn ibz_divides(a: &Ibz, b: &Ibz) -> i32 {
 #[inline]
 pub fn ibz_pow(out: &mut Ibz, x: &Ibz, e: u32) {
     *out = x.pow(u64::from(e));
+    track(out);
 }
 
 pub fn ibz_pow_mod(out: &mut Ibz, x: &Ibz, e: &Ibz, m: &Ibz) {
@@ -236,6 +267,7 @@ pub fn ibz_size_in_base(a: &Ibz, base: i32) -> i32 {
 /// Read little-endian u64 limbs into `target` (matches `mpz_import`).
 pub fn ibz_copy_digits(target: &mut Ibz, dig: &[Digit]) {
     *target = Integer::from(Natural::from_limbs_asc(dig));
+    track(target);
 }
 
 /// Write `ibz` to `target` as little-endian u64 limbs, zero-padding to len.
@@ -293,6 +325,7 @@ pub fn ibz_set_from_mantissa_shift(out: &mut Ibz, int_m: i64, shift: i64) {
     *out = Integer::from(int_m);
     if shift >= 0 {
         *out <<= shift as u64;
+        track(out);
     } else {
         // Truncating division by power of two (toward zero).
         let mag: Natural = out.unsigned_abs_ref() >> ((-shift) as u64);

@@ -178,6 +178,6 @@ mod tests {
         assert_eq!(ibq_is_ibz(&q(5, 3)), 0);
         let mut zz = Ibz::default();
         assert_eq!(ibq_to_ibz(&mut zz, &q(6, 3)), 1);
-        assert_eq!(zz, 2);
+        assert_eq!(zz, z(2));
     }
 }

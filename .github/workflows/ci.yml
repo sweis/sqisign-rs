@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         level: [lvl1, lvl3, lvl5]
-        backend: [sign, gmp]
+        backend: [sign, gmp, cryptobigint]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -48,8 +48,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgmp-dev m4
       - name: Build
         run: cargo build --release --no-default-features --features ${{ matrix.level }},${{ matrix.backend }}
-      - name: Test (KAT_SIGN_LIMIT=10)
-        run: KAT_SIGN_LIMIT=10 cargo test --release --no-default-features --features ${{ matrix.level }},${{ matrix.backend }}
+      - name: Test
+        env:
+          KAT_SIGN_LIMIT: ${{ matrix.backend == 'cryptobigint' && '2' || '10' }}
+        run: cargo test --release --no-default-features --features ${{ matrix.level }},${{ matrix.backend }}
       - name: Clippy
         run: cargo clippy --no-default-features --features ${{ matrix.level }},${{ matrix.backend }} -- -D clippy::correctness -D clippy::suspicious
 

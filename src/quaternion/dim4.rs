@@ -450,13 +450,13 @@ mod tests {
         let b: IbzVec4 = [z(5), z(6), z(7), z(8)];
         let mut r = ibz_vec_4_init();
         ibz_vec_4_add(&mut r, &a, &b);
-        assert_eq!(r[3], 12);
+        assert_eq!(r[3], z(12));
         let mut g = Ibz::default();
         ibz_vec_4_content(&mut g, &[z(6), z(10), z(14), z(22)]);
-        assert_eq!(g, 2);
+        assert_eq!(g, z(2));
         ibz_vec_4_linear_combination(&mut r, &z(2), &a, &z(3), &b);
-        assert_eq!(r[0], 17);
-        assert_eq!(r[3], 32);
+        assert_eq!(r[0], z(17));
+        assert_eq!(r[3], z(32));
     }
 
     #[test]
@@ -487,14 +487,14 @@ mod tests {
             ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv), &mut det, &m),
             1
         );
-        assert_eq!(det, 210);
+        assert_eq!(det, z(210));
         // m * inv should equal det * I.
         let mut prod = ibz_mat_4x4_init();
         ibz_mat_4x4_mul(&mut prod, &m, &inv);
         for i in 0..4 {
             for j in 0..4 {
                 let expect = if i == j { 210 } else { 0 };
-                assert_eq!(prod[i][j], expect, "[{i}][{j}]");
+                assert_eq!(prod[i][j], z(expect), "[{i}][{j}]");
             }
         }
         // A non-diagonal example.
@@ -517,7 +517,7 @@ mod tests {
         let sing = mat_from([[1, 2, 3, 4], [2, 4, 6, 8], [0, 1, 0, 1], [1, 0, 1, 0]]);
         let mut det3 = Ibz::default();
         assert_eq!(ibz_mat_4x4_inv_with_det_as_denom(None, &mut det3, &sing), 0);
-        assert_eq!(det3, 0);
+        assert_eq!(det3, z(0));
     }
 
     #[test]
@@ -528,6 +528,6 @@ mod tests {
         let v: IbzVec4 = [z(1), z(2), z(3), z(4)];
         let mut r = Ibz::default();
         quat_qf_eval(&mut r, &id, &v);
-        assert_eq!(r, 30);
+        assert_eq!(r, z(30));
     }
 }

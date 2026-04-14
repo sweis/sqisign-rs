@@ -254,8 +254,8 @@ use crate::quaternion::{
     QuatPExtremalMaximalOrder,
 };
 use crate::quaternion::intbig::{
-    ibz_copy_digits, ibz_from_i64, ibz_mod, ibz_neg, ibz_pow, ibz_probab_prime,
-    ibz_set_from_str,
+    ibz_convert_to_str, ibz_copy_digits, ibz_from_i64, ibz_mod, ibz_neg, ibz_pow,
+    ibz_probab_prime, ibz_set_from_str,
 };
 use crate::ec::{EcCurve, EcBasis, EcPoint};
 use crate::gf::{Fp, Fp2};
@@ -476,7 +476,7 @@ mod tests {
         let m2_01 = r(&(m[0][0].clone() * &m[0][1] + m[0][1].clone() * &m[1][1]));
         let m2_10 = r(&(m[1][0].clone() * &m[0][0] + m[1][1].clone() * &m[1][0]));
         let m2_11 = r(&(m[1][0].clone() * &m[0][1] + m[1][1].clone() * &m[1][1]));
-        let neg1 = &modn - ibz_from_i64(1);
+        let neg1 = modn.clone() - ibz_from_i64(1);
         assert_eq!(m2_00, neg1);
         assert_eq!(m2_11, neg1);
         assert_eq!(m2_01, ibz_from_i64(0));
@@ -515,12 +515,12 @@ mod tests_lvl1 {
     fn c_golden_cross_check() {
         assert_eq!(extremal_orders()[6].q, 97);
         assert_eq!(
-            connecting_ideals()[6].norm.to_string(),
+            ibz_convert_to_str(&connecting_ideals()[6].norm, 10).unwrap(),
             "27640789963059351638707589454869550365"
         );
         assert_eq!(conjugating_elements()[6].coord[3], ibz_from_i64(4));
         assert_eq!(
-            curves_with_endomorphisms()[0].action_gen4[1][1].to_string(),
+            ibz_convert_to_str(&curves_with_endomorphisms()[0].action_gen4[1][1], 10).unwrap(),
             "391943321623591284286034922686343541417807403958897095695530545493876076147"
         );
         assert_eq!(

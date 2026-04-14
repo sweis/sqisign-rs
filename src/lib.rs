@@ -6,6 +6,10 @@
 
 #![allow(dead_code)] // TODO: remove once port is complete
 #![allow(unused_imports)]
+#![cfg_attr(
+    feature = "cryptobigint",
+    allow(clippy::large_stack_arrays, clippy::large_stack_frames)
+)]
 
 pub mod common;
 pub mod ec;

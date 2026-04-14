@@ -130,7 +130,7 @@ mod tests {
                 "p={p}"
             );
             let xx = x.clone() * x.clone() + y.clone() * y.clone();
-            assert_eq!(xx, p);
+            assert_eq!(xx, z(p));
             // Unordered pair.
             let (lo, hi) = if x < y {
                 (x.clone(), y.clone())

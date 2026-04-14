@@ -317,7 +317,7 @@ mod tests {
         // [Z^4 : 2Z^4] = 16
         let mut idx = Ibz::default();
         quat_lattice_index(&mut idx, &l2, &id);
-        assert_eq!(idx, 16);
+        assert_eq!(idx, z(16));
         assert_eq!(quat_lattice_inclusion(&l2, &id), 1);
         assert_eq!(quat_lattice_inclusion(&id, &l2), 0);
     }
@@ -333,7 +333,7 @@ mod tests {
         let mut prim = ibz_vec_4_init();
         let mut content = Ibz::default();
         quat_alg_make_primitive(&mut prim, &mut content, &x, &id);
-        assert_eq!(content, 2);
+        assert_eq!(content, z(2));
         assert_eq!(prim, [z(2), z(3), z(5), z(7)]);
         // Not contained when denom doesn't divide.
         let mut y = QuatAlgElem::default();
@@ -347,11 +347,11 @@ mod tests {
         let id = lat_identity();
         let mut g = ibz_mat_4x4_init();
         quat_lattice_gram(&mut g, &id, &alg);
-        assert_eq!(g[0][0], 2);
-        assert_eq!(g[1][1], 2);
-        assert_eq!(g[2][2], 14);
-        assert_eq!(g[3][3], 14);
-        assert_eq!(g[0][1], 0);
+        assert_eq!(g[0][0], z(2));
+        assert_eq!(g[1][1], z(2));
+        assert_eq!(g[2][2], z(14));
+        assert_eq!(g[3][3], z(14));
+        assert_eq!(g[0][1], z(0));
     }
 
     #[test]
@@ -365,6 +365,6 @@ mod tests {
         assert_eq!(ibz_mat_4x4_equal(&l.basis, &l1.basis), 1);
         let mut det = Ibz::default();
         ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &l.basis);
-        assert_eq!(det, 1);
+        assert_eq!(det, z(1));
     }
 }

@@ -180,7 +180,7 @@ mod tests {
         let m2_01 = r(&(m[0][0].clone() * &m[0][1] + m[0][1].clone() * &m[1][1]));
         let m2_10 = r(&(m[1][0].clone() * &m[0][0] + m[1][1].clone() * &m[1][0]));
         let m2_11 = r(&(m[1][0].clone() * &m[0][1] + m[1][1].clone() * &m[1][1]));
-        let neg1 = &modn - ibz_from_i64(1);
+        let neg1 = modn.clone() - ibz_from_i64(1);
         assert_eq!(m2_00, neg1);
         assert_eq!(m2_11, neg1);
         assert_eq!(m2_01, ibz_from_i64(0));

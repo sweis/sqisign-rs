@@ -145,5 +145,34 @@ Residual survivors fall into:
 ## Design decisions
 
 - Feature flags `lvl1`/`lvl3`/`lvl5` select the prime; only one active per build.
-- Feature flag `sign` gates the GMP/quaternion dependency (verify-only builds are GMP-free, matching C's `ENABLE_SIGN=OFF`).
-- Field element internal repr matches C's auto-generated Montgomery form for bit-exact KAT compatibility.
+- Feature flag `sign` gates the bigint/quaternion dependency (verify-only builds
+  have no bigint dep, matching C's `ENABLE_SIGN=OFF`).
+- Field element internal repr matches C's auto-generated Montgomery form for
+  bit-exact KAT compatibility.
+
+### Bigint backends
+
+`intbig.rs` is the sole arbitrary-precision boundary; `cfg`-selects one of:
+
+| feature | crate | type | notes |
+|---|---|---|---|
+| (default `sign`) | `malachite-nz` | growable | pure Rust; KAT-exact via custom BPSW + `mpz_get_si`/`_d_2exp` shims |
+| `gmp` | `rug` (GMP) | growable | what the C ref uses; ~5% faster on sign |
+| `cryptobigint` | `crypto-bigint` | fixed `Int<LIMBS>` | ~400× slower on sign |
+
+The crypto-bigint backend uses a per-level fixed width sized from an empirical
+audit of all 100 KAT seeds (instrumented malachite backend, `--cfg ibz_audit`;
+see `examples/_ibz_audit.rs`). The high-water mark is hit inside
+`ibz_mat_4xn_hnf_mod_core` (HNF intermediate `c = u·a_k + v·a_j` before
+modular reduction):
+
+| level | log₂ p | max bits seen | `IBZ_LIMBS` | margin |
+|---|---|---|---|---|
+| lvl1 | 251 | 12 746 | 256 | 1.29× |
+| lvl3 | 381 | 19 182 | 384 | 1.28× |
+| lvl5 | 505 | 25 530 | 512 | 1.28× |
+
+`ibz_mul`/`ibz_add` carry `debug_assert!` headroom checks. `ibz_xgcd` normalises
+crypto-bigint's Bézout cofactors to GMP's centred convention so HNF is
+bit-identical. `ibz_div_floor` is hand-rolled to work around a remainder-sign
+bug in `crypto-bigint` 0.7's `checked_div_rem_floor`.
