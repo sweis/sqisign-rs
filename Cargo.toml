@@ -26,6 +26,10 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)'] }
 [dev-dependencies]
 hex = "0.4"
 
+[[example]]
+name = "sign_verify"
+required-features = ["sign"]
+
 [profile.release]
 lto = true
 codegen-units = 1
