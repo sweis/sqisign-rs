@@ -80,14 +80,14 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> bool 
     }
 
     // Euclidean descent.
-    ibz_copy(&mut prod, p);
-    ibz_copy(&mut r1, p);
-    ibz_copy(&mut r0, p);
+    prod.clone_from(p);
+    r1.clone_from(p);
+    r0.clone_from(p);
     while ibz_cmp(&prod, p) >= 0 {
         ibz_div(&mut a, &mut r0, &r2, &r1);
         ibz_mul(&mut prod, &r0, &r0);
-        ibz_copy(&mut r2, &r1);
-        ibz_copy(&mut r1, &r0);
+        r2.clone_from(&r1);
+        r1.clone_from(&r0);
     }
     // Check (p - r0²) / n is a perfect square.
     ibz_sub(&mut a, p, &prod);
@@ -100,12 +100,10 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> bool 
         return false;
     }
 
-    ibz_copy(x, &r0);
+    (x).clone_from(&r0);
     ibz_mul(&mut a, y, y);
-    let t = a.clone();
-    ibz_mul(&mut a, &t, n);
-    let t = prod.clone();
-    ibz_add(&mut prod, &t, &a);
+    a *= n;
+    prod += &a;
     ibz_cmp(&prod, p) == 0
 }
 

@@ -63,8 +63,7 @@ pub fn quat_lattice_sample_from_ball(
 
     quat_lattice_gram(&mut g, lattice, alg);
     ibz_mul(&mut rad, radius, &lattice.denom);
-    let r = rad.clone();
-    ibz_mul(&mut rad, &r, &lattice.denom);
+    rad *= &lattice.denom;
     let r = rad.clone();
     ibz_mul(&mut rad, &r, ibz_const_two());
 
@@ -78,12 +77,11 @@ pub fn quat_lattice_sample_from_ball(
     loop {
         for i in 0..4 {
             if ibz_is_zero(&boxv[i]) {
-                ibz_copy(&mut x[i], ibz_const_zero());
+                x[i].clone_from(ibz_const_zero());
             } else {
                 ibz_add(&mut tmp, &boxv[i], &boxv[i]);
                 ok &= ibz_rand_interval(&mut x[i], ibz_const_zero(), &tmp);
-                let t = x[i].clone();
-                ibz_sub(&mut x[i], &t, &boxv[i]);
+                x[i] -= &boxv[i];
                 if ok == 0 {
                     return 0;
                 }
@@ -105,7 +103,7 @@ pub fn quat_lattice_sample_from_ball(
     }
 
     ibz_mat_4x4_eval(&mut res.coord, &lattice.basis, &x);
-    ibz_copy(&mut res.denom, &lattice.denom);
+    res.denom.clone_from(&lattice.denom);
     quat_alg_normalize(res);
 
     #[cfg(debug_assertions)]

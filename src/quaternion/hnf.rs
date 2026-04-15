@@ -11,8 +11,7 @@ pub fn ibz_mod_not_zero(res: &mut Ibz, x: &Ibz, modn: &Ibz) {
     let mut t = Ibz::default();
     ibz_mod(&mut m, x, modn);
     ibz_set(&mut t, ibz_is_zero(&m) as i32);
-    let s = t.clone();
-    ibz_mul(&mut t, &s, modn);
+    t *= modn;
     ibz_add(res, &m, &t);
 }
 
@@ -25,8 +24,7 @@ pub fn ibz_centered_mod(remainder: &mut Ibz, a: &Ibz, modn: &Ibz) {
     ibz_div_floor(&mut d, &mut tmp, modn, ibz_const_two());
     ibz_mod_not_zero(&mut tmp, a, modn);
     ibz_set(&mut t, (ibz_cmp(&tmp, &d) > 0) as i32);
-    let s = t.clone();
-    ibz_mul(&mut t, &s, modn);
+    t *= modn;
     ibz_sub(remainder, &tmp, &t);
 }
 
@@ -101,8 +99,7 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
             res |= !ibz_is_zero(&prod);
             ibz_mul(&mut sum, &x1, u);
             ibz_mul(&mut prod, &y1, v);
-            let t = sum.clone();
-            ibz_add(&mut sum, &t, &prod);
+            sum += &prod;
             res |= ibz_cmp(&sum, d) != 0;
         }
         debug_assert!(!res);
@@ -160,12 +157,11 @@ fn ibz_vec_4_linear_combination_mod(
     for i in 0..4 {
         ibz_mul(&mut sums[i], coeff_a, &vec_a[i]);
         ibz_mul(&mut prod, coeff_b, &vec_b[i]);
-        let t = sums[i].clone();
-        ibz_add(&mut sums[i], &t, &prod);
+        sums[i] += &prod;
         let t = sums[i].clone();
         ibz_centered_mod(&mut sums[i], &t, &m);
     }
-    ibz_vec_4_copy(lc, &sums);
+    (lc).clone_from(&sums);
 }
 
 fn ibz_vec_4_copy_mod(res: &mut IbzVec4, vec: &IbzVec4, modn: &Ibz) {
@@ -215,7 +211,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
     let mut a: Vec<IbzVec4> = (0..n).map(|h| generators[h].clone()).collect();
     let mut w: [IbzVec4; 4] = core::array::from_fn(|_| ibz_vec_4_init());
 
-    ibz_copy(&mut m, modn);
+    m.clone_from(modn);
 
     while i != -1 {
         while j != 0 {
@@ -249,7 +245,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
         let ak = a[k as usize].clone();
         ibz_vec_4_scalar_mul_mod(&mut w[i as usize], &u, &ak, &m);
         if ibz_is_zero(&w[i as usize][i as usize]) {
-            ibz_copy(&mut w[i as usize][i as usize], &m);
+            w[i as usize][i as usize].clone_from(&m);
         }
         for h in (i + 1)..4 {
             let whi = w[h as usize][i as usize].clone();
@@ -269,7 +265,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
             i -= 1;
             j = k;
             if ibz_is_zero(&a[k as usize][i as usize]) {
-                ibz_copy(&mut a[k as usize][i as usize], &m);
+                a[k as usize][i as usize].clone_from(&m);
             }
         } else {
             k -= 1;
@@ -279,7 +275,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
     }
     for jc in 0..4 {
         for ir in 0..4 {
-            ibz_copy(&mut hnf[ir][jc], &w[jc][ir]);
+            hnf[ir][jc].clone_from(&w[jc][ir]);
         }
     }
 }

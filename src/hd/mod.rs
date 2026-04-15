@@ -3,13 +3,10 @@
 //! Ported from `src/hd/ref/` in the C reference implementation.
 
 use crate::ec::{
-    ec_dbl, ec_is_equal, ec_is_zero, jac_add, jac_dbl, jac_dblw, jac_from_ws, jac_to_ws, jac_to_xz,
-    test_point_order_twof, AddComponents, EcBasis, EcCurve, EcPoint, JacPoint,
+    ec_dbl, jac_add, jac_dbl, jac_dblw, jac_from_ws, jac_to_ws, jac_to_xz, test_point_order_twof,
+    AddComponents, EcBasis, EcCurve, EcPoint, JacPoint,
 };
-use crate::gf::{
-    fp2_add, fp2_add_ip, fp2_dbl_ip, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_mul_ip, fp2_neg,
-    fp2_neg_ip, fp2_select, fp2_sqr, fp2_sqr_ip, fp2_sub, fp2_sub_ip, Fp2,
-};
+use crate::gf::Fp2;
 
 mod theta_isogenies;
 pub use theta_isogenies::*;
@@ -328,27 +325,23 @@ pub fn to_squared_theta(out: &mut ThetaPoint, in_: &ThetaPoint) {
 /// writing, so it is alias-safe.
 #[inline]
 pub fn hadamard_ip(r: &mut ThetaPoint) {
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    let mut t4 = Fp2::default();
-    fp2_add(&mut t1, &r.x, &r.y);
-    fp2_sub(&mut t2, &r.x, &r.y);
-    fp2_add(&mut t3, &r.z, &r.t);
-    fp2_sub(&mut t4, &r.z, &r.t);
-    fp2_add(&mut r.x, &t1, &t3);
-    fp2_add(&mut r.y, &t2, &t4);
-    fp2_sub(&mut r.z, &t1, &t3);
-    fp2_sub(&mut r.t, &t2, &t4);
+    let t1 = r.x + r.y;
+    let t2 = r.x - r.y;
+    let t3 = r.z + r.t;
+    let t4 = r.z - r.t;
+    r.x = t1 + t3;
+    r.y = t2 + t4;
+    r.z = t1 - t3;
+    r.t = t2 - t4;
 }
 
 /// In-place coordinate-wise squaring.
 #[inline]
 pub fn pointwise_square_ip(r: &mut ThetaPoint) {
-    fp2_sqr_ip(&mut r.x);
-    fp2_sqr_ip(&mut r.y);
-    fp2_sqr_ip(&mut r.z);
-    fp2_sqr_ip(&mut r.t);
+    r.x.square_ip();
+    r.y.square_ip();
+    r.z.square_ip();
+    r.t.square_ip();
 }
 
 /// In-place `to_squared_theta`.
@@ -367,21 +360,19 @@ pub fn theta_precomputation(a: &mut ThetaStructure) {
     let mut a_dual = ThetaPoint::default();
     to_squared_theta(&mut a_dual, &a.null_point);
 
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_mul(&mut t1, &a_dual.x, &a_dual.y);
-    fp2_mul(&mut t2, &a_dual.z, &a_dual.t);
-    fp2_mul(&mut a.xyz0_d, &t1, &a_dual.z);
-    fp2_mul(&mut a.xyt0_d, &t1, &a_dual.t);
-    fp2_mul(&mut a.yzt0_d, &t2, &a_dual.y);
-    fp2_mul(&mut a.xzt0_d, &t2, &a_dual.x);
+    let mut t1 = a_dual.x * a_dual.y;
+    let mut t2 = a_dual.z * a_dual.t;
+    a.xyz0_d = t1 * a_dual.z;
+    a.xyt0_d = t1 * a_dual.t;
+    a.yzt0_d = t2 * a_dual.y;
+    a.xzt0_d = t2 * a_dual.x;
 
-    fp2_mul(&mut t1, &a.null_point.x, &a.null_point.y);
-    fp2_mul(&mut t2, &a.null_point.z, &a.null_point.t);
-    fp2_mul(&mut a.xyz0, &t1, &a.null_point.z);
-    fp2_mul(&mut a.xyt0, &t1, &a.null_point.t);
-    fp2_mul(&mut a.yzt0, &t2, &a.null_point.y);
-    fp2_mul(&mut a.xzt0, &t2, &a.null_point.x);
+    t1 = a.null_point.x * a.null_point.y;
+    t2 = a.null_point.z * a.null_point.t;
+    a.xyz0 = t1 * a.null_point.z;
+    a.xyt0 = t1 * a.null_point.t;
+    a.yzt0 = t2 * a.null_point.y;
+    a.xzt0 = t2 * a.null_point.x;
 
     a.precomputation = true;
 }
@@ -389,25 +380,25 @@ pub fn theta_precomputation(a: &mut ThetaStructure) {
 /// out ← [2]·in on the theta structure A.
 pub fn double_point(out: &mut ThetaPoint, a: &mut ThetaStructure, in_: &ThetaPoint) {
     to_squared_theta(out, in_);
-    fp2_sqr_ip(&mut out.x);
-    fp2_sqr_ip(&mut out.y);
-    fp2_sqr_ip(&mut out.z);
-    fp2_sqr_ip(&mut out.t);
+    out.x.square_ip();
+    out.y.square_ip();
+    out.z.square_ip();
+    out.t.square_ip();
 
     if !a.precomputation {
         theta_precomputation(a);
     }
-    fp2_mul_ip(&mut out.x, &a.yzt0_d);
-    fp2_mul_ip(&mut out.y, &a.xzt0_d);
-    fp2_mul_ip(&mut out.z, &a.xyt0_d);
-    fp2_mul_ip(&mut out.t, &a.xyz0_d);
+    out.x *= a.yzt0_d;
+    out.y *= a.xzt0_d;
+    out.z *= a.xyt0_d;
+    out.t *= a.xyz0_d;
 
     hadamard_ip(out);
 
-    fp2_mul_ip(&mut out.x, &a.yzt0);
-    fp2_mul_ip(&mut out.y, &a.xzt0);
-    fp2_mul_ip(&mut out.z, &a.xyt0);
-    fp2_mul_ip(&mut out.t, &a.xyz0);
+    out.x *= a.yzt0;
+    out.y *= a.xzt0;
+    out.z *= a.xyt0;
+    out.t *= a.xyz0;
 }
 
 /// out ← [2ᵉˣᵖ]·in on the theta structure A.
@@ -425,11 +416,9 @@ pub fn double_iter(out: &mut ThetaPoint, a: &mut ThetaStructure, in_: &ThetaPoin
 
 /// Returns 0xFFFFFFFF if x·t = y·z (i.e. P lies on a product theta structure).
 pub fn is_product_theta_point(p: &ThetaPoint) -> u32 {
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_mul(&mut t1, &p.x, &p.t);
-    fp2_mul(&mut t2, &p.y, &p.z);
-    fp2_is_equal(&t1, &t2)
+    let t1 = p.x * p.t;
+    let t2 = p.y * p.z;
+    t1.is_equal_ct(&t2)
 }
 
 // ===========================================================================
@@ -458,10 +447,10 @@ mod tests {
         let mut hhp = ThetaPoint::default();
         hadamard(&mut hhp, &hp);
         let expect = tp(12, 28, 44, 76);
-        assert_eq!(fp2_is_equal(&hhp.x, &expect.x), 0xFFFFFFFF);
-        assert_eq!(fp2_is_equal(&hhp.y, &expect.y), 0xFFFFFFFF);
-        assert_eq!(fp2_is_equal(&hhp.z, &expect.z), 0xFFFFFFFF);
-        assert_eq!(fp2_is_equal(&hhp.t, &expect.t), 0xFFFFFFFF);
+        assert_eq!(hhp.x.is_equal_ct(&expect.x), 0xFFFFFFFF);
+        assert_eq!(hhp.y.is_equal_ct(&expect.y), 0xFFFFFFFF);
+        assert_eq!(hhp.z.is_equal_ct(&expect.z), 0xFFFFFFFF);
+        assert_eq!(hhp.t.is_equal_ct(&expect.t), 0xFFFFFFFF);
     }
 
     #[test]
@@ -482,10 +471,10 @@ mod tests {
         let mut out = ThetaPoint::default();
         to_squared_theta(&mut out, &p);
         let four = Fp2::from_small(4);
-        assert_eq!(fp2_is_equal(&out.x, &four), 0xFFFFFFFF);
-        assert_eq!(fp2_is_zero(&out.y), 0xFFFFFFFF);
-        assert_eq!(fp2_is_zero(&out.z), 0xFFFFFFFF);
-        assert_eq!(fp2_is_zero(&out.t), 0xFFFFFFFF);
+        assert_eq!(out.x.is_equal_ct(&four), 0xFFFFFFFF);
+        assert_eq!(out.y.is_zero_ct(), 0xFFFFFFFF);
+        assert_eq!(out.z.is_zero_ct(), 0xFFFFFFFF);
+        assert_eq!(out.t.is_zero_ct(), 0xFFFFFFFF);
     }
 
     #[test]
@@ -497,7 +486,7 @@ mod tests {
         let b1 = EcBasis { p, q: p, pmq: p };
         let b2 = EcBasis::default();
         let ker = ThetaKernelCouplePoints::from_bases(&b1, &b2);
-        assert_eq!(fp2_is_equal(&ker.t1.p1.x, &Fp2::ONE), 0xFFFFFFFF);
-        assert_eq!(fp2_is_zero(&ker.t1.p2.x), 0xFFFFFFFF);
+        assert_eq!(ker.t1.p1.x.is_equal_ct(&Fp2::ONE), 0xFFFFFFFF);
+        assert_eq!(ker.t1.p2.x.is_zero_ct(), 0xFFFFFFFF);
     }
 }

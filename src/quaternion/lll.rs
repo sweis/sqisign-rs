@@ -1,7 +1,8 @@
 //! L²-LLL reduction (Nguyen–Stehlé) on 4-dimensional lattices.
 //! Ported from `lll/{l2.c, lll_applications.c, lll_verification.c}`.
 
-use super::dim4::*;
+#[cfg(test)]
+use super::dim4::ibz_mat_4x4_inv_with_det_as_denom;
 use super::dpe::Dpe;
 use super::intbig::*;
 use super::lattice::*;
@@ -82,13 +83,11 @@ pub fn quat_lll_core(g: &mut IbzMat4x4, basis: &mut IbzMat4x4) {
                     // b_κ ← b_κ − X·b_i
                     for j in 0..4 {
                         ibz_mul(&mut tmpi, &x, &basis[j][i]);
-                        let t = basis[j][kappa].clone();
-                        ibz_sub(&mut basis[j][kappa], &t, &tmpi);
+                        basis[j][kappa] -= &tmpi;
                     }
                     // Update lower half of Gram matrix.
                     ibz_mul(&mut tmpi, &x, &g[kappa][i]);
-                    let t = g[kappa][kappa].clone();
-                    ibz_sub(&mut g[kappa][kappa], &t, &tmpi);
+                    g[kappa][kappa] -= &tmpi;
                     for j in 0..4 {
                         ibz_mul(&mut tmpi, &x, sym_get(g, i, j));
                         let t = sym_get(g, kappa, j).clone();
@@ -179,7 +178,7 @@ pub fn quat_lll_core(g: &mut IbzMat4x4, basis: &mut IbzMat4x4) {
     for i in 0..4 {
         for j in (i + 1)..4 {
             let t = g[j][i].clone();
-            ibz_copy(&mut g[i][j], &t);
+            g[i][j].clone_from(&t);
         }
     }
 }
@@ -187,7 +186,7 @@ pub fn quat_lll_core(g: &mut IbzMat4x4, basis: &mut IbzMat4x4) {
 pub fn quat_lattice_lll(red: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAlg) -> i32 {
     let mut g = ibz_mat_4x4_init();
     quat_lattice_gram(&mut g, lattice, alg);
-    ibz_mat_4x4_copy(red, &lattice.basis);
+    (red).clone_from(&lattice.basis);
     quat_lll_core(&mut g, red);
     0
 }

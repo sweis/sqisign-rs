@@ -3,7 +3,7 @@
 
 use crate::common::fips202::Shake256Inc;
 use crate::ec::*;
-use crate::gf::{fp2_inv, fp2_is_one, fp2_is_zero, fp2_mul, Fp2};
+use crate::gf::Fp2;
 use crate::hd::{
     theta_chain_compute_and_eval_verify, ThetaCoupleCurve, ThetaKernelCouplePoints,
     HD_EXTRA_TORSION,
@@ -72,10 +72,8 @@ pub fn public_key_init(pk: &mut PublicKey) {
 pub fn hash_to_challenge(pk: &PublicKey, com_curve: &EcCurve, message: &[u8]) -> Scalar {
     let mut buf = [0u8; 2 * FP2_ENCODED_BYTES];
     {
-        let mut j1 = Fp2::default();
-        let mut j2 = Fp2::default();
-        ec_j_inv(&mut j1, &pk.curve);
-        ec_j_inv(&mut j2, com_curve);
+        let j1 = pk.curve.j_inv();
+        let j2 = com_curve.j_inv();
         buf[..FP2_ENCODED_BYTES].copy_from_slice(&j1.encode());
         buf[FP2_ENCODED_BYTES..].copy_from_slice(&j2.encode());
     }
@@ -142,10 +140,9 @@ use crate::mp::{decode_digits, encode_digits};
 impl PublicKey {
     pub fn to_bytes(&self) -> [u8; PUBLICKEY_BYTES] {
         let mut tmp = self.curve.c;
-        debug_assert!(fp2_is_zero(&tmp) == 0);
-        fp2_inv(&mut tmp);
-        let s = tmp;
-        fp2_mul(&mut tmp, &self.curve.a, &s);
+        debug_assert!(tmp.is_zero_ct() == 0);
+        tmp = (tmp).inv();
+        tmp = self.curve.a * tmp;
         let mut enc = [0u8; PUBLICKEY_BYTES];
         enc[..FP2_ENCODED_BYTES].copy_from_slice(&tmp.encode());
         enc[FP2_ENCODED_BYTES] = self.hint_pk;
@@ -410,7 +407,7 @@ fn compute_commitment_curve_verify(
 
     let codomain_splits = if pow_dim2_deg_resp == 0 {
         codomain = e12;
-        if ec_is_basis_four_torsion(b_chall_can, e_chall) == 0 {
+        if !e_chall.is_basis_four_torsion(b_chall_can) {
             return Err(VerifyError::IsogenyFailure);
         }
         true
@@ -444,14 +441,12 @@ pub fn protocols_verify(sig: &Signature, pk: &PublicKey, m: &[u8]) -> VResult<()
         return Err(VerifyError::BadResponseLength);
     }
 
-    if !ec_curve_verify_a(&pk.curve.a) {
+    if !EcCurve::verify_a(&pk.curve.a) {
         return Err(VerifyError::BadCurve);
     }
-    let mut e_aux = ec_curve_init_from_a(&sig.e_aux_a).ok_or(VerifyError::BadCurve)?;
+    let mut e_aux = EcCurve::try_from_a(&sig.e_aux_a).ok_or(VerifyError::BadCurve)?;
 
-    debug_assert!(
-        fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF && !pk.curve.is_a24_computed_and_normalized
-    );
+    debug_assert!(pk.curve.c.is_one() && !pk.curve.is_a24_computed_and_normalized);
 
     let mut e_chall = compute_challenge_verify(sig, &pk.curve, pk.hint_pk)?;
 
@@ -692,11 +687,11 @@ mod tests {
         // entangled-basis NQR search never terminates because Im(ib·A²-(1+ib)²)=0
         // for every b. The C reference loops unbounded; we cap the search and
         // reject. A = √2 ∈ Fp works since p ≡ 7 (mod 8).
-        use crate::gf::{fp_is_square, fp_sqrt, Fp, FP2_ENCODED_BYTES};
+        use crate::gf::{Fp, FP2_ENCODED_BYTES};
         let mut a = Fp2::default();
         a.re = Fp::from_small(2);
-        assert!(fp_is_square(&a.re) != 0);
-        fp_sqrt(&mut a.re);
+        assert!(a.re.is_square());
+        a.re = a.re.sqrt();
         let mut pk = [0u8; PUBLICKEY_BYTES];
         pk[..FP2_ENCODED_BYTES].copy_from_slice(&a.encode());
         pk[FP2_ENCODED_BYTES] = 1; // hint_pk = 1

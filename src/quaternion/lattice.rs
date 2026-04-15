@@ -46,8 +46,8 @@ pub fn quat_lattice_inclusion(sublat: &QuatLattice, overlat: &QuatLattice) -> i3
 }
 
 pub fn quat_lattice_conjugate_without_hnf(conj: &mut QuatLattice, lat: &QuatLattice) {
-    ibz_mat_4x4_copy(&mut conj.basis, &lat.basis);
-    ibz_copy(&mut conj.denom, &lat.denom);
+    conj.basis.clone_from(&lat.basis);
+    conj.denom.clone_from(&lat.denom);
     for row in 1..4 {
         for col in 0..4 {
             let t = conj.basis[row][col].clone();
@@ -63,7 +63,7 @@ pub fn quat_lattice_dual_without_hnf(dual: &mut QuatLattice, lat: &QuatLattice) 
     let invc = inv.clone();
     ibz_mat_4x4_transpose(&mut inv, &invc);
     ibz_mat_4x4_scalar_mul(&mut dual.basis, &lat.denom, &inv);
-    ibz_copy(&mut dual.denom, &det);
+    dual.denom.clone_from(&det);
 }
 
 pub fn quat_lattice_add(res: &mut QuatLattice, lat1: &QuatLattice, lat2: &QuatLattice) {
@@ -76,14 +76,14 @@ pub fn quat_lattice_add(res: &mut QuatLattice, lat1: &QuatLattice, lat2: &QuatLa
     ibz_mat_4x4_scalar_mul(&mut tmp, &lat1.denom, &lat2.basis);
     for i in 0..4 {
         for j in 0..4 {
-            ibz_copy(&mut generators[j][i], &tmp[i][j]);
+            generators[j][i].clone_from(&tmp[i][j]);
         }
     }
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det1, &tmp);
     ibz_mat_4x4_scalar_mul(&mut tmp, &lat2.denom, &lat1.basis);
     for i in 0..4 {
         for j in 0..4 {
-            ibz_copy(&mut generators[4 + j][i], &tmp[i][j]);
+            generators[4 + j][i].clone_from(&tmp[i][j]);
         }
     }
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det2, &tmp);
@@ -119,7 +119,7 @@ pub fn quat_lattice_mat_alg_coord_mul_without_hnf(
         ibz_vec_4_copy_ibz(&mut a, &lat[0][i], &lat[1][i], &lat[2][i], &lat[3][i]);
         quat_alg_coord_mul(&mut p, &a, coord, alg);
         for r in 0..4 {
-            ibz_copy(&mut prod[r][i], &p[r]);
+            prod[r][i].clone_from(&p[r]);
         }
     }
 }
@@ -166,9 +166,9 @@ pub fn quat_lattice_mul(
             quat_alg_coord_mul(&mut elem_res, &elem1, &elem2, alg);
             for j in 0..4 {
                 if k == 0 {
-                    ibz_copy(&mut detmat[i][j], &elem_res[j]);
+                    detmat[i][j].clone_from(&elem_res[j]);
                 }
-                ibz_copy(&mut generators[4 * k + i][j], &elem_res[j]);
+                generators[4 * k + i][j].clone_from(&elem_res[j]);
             }
         }
     }
@@ -201,7 +201,7 @@ pub fn quat_lattice_contains(
     let divisible = ibz_vec_4_scalar_div(&mut work_coord, &prod, &wc);
     if divisible {
         if let Some(coord) = coord {
-            ibz_vec_4_copy(coord, &work_coord);
+            (coord).clone_from(&work_coord);
         }
     }
     divisible as i32
@@ -212,15 +212,12 @@ pub fn quat_lattice_index(index: &mut Ibz, sublat: &QuatLattice, overlat: &QuatL
     let mut det = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &sublat.basis);
     ibz_mul(&mut tmp, &overlat.denom, &overlat.denom);
-    let t = tmp.clone();
-    ibz_mul(&mut tmp, &t, &t);
+    tmp *= tmp.clone();
     ibz_mul(index, &det, &tmp);
     ibz_mul(&mut tmp, &sublat.denom, &sublat.denom);
-    let t = tmp.clone();
-    ibz_mul(&mut tmp, &t, &t);
+    tmp *= tmp.clone();
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &overlat.basis);
-    let t = tmp.clone();
-    ibz_mul(&mut tmp, &t, &det);
+    tmp *= &det;
     let idx = index.clone();
     let tm = tmp.clone();
     ibz_div(index, &mut tmp, &idx, &tm);
@@ -237,7 +234,7 @@ pub fn quat_lattice_hnf(lat: &mut QuatLattice) {
     let mut generators: [IbzVec4; 4] = Default::default();
     for i in 0..4 {
         for j in 0..4 {
-            ibz_copy(&mut generators[j][i], &lat.basis[i][j]);
+            generators[j][i].clone_from(&lat.basis[i][j]);
         }
     }
     ibz_mat_4xn_hnf_mod_core(&mut lat.basis, 4, &generators, &modn);
@@ -254,11 +251,9 @@ pub fn quat_lattice_gram(g: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAlg
             for k in 0..4 {
                 ibz_mul(&mut tmp, &lattice.basis[k][i], &lattice.basis[k][j]);
                 if k >= 2 {
-                    let t = tmp.clone();
-                    ibz_mul(&mut tmp, &t, &alg.p);
+                    tmp *= &alg.p;
                 }
-                let t = g[i][j].clone();
-                ibz_add(&mut g[i][j], &t, &tmp);
+                g[i][j] += &tmp;
             }
             let t = g[i][j].clone();
             ibz_mul(&mut g[i][j], &t, ibz_const_two());
@@ -267,7 +262,7 @@ pub fn quat_lattice_gram(g: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAlg
     for i in 0..4 {
         for j in (i + 1)..4 {
             let (lo, hi) = g.split_at_mut(j);
-            ibz_copy(&mut lo[i][j], &hi[0][i]);
+            lo[i][j].clone_from(&hi[0][i]);
         }
     }
 }

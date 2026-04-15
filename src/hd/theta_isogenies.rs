@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::ec::{jac_to_xz_add_components, lift_basis, test_jac_order_twof, EcBasis};
-use crate::gf::{fp2_batched_inv, fp2_sqrt};
+use crate::gf::fp2_batched_inv;
 #[cfg(feature = "sign")]
 use crate::precomp::NORMALIZATION_TRANSFORMS;
 use crate::precomp::{
@@ -24,13 +24,7 @@ fn select_base_change_matrix(
 ) {
     for i in 0..4 {
         for j in 0..4 {
-            let a = m1.m[i][j];
-            fp2_select(
-                &mut m.m[i][j],
-                &a,
-                &FP2_CONSTANTS[m2.m[i][j] as usize],
-                option,
-            );
+            m.m[i][j] = Fp2::select(&m1.m[i][j], &FP2_CONSTANTS[m2.m[i][j] as usize], option);
         }
     }
 }
@@ -57,45 +51,20 @@ fn apply_isomorphism_general(
     p: &ThetaPoint,
     pt_not_zero: bool,
 ) {
-    let mut x1 = Fp2::default();
-    let mut temp = ThetaPoint::default();
-
-    fp2_mul(&mut temp.x, &p.x, &m.m[0][0]);
-    fp2_mul(&mut x1, &p.y, &m.m[0][1]);
-    fp2_add_ip(&mut temp.x, &x1);
-    fp2_mul(&mut x1, &p.z, &m.m[0][2]);
-    fp2_add_ip(&mut temp.x, &x1);
-
-    fp2_mul(&mut temp.y, &p.x, &m.m[1][0]);
-    fp2_mul(&mut x1, &p.y, &m.m[1][1]);
-    fp2_add_ip(&mut temp.y, &x1);
-    fp2_mul(&mut x1, &p.z, &m.m[1][2]);
-    fp2_add_ip(&mut temp.y, &x1);
-
-    fp2_mul(&mut temp.z, &p.x, &m.m[2][0]);
-    fp2_mul(&mut x1, &p.y, &m.m[2][1]);
-    fp2_add_ip(&mut temp.z, &x1);
-    fp2_mul(&mut x1, &p.z, &m.m[2][2]);
-    fp2_add_ip(&mut temp.z, &x1);
-
-    fp2_mul(&mut temp.t, &p.x, &m.m[3][0]);
-    fp2_mul(&mut x1, &p.y, &m.m[3][1]);
-    fp2_add_ip(&mut temp.t, &x1);
-    fp2_mul(&mut x1, &p.z, &m.m[3][2]);
-    fp2_add_ip(&mut temp.t, &x1);
+    let row = |i: usize| p.x * m.m[i][0] + p.y * m.m[i][1] + p.z * m.m[i][2];
+    let mut temp = ThetaPoint {
+        x: row(0),
+        y: row(1),
+        z: row(2),
+        t: row(3),
+    };
 
     if pt_not_zero {
-        fp2_mul(&mut x1, &p.t, &m.m[0][3]);
-        fp2_add_ip(&mut temp.x, &x1);
-
-        fp2_mul(&mut x1, &p.t, &m.m[1][3]);
-        fp2_add_ip(&mut temp.y, &x1);
-
-        fp2_mul(&mut x1, &p.t, &m.m[2][3]);
-        fp2_add_ip(&mut temp.z, &x1);
-
-        fp2_mul(&mut x1, &p.t, &m.m[3][3]);
-        fp2_add_ip(&mut temp.t, &x1);
+        temp.x += p.t * m.m[0][3];
+        temp.y += p.t * m.m[1][3];
+        temp.z += p.t * m.m[2][3];
+        let x1 = p.t * m.m[3][3];
+        temp.t += x1;
     }
 
     res.x = temp.x;
@@ -123,9 +92,8 @@ fn base_change_matrix_multiplication(
             for k in 0..4 {
                 let mut m_ik = m1.m[i][k];
                 let m_kj = m2.m[k][j];
-                fp2_mul_ip(&mut m_ik, &m_kj);
-                let ss = sum;
-                fp2_add(&mut sum, &ss, &m_ik);
+                m_ik *= m_kj;
+                sum += m_ik;
             }
             tmp.m[i][j] = sum;
         }
@@ -139,20 +107,20 @@ fn base_change_matrix_multiplication(
 
 /// Map a couple point on E₁×E₂ to its theta point under the gluing's basis change.
 fn base_change(out: &mut ThetaPoint, phi: &ThetaGluing, t: &ThetaCouplePoint) {
-    let mut null_point = ThetaPoint::default();
-    fp2_mul(&mut null_point.x, &t.p1.x, &t.p2.x);
-    fp2_mul(&mut null_point.y, &t.p1.x, &t.p2.z);
-    fp2_mul(&mut null_point.z, &t.p2.x, &t.p1.z);
-    fp2_mul(&mut null_point.t, &t.p1.z, &t.p2.z);
+    let null_point = ThetaPoint {
+        x: t.p1.x * t.p2.x,
+        y: t.p1.x * t.p2.z,
+        z: t.p2.x * t.p1.z,
+        t: t.p1.z * t.p2.z,
+    };
     apply_isomorphism(out, &phi.m, &null_point);
 }
 
 fn action_by_translation_z_and_det(z_inv: &mut Fp2, det_inv: &mut Fp2, p4: &EcPoint, p2: &EcPoint) {
     *z_inv = p4.z;
-    let mut tmp = Fp2::default();
-    fp2_mul(det_inv, &p4.x, &p2.z);
-    fp2_mul(&mut tmp, &p4.z, &p2.x);
-    fp2_sub_ip(det_inv, &tmp);
+    *det_inv = p4.x * p2.z;
+    let tmp = p4.z * p2.x;
+    *det_inv -= tmp;
 }
 
 fn action_by_translation_compute_matrix(
@@ -162,22 +130,20 @@ fn action_by_translation_compute_matrix(
     z_inv: &Fp2,
     det_inv: &Fp2,
 ) {
-    let mut tmp = Fp2::default();
+    let tmp = p4.x * z_inv;
+    g.g10 = p4.x * p2.x;
+    g.g10 *= det_inv;
+    g.g10 -= tmp;
 
-    fp2_mul(&mut tmp, &p4.x, z_inv);
-    fp2_mul(&mut g.g10, &p4.x, &p2.x);
-    fp2_mul_ip(&mut g.g10, det_inv);
-    fp2_sub_ip(&mut g.g10, &tmp);
-
-    fp2_mul(&mut g.g11, &p2.x, det_inv);
-    fp2_mul_ip(&mut g.g11, &p4.z);
+    g.g11 = p2.x * det_inv;
+    g.g11 *= p4.z;
 
     let s = g.g11;
-    fp2_neg(&mut g.g00, &s);
+    g.g00 = -s;
 
-    fp2_mul(&mut g.g01, &p2.z, det_inv);
-    fp2_mul_ip(&mut g.g01, &p4.z);
-    fp2_neg_ip(&mut g.g01);
+    g.g01 = p2.z * det_inv;
+    g.g01 *= p4.z;
+    g.g01.neg_ip();
 }
 
 fn verify_two_torsion(
@@ -185,19 +151,19 @@ fn verify_two_torsion(
     k2_2: &ThetaCouplePoint,
     e12: &ThetaCoupleCurve,
 ) -> bool {
-    if (ec_is_zero(&k1_2.p1) | ec_is_zero(&k1_2.p2) | ec_is_zero(&k2_2.p1) | ec_is_zero(&k2_2.p2))
+    if (k1_2.p1.is_zero_ct() | k1_2.p2.is_zero_ct() | k2_2.p1.is_zero_ct() | k2_2.p2.is_zero_ct())
         != 0
     {
         return false;
     }
-    if (ec_is_equal(&k1_2.p1, &k2_2.p1) | ec_is_equal(&k1_2.p2, &k2_2.p2)) != 0 {
+    if (k1_2.p1.is_equal_ct(&k2_2.p1) | k1_2.p2.is_equal_ct(&k2_2.p2)) != 0 {
         return false;
     }
     let mut o1 = ThetaCouplePoint::default();
     let mut o2 = ThetaCouplePoint::default();
     double_couple_point(&mut o1, k1_2, e12);
     double_couple_point(&mut o2, k2_2, e12);
-    if (ec_is_zero(&o1.p1) & ec_is_zero(&o1.p2) & ec_is_zero(&o2.p1) & ec_is_zero(&o2.p2)) == 0 {
+    if (o1.p1.is_zero_ct() & o1.p2.is_zero_ct() & o2.p1.is_zero_ct() & o2.p2.is_zero_ct()) == 0 {
         return false;
     }
     true
@@ -228,7 +194,7 @@ fn action_by_translation(
     }
 
     fp2_batched_inv(&mut inv);
-    if fp2_is_zero(&inv[0]) != 0 {
+    if inv[0].is_zero() {
         return false;
     }
 
@@ -251,107 +217,101 @@ fn gluing_change_of_basis(
         return false;
     }
 
-    let mut t001 = Fp2::default();
-    let mut t101 = Fp2::default();
-    let mut t002 = Fp2::default();
-    let mut t102 = Fp2::default();
-    let mut tmp = Fp2::default();
+    let mut t001 = gi[0].g00 * gi[2].g00;
+    let mut tmp = gi[0].g01 * gi[2].g10;
+    t001 += tmp;
 
-    fp2_mul(&mut t001, &gi[0].g00, &gi[2].g00);
-    fp2_mul(&mut tmp, &gi[0].g01, &gi[2].g10);
-    fp2_add_ip(&mut t001, &tmp);
+    let mut t101 = gi[0].g10 * gi[2].g00;
+    tmp = gi[0].g11 * gi[2].g10;
+    t101 += tmp;
 
-    fp2_mul(&mut t101, &gi[0].g10, &gi[2].g00);
-    fp2_mul(&mut tmp, &gi[0].g11, &gi[2].g10);
-    fp2_add_ip(&mut t101, &tmp);
+    let mut t002 = gi[1].g00 * gi[3].g00;
+    tmp = gi[1].g01 * gi[3].g10;
+    t002 += tmp;
 
-    fp2_mul(&mut t002, &gi[1].g00, &gi[3].g00);
-    fp2_mul(&mut tmp, &gi[1].g01, &gi[3].g10);
-    fp2_add_ip(&mut t002, &tmp);
-
-    fp2_mul(&mut t102, &gi[1].g10, &gi[3].g00);
-    fp2_mul(&mut tmp, &gi[1].g11, &gi[3].g10);
-    fp2_add_ip(&mut t102, &tmp);
+    let mut t102 = gi[1].g10 * gi[3].g00;
+    tmp = gi[1].g11 * gi[3].g10;
+    t102 += tmp;
 
     // Row 0: trace.
     m.m[0][0] = Fp2::ONE;
-    fp2_mul(&mut tmp, &t001, &t002);
-    fp2_add_ip(&mut m.m[0][0], &tmp);
-    fp2_mul(&mut tmp, &gi[2].g00, &gi[3].g00);
-    fp2_add_ip(&mut m.m[0][0], &tmp);
-    fp2_mul(&mut tmp, &gi[0].g00, &gi[1].g00);
-    fp2_add_ip(&mut m.m[0][0], &tmp);
+    tmp = t001 * t002;
+    m.m[0][0] += tmp;
+    tmp = gi[2].g00 * gi[3].g00;
+    m.m[0][0] += tmp;
+    tmp = gi[0].g00 * gi[1].g00;
+    m.m[0][0] += tmp;
 
-    fp2_mul(&mut m.m[0][1], &t001, &t102);
-    fp2_mul(&mut tmp, &gi[2].g00, &gi[3].g10);
-    fp2_add_ip(&mut m.m[0][1], &tmp);
-    fp2_mul(&mut tmp, &gi[0].g00, &gi[1].g10);
-    fp2_add_ip(&mut m.m[0][1], &tmp);
+    m.m[0][1] = t001 * t102;
+    tmp = gi[2].g00 * gi[3].g10;
+    m.m[0][1] += tmp;
+    tmp = gi[0].g00 * gi[1].g10;
+    m.m[0][1] += tmp;
 
-    fp2_mul(&mut m.m[0][2], &t101, &t002);
-    fp2_mul(&mut tmp, &gi[2].g10, &gi[3].g00);
-    fp2_add_ip(&mut m.m[0][2], &tmp);
-    fp2_mul(&mut tmp, &gi[0].g10, &gi[1].g00);
-    fp2_add_ip(&mut m.m[0][2], &tmp);
+    m.m[0][2] = t101 * t002;
+    tmp = gi[2].g10 * gi[3].g00;
+    m.m[0][2] += tmp;
+    tmp = gi[0].g10 * gi[1].g00;
+    m.m[0][2] += tmp;
 
-    fp2_mul(&mut m.m[0][3], &t101, &t102);
-    fp2_mul(&mut tmp, &gi[2].g10, &gi[3].g10);
-    fp2_add_ip(&mut m.m[0][3], &tmp);
-    fp2_mul(&mut tmp, &gi[0].g10, &gi[1].g10);
-    fp2_add_ip(&mut m.m[0][3], &tmp);
+    m.m[0][3] = t101 * t102;
+    tmp = gi[2].g10 * gi[3].g10;
+    m.m[0][3] += tmp;
+    tmp = gi[0].g10 * gi[1].g10;
+    m.m[0][3] += tmp;
 
     // Row 1: action of (0, K2_4.P2).
     let r0 = m.m[0];
-    fp2_mul(&mut tmp, &gi[3].g01, &r0[1]);
-    fp2_mul(&mut m.m[1][0], &gi[3].g00, &r0[0]);
-    fp2_add_ip(&mut m.m[1][0], &tmp);
+    tmp = gi[3].g01 * r0[1];
+    m.m[1][0] = gi[3].g00 * r0[0];
+    m.m[1][0] += tmp;
 
-    fp2_mul(&mut tmp, &gi[3].g11, &r0[1]);
-    fp2_mul(&mut m.m[1][1], &gi[3].g10, &r0[0]);
-    fp2_add_ip(&mut m.m[1][1], &tmp);
+    tmp = gi[3].g11 * r0[1];
+    m.m[1][1] = gi[3].g10 * r0[0];
+    m.m[1][1] += tmp;
 
-    fp2_mul(&mut tmp, &gi[3].g01, &r0[3]);
-    fp2_mul(&mut m.m[1][2], &gi[3].g00, &r0[2]);
-    fp2_add_ip(&mut m.m[1][2], &tmp);
+    tmp = gi[3].g01 * r0[3];
+    m.m[1][2] = gi[3].g00 * r0[2];
+    m.m[1][2] += tmp;
 
-    fp2_mul(&mut tmp, &gi[3].g11, &r0[3]);
-    fp2_mul(&mut m.m[1][3], &gi[3].g10, &r0[2]);
-    fp2_add_ip(&mut m.m[1][3], &tmp);
+    tmp = gi[3].g11 * r0[3];
+    m.m[1][3] = gi[3].g10 * r0[2];
+    m.m[1][3] += tmp;
 
     // Row 2: action of (K1_4.P1, 0).
-    fp2_mul(&mut tmp, &gi[0].g01, &r0[2]);
-    fp2_mul(&mut m.m[2][0], &gi[0].g00, &r0[0]);
-    fp2_add_ip(&mut m.m[2][0], &tmp);
+    tmp = gi[0].g01 * r0[2];
+    m.m[2][0] = gi[0].g00 * r0[0];
+    m.m[2][0] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g01, &r0[3]);
-    fp2_mul(&mut m.m[2][1], &gi[0].g00, &r0[1]);
-    fp2_add_ip(&mut m.m[2][1], &tmp);
+    tmp = gi[0].g01 * r0[3];
+    m.m[2][1] = gi[0].g00 * r0[1];
+    m.m[2][1] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g11, &r0[2]);
-    fp2_mul(&mut m.m[2][2], &gi[0].g10, &r0[0]);
-    fp2_add_ip(&mut m.m[2][2], &tmp);
+    tmp = gi[0].g11 * r0[2];
+    m.m[2][2] = gi[0].g10 * r0[0];
+    m.m[2][2] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g11, &r0[3]);
-    fp2_mul(&mut m.m[2][3], &gi[0].g10, &r0[1]);
-    fp2_add_ip(&mut m.m[2][3], &tmp);
+    tmp = gi[0].g11 * r0[3];
+    m.m[2][3] = gi[0].g10 * r0[1];
+    m.m[2][3] += tmp;
 
     // Row 3: action of (K1_4.P1, K2_4.P2).
     let r1 = m.m[1];
-    fp2_mul(&mut tmp, &gi[0].g01, &r1[2]);
-    fp2_mul(&mut m.m[3][0], &gi[0].g00, &r1[0]);
-    fp2_add_ip(&mut m.m[3][0], &tmp);
+    tmp = gi[0].g01 * r1[2];
+    m.m[3][0] = gi[0].g00 * r1[0];
+    m.m[3][0] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g01, &r1[3]);
-    fp2_mul(&mut m.m[3][1], &gi[0].g00, &r1[1]);
-    fp2_add_ip(&mut m.m[3][1], &tmp);
+    tmp = gi[0].g01 * r1[3];
+    m.m[3][1] = gi[0].g00 * r1[1];
+    m.m[3][1] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g11, &r1[2]);
-    fp2_mul(&mut m.m[3][2], &gi[0].g10, &r1[0]);
-    fp2_add_ip(&mut m.m[3][2], &tmp);
+    tmp = gi[0].g11 * r1[2];
+    m.m[3][2] = gi[0].g10 * r1[0];
+    m.m[3][2] += tmp;
 
-    fp2_mul(&mut tmp, &gi[0].g11, &r1[3]);
-    fp2_mul(&mut m.m[3][3], &gi[0].g10, &r1[1]);
-    fp2_add_ip(&mut m.m[3][3], &tmp);
+    tmp = gi[0].g11 * r1[3];
+    m.m[3][3] = gi[0].g10 * r1[1];
+    m.m[3][3] += tmp;
 
     true
 }
@@ -410,42 +370,40 @@ fn gluing_compute(
     to_squared_theta_ip(&mut tt1);
     to_squared_theta_ip(&mut tt2);
 
-    if (fp2_is_zero(&tt1.t) & fp2_is_zero(&tt2.t)) == 0 {
+    if (tt1.t.is_zero_ct() & tt2.t.is_zero_ct()) == 0 {
         return false;
     }
-    if (fp2_is_zero(&tt1.x)
-        | fp2_is_zero(&tt2.x)
-        | fp2_is_zero(&tt1.y)
-        | fp2_is_zero(&tt2.z)
-        | fp2_is_zero(&tt1.z))
+    if (tt1.x.is_zero_ct()
+        | tt2.x.is_zero_ct()
+        | tt1.y.is_zero_ct()
+        | tt2.z.is_zero_ct()
+        | tt1.z.is_zero_ct())
         != 0
     {
         return false;
     }
 
-    fp2_mul(&mut out.codomain.x, &tt1.x, &tt2.x);
-    fp2_mul(&mut out.codomain.y, &tt1.y, &tt2.x);
-    fp2_mul(&mut out.codomain.z, &tt1.x, &tt2.z);
+    out.codomain.x = tt1.x * tt2.x;
+    out.codomain.y = tt1.y * tt2.x;
+    out.codomain.z = tt1.x * tt2.z;
     out.codomain.t = Fp2::ZERO;
 
-    fp2_mul(&mut out.precomputation.x, &tt1.y, &tt2.z);
+    out.precomputation.x = tt1.y * tt2.z;
     out.precomputation.y = out.codomain.z;
     out.precomputation.z = out.codomain.y;
     out.precomputation.t = Fp2::ZERO;
 
-    fp2_mul(&mut out.image_k1_8.x, &tt1.x, &out.precomputation.x);
-    fp2_mul(&mut out.image_k1_8.y, &tt1.z, &out.precomputation.z);
+    out.image_k1_8.x = tt1.x * out.precomputation.x;
+    out.image_k1_8.y = tt1.z * out.precomputation.z;
 
     if verify {
-        let mut t1 = Fp2::default();
-        let mut t2 = Fp2::default();
-        fp2_mul(&mut t1, &tt1.y, &out.precomputation.y);
-        if fp2_is_equal(&out.image_k1_8.x, &t1) == 0 {
+        let t1 = tt1.y * out.precomputation.y;
+        if out.image_k1_8.x.is_equal_ct(&t1) == 0 {
             return false;
         }
-        fp2_mul(&mut t1, &tt2.x, &out.precomputation.x);
-        fp2_mul(&mut t2, &tt2.z, &out.precomputation.z);
-        if fp2_is_equal(&t2, &t1) == 0 {
+        let t1 = tt2.x * out.precomputation.x;
+        let t2 = tt2.z * out.precomputation.z;
+        if t2.is_equal_ct(&t1) == 0 {
             return false;
         }
     }
@@ -463,20 +421,20 @@ fn gluing_eval_point(image: &mut ThetaPoint, p: &ThetaCoupleJacPoint, phi: &Thet
     jac_to_xz_add_components(&mut ac1, &p.p1, &phi.xy_k1_8.p1, &phi.domain.e1);
     jac_to_xz_add_components(&mut ac2, &p.p2, &phi.xy_k1_8.p2, &phi.domain.e2);
 
-    fp2_mul(&mut t1.x, &ac1.u, &ac2.u);
-    fp2_mul(&mut t2.t, &ac1.v, &ac2.v);
-    fp2_add_ip(&mut t1.x, &t2.t);
-    fp2_mul(&mut t1.y, &ac1.u, &ac2.w);
-    fp2_mul(&mut t1.z, &ac1.w, &ac2.u);
-    fp2_mul(&mut t1.t, &ac1.w, &ac2.w);
-    fp2_add(&mut t2.x, &ac1.u, &ac1.v);
-    fp2_add(&mut t2.y, &ac2.u, &ac2.v);
+    t1.x = ac1.u * ac2.u;
+    t2.t = ac1.v * ac2.v;
+    t1.x += t2.t;
+    t1.y = ac1.u * ac2.w;
+    t1.z = ac1.w * ac2.u;
+    t1.t = ac1.w * ac2.w;
+    t2.x = ac1.u + ac1.v;
+    t2.y = ac2.u + ac2.v;
     let (sx, sy) = (t2.x, t2.y);
-    fp2_mul(&mut t2.x, &sx, &sy);
+    t2.x = sx * sy;
     let (s2x, s1x) = (t2.x, t1.x);
-    fp2_sub(&mut t2.x, &s2x, &s1x);
-    fp2_mul(&mut t2.y, &ac1.v, &ac2.w);
-    fp2_mul(&mut t2.z, &ac1.w, &ac2.v);
+    t2.x = s2x - s1x;
+    t2.y = ac1.v * ac2.w;
+    t2.z = ac1.w * ac2.v;
     t2.t = Fp2::ZERO;
 
     let s = t1;
@@ -487,19 +445,19 @@ fn gluing_eval_point(image: &mut ThetaPoint, p: &ThetaCoupleJacPoint, phi: &Thet
     pointwise_square_ip(&mut t2);
 
     let (a, b) = (t1.x, t2.x);
-    fp2_sub(&mut t1.x, &a, &b);
+    t1.x = a - b;
     let (a, b) = (t1.y, t2.y);
-    fp2_sub(&mut t1.y, &a, &b);
+    t1.y = a - b;
     let (a, b) = (t1.z, t2.z);
-    fp2_sub(&mut t1.z, &a, &b);
+    t1.z = a - b;
     let (a, b) = (t1.t, t2.t);
-    fp2_sub(&mut t1.t, &a, &b);
+    t1.t = a - b;
     hadamard_ip(&mut t1);
 
-    fp2_mul(&mut image.x, &t1.x, &phi.image_k1_8.y);
-    fp2_mul(&mut image.y, &t1.y, &phi.image_k1_8.y);
-    fp2_mul(&mut image.z, &t1.z, &phi.image_k1_8.x);
-    fp2_mul(&mut image.t, &t1.t, &phi.image_k1_8.x);
+    image.x = t1.x * phi.image_k1_8.y;
+    image.y = t1.y * phi.image_k1_8.y;
+    image.z = t1.z * phi.image_k1_8.x;
+    image.t = t1.t * phi.image_k1_8.x;
 
     hadamard_ip(image);
 }
@@ -513,13 +471,13 @@ fn gluing_eval_point_special_case(
     base_change(&mut t, phi, p);
     to_squared_theta_ip(&mut t);
 
-    if fp2_is_zero(&t.t) == 0 {
+    if t.t.is_zero_ct() == 0 {
         return false;
     }
 
-    fp2_mul(&mut image.x, &t.x, &phi.precomputation.x);
-    fp2_mul(&mut image.y, &t.y, &phi.precomputation.y);
-    fp2_mul(&mut image.z, &t.z, &phi.precomputation.z);
+    image.x = t.x * phi.precomputation.x;
+    image.y = t.y * phi.precomputation.y;
+    image.z = t.z * phi.precomputation.z;
     image.t = Fp2::ZERO;
 
     hadamard_ip(image);
@@ -570,52 +528,36 @@ fn theta_isogeny_compute(
         to_squared_theta(&mut tt2, t2_8);
     }
 
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-
-    if (fp2_is_zero(&tt2.x)
-        | fp2_is_zero(&tt2.y)
-        | fp2_is_zero(&tt2.z)
-        | fp2_is_zero(&tt2.t)
-        | fp2_is_zero(&tt1.x)
-        | fp2_is_zero(&tt1.y))
+    if (tt2.x.is_zero_ct()
+        | tt2.y.is_zero_ct()
+        | tt2.z.is_zero_ct()
+        | tt2.t.is_zero_ct()
+        | tt1.x.is_zero_ct()
+        | tt1.y.is_zero_ct())
         != 0
     {
         return false;
     }
 
-    fp2_mul(&mut t1, &tt1.x, &tt2.y);
-    fp2_mul(&mut t2, &tt1.y, &tt2.x);
-    fp2_mul(&mut out.codomain.null_point.x, &tt2.x, &t1);
-    fp2_mul(&mut out.codomain.null_point.y, &tt2.y, &t2);
-    fp2_mul(&mut out.codomain.null_point.z, &tt2.z, &t1);
-    fp2_mul(&mut out.codomain.null_point.t, &tt2.t, &t2);
-    let mut t3 = Fp2::default();
-    fp2_mul(&mut t3, &tt2.z, &tt2.t);
-    fp2_mul(&mut out.precomputation.x, &t3, &tt1.y);
-    fp2_mul(&mut out.precomputation.y, &t3, &tt1.x);
+    let t1 = tt1.x * tt2.y;
+    let t2 = tt1.y * tt2.x;
+    out.codomain.null_point.x = tt2.x * t1;
+    out.codomain.null_point.y = tt2.y * t2;
+    out.codomain.null_point.z = tt2.z * t1;
+    out.codomain.null_point.t = tt2.t * t2;
+    let t3 = tt2.z * tt2.t;
+    out.precomputation.x = t3 * tt1.y;
+    out.precomputation.y = t3 * tt1.x;
     out.precomputation.z = out.codomain.null_point.t;
     out.precomputation.t = out.codomain.null_point.z;
 
     if verify {
-        fp2_mul(&mut t1, &tt1.x, &out.precomputation.x);
-        fp2_mul(&mut t2, &tt1.y, &out.precomputation.y);
-        if fp2_is_equal(&t1, &t2) == 0 {
-            return false;
-        }
-        fp2_mul(&mut t1, &tt1.z, &out.precomputation.z);
-        fp2_mul(&mut t2, &tt1.t, &out.precomputation.t);
-        if fp2_is_equal(&t1, &t2) == 0 {
-            return false;
-        }
-        fp2_mul(&mut t1, &tt2.x, &out.precomputation.x);
-        fp2_mul(&mut t2, &tt2.z, &out.precomputation.z);
-        if fp2_is_equal(&t1, &t2) == 0 {
-            return false;
-        }
-        fp2_mul(&mut t1, &tt2.y, &out.precomputation.y);
-        fp2_mul(&mut t2, &tt2.t, &out.precomputation.t);
-        if fp2_is_equal(&t1, &t2) == 0 {
+        let pc = &out.precomputation;
+        if tt1.x * pc.x != tt1.y * pc.y
+            || tt1.z * pc.z != tt1.t * pc.t
+            || tt2.x * pc.x != tt2.z * pc.z
+            || tt2.y * pc.y != tt2.t * pc.t
+        {
             return false;
         }
     }
@@ -654,35 +596,33 @@ fn theta_isogeny_compute_4(
         to_squared_theta(&mut tt2, &a.null_point);
     }
 
-    let mut sqaabb = Fp2::default();
-    let mut sqaacc = Fp2::default();
-    fp2_mul(&mut sqaabb, &tt2.x, &tt2.y);
-    fp2_mul(&mut sqaacc, &tt2.x, &tt2.z);
-    fp2_sqrt(&mut sqaabb);
-    fp2_sqrt(&mut sqaacc);
+    let mut sqaabb = tt2.x * tt2.y;
+    let mut sqaacc = tt2.x * tt2.z;
+    sqaabb = sqaabb.sqrt();
+    sqaacc = sqaacc.sqrt();
 
-    fp2_mul(&mut out.codomain.null_point.y, &sqaabb, &sqaacc);
+    out.codomain.null_point.y = sqaabb * sqaacc;
     let s = out.codomain.null_point.y;
-    fp2_mul(&mut out.precomputation.t, &s, &tt1.z);
-    fp2_mul_ip(&mut out.codomain.null_point.y, &tt1.x);
+    out.precomputation.t = s * tt1.z;
+    out.codomain.null_point.y *= tt1.x;
 
-    fp2_mul(&mut out.codomain.null_point.t, &tt1.z, &sqaabb);
-    fp2_mul_ip(&mut out.codomain.null_point.t, &tt2.x);
+    out.codomain.null_point.t = tt1.z * sqaabb;
+    out.codomain.null_point.t *= tt2.x;
 
-    fp2_mul(&mut out.codomain.null_point.x, &tt1.x, &tt2.x);
+    out.codomain.null_point.x = tt1.x * tt2.x;
     let s = out.codomain.null_point.x;
-    fp2_mul(&mut out.codomain.null_point.z, &s, &tt2.z);
-    fp2_mul_ip(&mut out.codomain.null_point.x, &sqaacc);
+    out.codomain.null_point.z = s * tt2.z;
+    out.codomain.null_point.x *= sqaacc;
 
-    fp2_mul(&mut out.precomputation.x, &tt1.x, &tt2.t);
+    out.precomputation.x = tt1.x * tt2.t;
     let s = out.precomputation.x;
-    fp2_mul(&mut out.precomputation.z, &s, &tt2.y);
-    fp2_mul_ip(&mut out.precomputation.x, &tt2.z);
+    out.precomputation.z = s * tt2.y;
+    out.precomputation.x *= tt2.z;
     let s = out.precomputation.x;
-    fp2_mul(&mut out.precomputation.y, &s, &sqaabb);
-    fp2_mul_ip(&mut out.precomputation.x, &tt2.y);
-    fp2_mul_ip(&mut out.precomputation.z, &sqaacc);
-    fp2_mul_ip(&mut out.precomputation.t, &tt2.y);
+    out.precomputation.y = s * sqaabb;
+    out.precomputation.x *= tt2.y;
+    out.precomputation.z *= sqaacc;
+    out.precomputation.t *= tt2.y;
 
     if hadamard_bool_2 {
         hadamard_ip(&mut out.codomain.null_point);
@@ -713,29 +653,19 @@ fn theta_isogeny_compute_2(
     }
 
     out.codomain.null_point.x = tt2.x;
-    fp2_mul(&mut out.codomain.null_point.y, &tt2.x, &tt2.y);
-    fp2_mul(&mut out.codomain.null_point.z, &tt2.x, &tt2.z);
-    fp2_mul(&mut out.codomain.null_point.t, &tt2.x, &tt2.t);
-    fp2_sqrt(&mut out.codomain.null_point.y);
-    fp2_sqrt(&mut out.codomain.null_point.z);
-    fp2_sqrt(&mut out.codomain.null_point.t);
+    out.codomain.null_point.y = tt2.x * tt2.y;
+    out.codomain.null_point.z = tt2.x * tt2.z;
+    out.codomain.null_point.t = tt2.x * tt2.t;
+    out.codomain.null_point.y = out.codomain.null_point.y.sqrt();
+    out.codomain.null_point.z = out.codomain.null_point.z.sqrt();
+    out.codomain.null_point.t = out.codomain.null_point.t.sqrt();
 
-    fp2_mul(&mut out.precomputation.x, &tt2.z, &tt2.t);
+    out.precomputation.x = tt2.z * tt2.t;
     let s = out.precomputation.x;
-    fp2_mul(&mut out.precomputation.y, &s, &out.codomain.null_point.y);
-    fp2_mul_ip(&mut out.precomputation.x, &tt2.y);
-    fp2_mul(
-        &mut out.precomputation.z,
-        &tt2.t,
-        &out.codomain.null_point.z,
-    );
-    fp2_mul_ip(&mut out.precomputation.z, &tt2.y);
-    fp2_mul(
-        &mut out.precomputation.t,
-        &tt2.z,
-        &out.codomain.null_point.t,
-    );
-    fp2_mul_ip(&mut out.precomputation.t, &tt2.y);
+    out.precomputation.y = s * out.codomain.null_point.y;
+    out.precomputation.x *= tt2.y;
+    out.precomputation.z = tt2.t * out.codomain.null_point.z * tt2.y;
+    out.precomputation.t = tt2.z * out.codomain.null_point.t * tt2.y;
 
     if hadamard_bool_2 {
         hadamard_ip(&mut out.codomain.null_point);
@@ -749,10 +679,10 @@ fn theta_isogeny_eval(out: &mut ThetaPoint, phi: &ThetaIsogeny, p: &ThetaPoint) 
     } else {
         to_squared_theta(out, p);
     }
-    fp2_mul_ip(&mut out.x, &phi.precomputation.x);
-    fp2_mul_ip(&mut out.y, &phi.precomputation.y);
-    fp2_mul_ip(&mut out.z, &phi.precomputation.z);
-    fp2_mul_ip(&mut out.t, &phi.precomputation.t);
+    out.x *= phi.precomputation.x;
+    out.y *= phi.precomputation.y;
+    out.z *= phi.precomputation.z;
+    out.t *= phi.precomputation.t;
 
     if phi.hadamard_bool_2 {
         hadamard_ip(out);
@@ -798,20 +728,19 @@ fn splitting_compute(
         for (t, &chi) in chi_row.iter().enumerate() {
             choose_index_theta_point(&mut t2, t as i32, &a.null_point);
             choose_index_theta_point(&mut t1, (t as i32) ^ EVEN_INDEX[i][1], &a.null_point);
-            fp2_mul_ip(&mut t1, &t2);
+            t1 *= t2;
 
             let ctl = (chi >> 1) as u32;
             debug_assert!(ctl == 0 || ctl == 0xFFFF_FFFF);
 
             let s = t1;
-            fp2_neg(&mut t2, &s);
-            let s = t1;
-            fp2_select(&mut t1, &s, &t2, ctl);
+            t2 = -s;
+            t1 = Fp2::select(&t1, &t2, ctl);
 
-            fp2_add_ip(&mut u_cst, &t1);
+            u_cst += t1;
         }
 
-        let ctl = fp2_is_zero(&u_cst);
+        let ctl = u_cst.is_zero_ct();
         count = count.wrapping_sub(ctl);
         let m_prev = out.m;
         select_base_change_matrix(&mut out.m, &m_prev, &SPLITTING_TRANSFORMS[i], ctl);
@@ -854,9 +783,6 @@ fn theta_product_structure_to_elliptic_product(
     e12: &mut ThetaCoupleCurve,
     a: &ThetaStructure,
 ) -> bool {
-    let mut xx = Fp2::default();
-    let mut yy = Fp2::default();
-
     if is_product_theta_point(&a.null_point) == 0 {
         return false;
     }
@@ -864,36 +790,22 @@ fn theta_product_structure_to_elliptic_product(
     e12.e1 = EcCurve::e0();
     e12.e2 = EcCurve::e0();
 
-    if (fp2_is_zero(&a.null_point.x) | fp2_is_zero(&a.null_point.y) | fp2_is_zero(&a.null_point.z))
+    if (a.null_point.x.is_zero_ct() | a.null_point.y.is_zero_ct() | a.null_point.z.is_zero_ct())
         != 0
     {
         return false;
     }
 
-    fp2_sqr(&mut xx, &a.null_point.x);
-    fp2_sqr(&mut yy, &a.null_point.y);
-    fp2_sqr_ip(&mut xx);
-    fp2_sqr_ip(&mut yy);
+    let xx = a.null_point.x.square().square();
+    let yy = a.null_point.y.square().square();
+    e12.e2.a = -(xx + yy).dbl();
+    e12.e2.c = xx - yy;
 
-    fp2_add(&mut e12.e2.a, &xx, &yy);
-    fp2_sub(&mut e12.e2.c, &xx, &yy);
-    fp2_dbl_ip(&mut e12.e2.a);
-    fp2_neg_ip(&mut e12.e2.a);
+    let zz = a.null_point.z.square().square();
+    e12.e1.a = -(xx + zz).dbl();
+    e12.e1.c = xx - zz;
 
-    fp2_sqr(&mut xx, &a.null_point.x);
-    fp2_sqr(&mut yy, &a.null_point.z);
-    fp2_sqr_ip(&mut xx);
-    fp2_sqr_ip(&mut yy);
-
-    fp2_add(&mut e12.e1.a, &xx, &yy);
-    fp2_sub(&mut e12.e1.c, &xx, &yy);
-    fp2_dbl_ip(&mut e12.e1.a);
-    fp2_neg_ip(&mut e12.e1.a);
-
-    if (fp2_is_zero(&e12.e1.c) | fp2_is_zero(&e12.e2.c)) != 0 {
-        return false;
-    }
-    true
+    !e12.e1.c.is_zero() && !e12.e2.c.is_zero()
 }
 
 fn theta_point_to_montgomery_point(
@@ -901,36 +813,32 @@ fn theta_point_to_montgomery_point(
     p: &ThetaPoint,
     a: &ThetaStructure,
 ) -> bool {
-    let mut temp = Fp2::default();
-
     if is_product_theta_point(p) == 0 {
         return false;
     }
 
     let (mut x, mut z) = (&p.x, &p.y);
-    if (fp2_is_zero(x) & fp2_is_zero(z)) != 0 {
+    if (x.is_zero_ct() & z.is_zero_ct()) != 0 {
         x = &p.z;
         z = &p.t;
     }
-    if (fp2_is_zero(x) & fp2_is_zero(z)) != 0 {
+    if (x.is_zero_ct() & z.is_zero_ct()) != 0 {
         return false;
     }
-    fp2_mul(&mut p12.p2.x, &a.null_point.y, x);
-    fp2_mul(&mut temp, &a.null_point.x, z);
-    let s = p12.p2.x;
-    fp2_sub(&mut p12.p2.z, &temp, &s);
-    fp2_add_ip(&mut p12.p2.x, &temp);
+    let s = a.null_point.y * x;
+    let temp = a.null_point.x * z;
+    p12.p2.z = temp - s;
+    p12.p2.x = s + temp;
 
     let (mut x, mut z) = (&p.x, &p.z);
-    if (fp2_is_zero(x) & fp2_is_zero(z)) != 0 {
+    if (x.is_zero_ct() & z.is_zero_ct()) != 0 {
         x = &p.y;
         z = &p.t;
     }
-    fp2_mul(&mut p12.p1.x, &a.null_point.z, x);
-    fp2_mul(&mut temp, &a.null_point.x, z);
-    let s = p12.p1.x;
-    fp2_sub(&mut p12.p1.z, &temp, &s);
-    fp2_add_ip(&mut p12.p1.x, &temp);
+    let s = a.null_point.z * x;
+    let temp = a.null_point.x * z;
+    p12.p1.z = temp - s;
+    p12.p1.x = s + temp;
     true
 }
 
@@ -1043,7 +951,7 @@ fn theta_chain_compute_impl(
         }
 
         for j in 0..num_p {
-            debug_assert!(ec_is_zero(&p12[j].p1) != 0 || ec_is_zero(&p12[j].p2) != 0);
+            debug_assert!(p12[j].p1.is_zero_ct() != 0 || p12[j].p2.is_zero_ct() != 0);
             if !gluing_eval_point_special_case(&mut pts[j], &p12[j], &first_step) {
                 return false;
             }

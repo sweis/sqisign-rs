@@ -26,15 +26,104 @@ pub type Digit = u64;
 pub const RADIX: u32 = 64;
 
 /// An element of GF(p), in Montgomery form, unsaturated `NLIMBS` × `LIMB_BITS`-bit limbs.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct Fp(pub [u64; NWORDS_FIELD]);
+
+// The internal representation is not unique; compare canonical forms.
+impl PartialEq for Fp {
+    fn eq(&self, other: &Self) -> bool {
+        modcmp(&self.0, &other.0) != 0
+    }
+}
+impl Eq for Fp {}
 
 impl Default for Fp {
     fn default() -> Self {
         Fp([0; NWORDS_FIELD])
     }
 }
+
+macro_rules! fp_binop {
+    ($t:ty, $tr:ident, $f:ident, $atr:ident, $af:ident) => {
+        impl core::ops::$tr for $t {
+            type Output = $t;
+            #[inline]
+            fn $f(mut self, rhs: $t) -> $t {
+                core::ops::$atr::$af(&mut self, &rhs);
+                self
+            }
+        }
+        impl core::ops::$tr<&$t> for $t {
+            type Output = $t;
+            #[inline]
+            fn $f(mut self, rhs: &$t) -> $t {
+                core::ops::$atr::$af(&mut self, rhs);
+                self
+            }
+        }
+        impl core::ops::$tr<$t> for &$t {
+            type Output = $t;
+            #[inline]
+            fn $f(self, rhs: $t) -> $t {
+                let mut r = *self;
+                core::ops::$atr::$af(&mut r, &rhs);
+                r
+            }
+        }
+        impl core::ops::$tr<&$t> for &$t {
+            type Output = $t;
+            #[inline]
+            fn $f(self, rhs: &$t) -> $t {
+                let mut r = *self;
+                core::ops::$atr::$af(&mut r, rhs);
+                r
+            }
+        }
+        impl core::ops::$tr<$t> for &mut $t {
+            type Output = $t;
+            #[inline]
+            fn $f(self, rhs: $t) -> $t {
+                let mut r = *self;
+                core::ops::$atr::$af(&mut r, &rhs);
+                r
+            }
+        }
+        impl core::ops::$atr<$t> for $t {
+            #[inline]
+            fn $af(&mut self, rhs: $t) {
+                core::ops::$atr::$af(self, &rhs);
+            }
+        }
+    };
+}
+
+macro_rules! fp_ops {
+    ($t:ty) => {
+        fp_binop!($t, Add, add, AddAssign, add_assign);
+        fp_binop!($t, Sub, sub, SubAssign, sub_assign);
+        fp_binop!($t, Mul, mul, MulAssign, mul_assign);
+        impl core::ops::Neg for $t {
+            type Output = $t;
+            #[inline]
+            fn neg(mut self) -> $t {
+                self.neg_ip();
+                self
+            }
+        }
+        impl core::ops::Neg for &$t {
+            type Output = $t;
+            #[inline]
+            fn neg(self) -> $t {
+                let mut r = *self;
+                r.neg_ip();
+                r
+            }
+        }
+    };
+}
+pub(crate) use fp_binop;
+pub(crate) use fp_ops;
 
 impl Fp {
     pub const ZERO: Self = ZERO;
@@ -47,14 +136,224 @@ impl Fp {
         modint(val as i32, &mut x.0);
         x
     }
+
+    // ---- arithmetic ----
+
+    #[inline]
+    #[must_use]
+    pub fn square(self) -> Self {
+        let mut r = Self::ZERO;
+        modsqr(&self.0, &mut r.0);
+        r
+    }
+    #[inline]
+    pub fn square_ip(&mut self) {
+        let a = self.0;
+        modsqr(&a, &mut self.0);
+    }
+    #[inline]
+    #[must_use]
+    pub fn dbl(self) -> Self {
+        let mut r = Self::ZERO;
+        modadd(&self.0, &self.0, &mut r.0);
+        r
+    }
+    #[inline]
+    pub fn dbl_ip(&mut self) {
+        let a = self.0;
+        modadd(&a, &a, &mut self.0);
+    }
+    #[inline]
+    pub fn neg_ip(&mut self) {
+        let a = self.0;
+        modneg(&a, &mut self.0);
+    }
+    #[inline]
+    #[must_use]
+    pub fn half(self) -> Self {
+        let mut r = Self::ZERO;
+        modmul(&TWO_INV.0, &self.0, &mut r.0);
+        r
+    }
+    #[inline]
+    #[must_use]
+    pub fn div3(self) -> Self {
+        let mut r = Self::ZERO;
+        modmul(&THREE_INV.0, &self.0, &mut r.0);
+        r
+    }
+    #[inline]
+    #[must_use]
+    pub fn mul_small(self, val: u32) -> Self {
+        let mut r = Self::ZERO;
+        modmli(&self.0, val as i32, &mut r.0);
+        r
+    }
+    #[inline]
+    #[must_use]
+    pub fn inv(self) -> Self {
+        let mut r = Self::ZERO;
+        modinv(&self.0, None, &mut r.0);
+        r
+    }
+    /// `self^((p-3)/4)`: the progenitor used for both inversion and sqrt.
+    #[inline]
+    #[must_use]
+    pub fn exp_3div4(self) -> Self {
+        let mut r = Self::ZERO;
+        modpro(&self.0, &mut r.0);
+        r
+    }
+    /// √self, assuming self is a square; result is undefined otherwise.
+    #[inline]
+    #[must_use]
+    pub fn sqrt(self) -> Self {
+        let mut r = Self::ZERO;
+        modsqrt(&self.0, None, &mut r.0);
+        r
+    }
+
+    // ---- predicates ----
+    // _ct variants return all-ones / all-zeros u32 masks for constant-time select.
+
+    #[inline]
+    pub fn is_zero_ct(&self) -> u32 {
+        (modis0(&self.0) as u32).wrapping_neg()
+    }
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        modis0(&self.0) != 0
+    }
+    #[inline]
+    pub fn is_equal_ct(&self, other: &Self) -> u32 {
+        (modcmp(&self.0, &other.0) as u32).wrapping_neg()
+    }
+    #[inline]
+    pub fn is_square_ct(&self) -> u32 {
+        (modqr(None, &self.0) as u32).wrapping_neg()
+    }
+    #[inline]
+    pub fn is_square(&self) -> bool {
+        modqr(None, &self.0) != 0
+    }
+
+    // ---- conditional / encode ----
+
+    /// Constant-time select: returns `a0` if `ctl == 0`, `a1` if `ctl == 0xFFFFFFFF`.
+    #[inline]
+    pub fn select(a0: &Self, a1: &Self, ctl: u32) -> Self {
+        let cw = (ctl as i32) as i64 as u64;
+        let mut d = Self::ZERO;
+        for i in 0..NWORDS_FIELD {
+            d.0[i] = a0.0[i] ^ (cw & (a0.0[i] ^ a1.0[i]));
+        }
+        d
+    }
+    /// Constant-time conditional swap.
+    #[inline]
+    pub fn cswap(a: &mut Self, b: &mut Self, ctl: u32) {
+        modcsw((ctl & 1) as i32, &mut a.0, &mut b.0);
+    }
+
+    pub fn encode(&self) -> [u8; FP_ENCODED_BYTES] {
+        let mut dst = [0u8; FP_ENCODED_BYTES];
+        let mut c = [0u64; NLIMBS];
+        redc(&self.0, &mut c);
+        for b in dst.iter_mut().take(NBYTES) {
+            *b = (c[0] & 0xff) as u8;
+            let _ = modshr(8, &mut c);
+        }
+        dst
+    }
+
+    /// Decode canonical little-endian bytes; returns `None` if value ≥ p.
+    pub fn try_decode(src: &[u8]) -> Option<Self> {
+        let mut d = Self::ZERO;
+        (decode_masked(&mut d, src) == 0xFFFF_FFFF).then_some(d)
+    }
+
+    /// Decode an arbitrary-length little-endian byte string and reduce mod p.
+    pub fn decode_reduce(src: &[u8]) -> Self {
+        let mut d = Fp::ZERO;
+        let mut len = src.len();
+        if len == 0 {
+            return d;
+        }
+        let mut tmp = [0u8; NBYTES];
+
+        let rem = len % NBYTES;
+        if rem != 0 {
+            let k = len - rem;
+            tmp[..rem].copy_from_slice(&src[k..len]);
+            tmp[rem..].fill(0);
+            decode_masked(&mut d, &tmp);
+            len = k;
+        }
+
+        while len > 0 {
+            d *= R2;
+            len -= NBYTES;
+            let mut t = [0u64; PR_WORDS];
+            for j in 0..PR_WORDS {
+                t[j] = u64::from_le_bytes(src[len + 8 * j..len + 8 * j + 8].try_into().unwrap());
+            }
+            let tin = t;
+            partial_reduce(&mut t, &tin);
+            for j in 0..PR_WORDS {
+                tmp[8 * j..8 * j + 8].copy_from_slice(&t[j].to_le_bytes());
+            }
+            let mut a = Fp::ZERO;
+            decode_masked(&mut a, &tmp);
+            d += a;
+        }
+        d
+    }
+}
+
+impl core::ops::AddAssign<&Fp> for Fp {
+    #[inline]
+    fn add_assign(&mut self, rhs: &Fp) {
+        let a = self.0;
+        modadd(&a, &rhs.0, &mut self.0);
+    }
+}
+impl core::ops::SubAssign<&Fp> for Fp {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &Fp) {
+        let a = self.0;
+        modsub(&a, &rhs.0, &mut self.0);
+    }
+}
+impl core::ops::MulAssign<&Fp> for Fp {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &Fp) {
+        let a = self.0;
+        modmul(&a, &rhs.0, &mut self.0);
+    }
+}
+fp_ops!(Fp);
+
+#[inline]
+pub(super) fn decode_masked(d: &mut Fp, src: &[u8]) -> u32 {
+    debug_assert!(src.len() >= FP_ENCODED_BYTES);
+    d.0 = [0u64; NLIMBS];
+    for i in (0..NBYTES).rev() {
+        modshl(8, &mut d.0);
+        d.0[0] = d.0[0].wrapping_add(src[i] as u64);
+    }
+    let res = (modfsb(&mut d.0) as u64).wrapping_neg();
+    let t = d.0;
+    nres(&t, &mut d.0);
+    for i in 0..NLIMBS {
+        d.0[i] &= res;
+    }
+    res as u32
 }
 
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut buf = [0u8; FP_ENCODED_BYTES];
-        fp_encode(&mut buf, self);
         write!(f, "Fp(0x")?;
-        for b in buf.iter().rev() {
+        for b in self.encode().iter().rev() {
             write!(f, "{b:02x}")?;
         }
         write!(f, ")")
@@ -282,201 +581,6 @@ fn modcmp(a: &[u64; NLIMBS], b: &[u64; NLIMBS]) -> i32 {
 }
 
 // ===========================================================================
-// Public fp_* API (port of the wrapper section + lvlx/fp.c)
-// ===========================================================================
-
-#[inline]
-pub fn fp_mul_small(x: &mut Fp, a: &Fp, val: u32) {
-    modmli(&a.0, val as i32, &mut x.0);
-}
-
-#[inline]
-pub fn fp_is_equal(a: &Fp, b: &Fp) -> u32 {
-    (modcmp(&a.0, &b.0) as u32).wrapping_neg()
-}
-
-#[inline]
-pub fn fp_is_zero(a: &Fp) -> u32 {
-    (modis0(&a.0) as u32).wrapping_neg()
-}
-
-#[inline]
-pub fn fp_cswap(a: &mut Fp, b: &mut Fp, ctl: u32) {
-    modcsw((ctl & 1) as i32, &mut a.0, &mut b.0);
-}
-
-#[inline]
-pub fn fp_add(out: &mut Fp, a: &Fp, b: &Fp) {
-    modadd(&a.0, &b.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_sub(out: &mut Fp, a: &Fp, b: &Fp) {
-    modsub(&a.0, &b.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_neg(out: &mut Fp, a: &Fp) {
-    modneg(&a.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_sqr(out: &mut Fp, a: &Fp) {
-    modsqr(&a.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_mul(out: &mut Fp, a: &Fp, b: &Fp) {
-    modmul(&a.0, &b.0, &mut out.0);
-}
-
-// ---------------------------------------------------------------------------
-// In-place variants. `modmul`/`modsqr` write `c[k]` only after they've finished
-// reading the input limbs needed for column k, so they are alias-safe; the
-// stack copy here exists only to satisfy the borrow checker and SROA's away.
-// ---------------------------------------------------------------------------
-
-#[inline]
-pub fn fp_mul_ip(r: &mut Fp, b: &Fp) {
-    let a = r.0;
-    modmul(&a, &b.0, &mut r.0);
-}
-
-#[inline]
-pub fn fp_sqr_ip(r: &mut Fp) {
-    let a = r.0;
-    modsqr(&a, &mut r.0);
-}
-
-#[inline]
-pub fn fp_add_ip(r: &mut Fp, b: &Fp) {
-    let a = r.0;
-    modadd(&a, &b.0, &mut r.0);
-}
-
-#[inline]
-pub fn fp_sub_ip(r: &mut Fp, b: &Fp) {
-    let a = r.0;
-    modsub(&a, &b.0, &mut r.0);
-}
-
-#[inline]
-pub fn fp_neg_ip(r: &mut Fp) {
-    let a = r.0;
-    modneg(&a, &mut r.0);
-}
-
-#[inline]
-pub fn fp_dbl_ip(r: &mut Fp) {
-    let a = r.0;
-    modadd(&a, &a, &mut r.0);
-}
-
-#[inline]
-pub fn fp_inv(x: &mut Fp) {
-    let a = x.0;
-    modinv(&a, None, &mut x.0);
-}
-
-#[inline]
-pub fn fp_is_square(a: &Fp) -> u32 {
-    (modqr(None, &a.0) as u32).wrapping_neg()
-}
-
-#[inline]
-pub fn fp_sqrt(a: &mut Fp) {
-    let x = a.0;
-    modsqrt(&x, None, &mut a.0);
-}
-
-#[inline]
-pub fn fp_half(out: &mut Fp, a: &Fp) {
-    modmul(&TWO_INV.0, &a.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_exp3div4(out: &mut Fp, a: &Fp) {
-    modpro(&a.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_div3(out: &mut Fp, a: &Fp) {
-    modmul(&THREE_INV.0, &a.0, &mut out.0);
-}
-
-#[inline]
-pub fn fp_select(d: &mut Fp, a0: &Fp, a1: &Fp, ctl: u32) {
-    let cw = (ctl as i32) as i64 as u64;
-    for i in 0..NWORDS_FIELD {
-        d.0[i] = a0.0[i] ^ (cw & (a0.0[i] ^ a1.0[i]));
-    }
-}
-
-pub fn fp_encode(dst: &mut [u8], a: &Fp) {
-    debug_assert!(dst.len() >= FP_ENCODED_BYTES);
-    let mut c = [0u64; NLIMBS];
-    redc(&a.0, &mut c);
-    for i in 0..NBYTES {
-        dst[i] = (c[0] & 0xff) as u8;
-        let _ = modshr(8, &mut c);
-    }
-}
-
-pub fn fp_decode(d: &mut Fp, src: &[u8]) -> u32 {
-    debug_assert!(src.len() >= FP_ENCODED_BYTES);
-    d.0 = [0u64; NLIMBS];
-    for i in (0..NBYTES).rev() {
-        modshl(8, &mut d.0);
-        d.0[0] = d.0[0].wrapping_add(src[i] as u64);
-    }
-    let res = (modfsb(&mut d.0) as u64).wrapping_neg();
-    let t = d.0;
-    nres(&t, &mut d.0);
-    for i in 0..NLIMBS {
-        d.0[i] &= res;
-    }
-    res as u32
-}
-
-/// Decode an arbitrary-length little-endian byte string and reduce mod p.
-pub fn fp_decode_reduce(d: &mut Fp, src: &[u8]) {
-    *d = Fp::ZERO;
-    let mut len = src.len();
-    if len == 0 {
-        return;
-    }
-    let mut tmp = [0u8; NBYTES];
-
-    let rem = len % NBYTES;
-    if rem != 0 {
-        let k = len - rem;
-        tmp[..rem].copy_from_slice(&src[k..len]);
-        tmp[rem..].fill(0);
-        fp_decode(d, &tmp);
-        len = k;
-    }
-
-    while len > 0 {
-        let prev = *d;
-        fp_mul(d, &prev, &R2);
-        len -= NBYTES;
-        let mut t = [0u64; PR_WORDS];
-        for j in 0..PR_WORDS {
-            t[j] = u64::from_le_bytes(src[len + 8 * j..len + 8 * j + 8].try_into().unwrap());
-        }
-        let tin = t;
-        partial_reduce(&mut t, &tin);
-        for j in 0..PR_WORDS {
-            tmp[8 * j..8 * j + 8].copy_from_slice(&t[j].to_le_bytes());
-        }
-        let mut a = Fp::default();
-        fp_decode(&mut a, &tmp);
-        let prev = *d;
-        fp_add(d, &prev, &a);
-    }
-}
-
-// ===========================================================================
 // Tests
 // ===========================================================================
 
@@ -494,25 +598,15 @@ mod tests {
     const ITERS: usize = 500;
 
     #[test]
-    fn one_constant_matches_set_one() {
-        let a = Fp::ONE;
-        assert_eq!(fp_is_equal(&a, &ONE), 0xFFFF_FFFF);
-    }
-
-    #[test]
     fn equality_and_zero() {
         let mut prng = Prng(0xDEAD_BEEF_1234_5678);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut b = Fp::default();
-            fp_add(&mut b, &a, &ONE);
-            let c = Fp::ZERO;
-
-            assert_ne!(fp_is_equal(&a, &a), 0);
-            assert_eq!(fp_is_equal(&a, &b), 0);
-            assert_ne!(fp_is_equal(&c, &ZERO), 0);
-            assert_ne!(fp_is_zero(&ZERO), 0);
-            assert_eq!(fp_is_zero(&ONE), 0);
+            let b = a + Fp::ONE;
+            assert_eq!(a.is_equal_ct(&a), 0xFFFF_FFFF);
+            assert_eq!(a.is_equal_ct(&b), 0);
+            assert!(Fp::ZERO.is_zero());
+            assert!(!Fp::ONE.is_zero());
         }
     }
 
@@ -522,12 +616,7 @@ mod tests {
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
             let val = (prng.next() as u32) & 0x7FFF_FFFF;
-            let mut b = Fp::default();
-            fp_mul_small(&mut b, &a, val);
-            let c = Fp::from_small(val as u64);
-            let mut d = Fp::default();
-            fp_mul(&mut d, &a, &c);
-            assert_ne!(fp_is_equal(&b, &d), 0);
+            assert_eq!(a.mul_small(val), a * Fp::from_small(val as u64));
         }
     }
 
@@ -536,34 +625,15 @@ mod tests {
         let mut prng = Prng(0xAAAA_BBBB_CCCC_DDDD);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut b = Fp::default();
-            fp_add(&mut b, &a, &a);
-            let mut c = Fp::default();
-            fp_half(&mut c, &b);
-            assert_ne!(fp_is_equal(&a, &c), 0);
-
-            let mut b = Fp::default();
-            fp_add(&mut b, &a, &a);
-            let b2 = b;
-            fp_add(&mut b, &b2, &a);
-            let mut c = Fp::default();
-            fp_div3(&mut c, &b);
-            assert_ne!(fp_is_equal(&a, &c), 0);
+            assert_eq!((a + a).half(), a);
+            assert_eq!((a + a + a).div3(), a);
         }
     }
 
     #[test]
     fn set_small() {
-        let a = Fp::ONE;
-        let mut b = Fp::default();
-        fp_add(&mut b, &a, &a);
-        let mut c = Fp::from_small(2);
-        assert_ne!(fp_is_equal(&b, &c), 0);
-
-        let b2 = b;
-        fp_add(&mut b, &b2, &b2);
-        c = Fp::from_small(4);
-        assert_ne!(fp_is_equal(&b, &c), 0);
+        assert_eq!(Fp::ONE + Fp::ONE, Fp::from_small(2));
+        assert_eq!(Fp::ONE.dbl().dbl(), Fp::from_small(4));
     }
 
     #[test]
@@ -573,27 +643,10 @@ mod tests {
             let a = fp_random(&mut prng);
             let b = fp_random(&mut prng);
             let c = fp_random(&mut prng);
-            let mut d = Fp::default();
-            let mut e = Fp::default();
-            let mut f = Fp::default();
-
-            fp_add(&mut d, &a, &b);
-            fp_add(&mut e, &d, &c);
-            fp_add(&mut d, &b, &c);
-            fp_add(&mut f, &d, &a);
-            assert_ne!(fp_is_equal(&e, &f), 0);
-
-            fp_add(&mut d, &a, &b);
-            fp_add(&mut e, &b, &a);
-            assert_ne!(fp_is_equal(&d, &e), 0);
-
-            let z = ZERO;
-            fp_add(&mut d, &a, &z);
-            assert_ne!(fp_is_equal(&a, &d), 0);
-
-            fp_neg(&mut d, &a);
-            fp_add(&mut e, &a, &d);
-            assert_ne!(fp_is_zero(&e), 0);
+            assert_eq!((a + b) + c, a + (b + c));
+            assert_eq!(a + b, b + a);
+            assert_eq!(a + Fp::ZERO, a);
+            assert!((a + (-a)).is_zero());
         }
     }
 
@@ -604,24 +657,9 @@ mod tests {
             let a = fp_random(&mut prng);
             let b = fp_random(&mut prng);
             let c = fp_random(&mut prng);
-            let mut d = Fp::default();
-            let mut e = Fp::default();
-            let mut f = Fp::default();
-
-            fp_sub(&mut d, &a, &b);
-            fp_sub(&mut e, &d, &c);
-            fp_add(&mut d, &b, &c);
-            fp_sub(&mut f, &a, &d);
-            assert_ne!(fp_is_equal(&e, &f), 0);
-
-            fp_sub(&mut d, &a, &b);
-            fp_sub(&mut e, &b, &a);
-            let e2 = e;
-            fp_neg(&mut e, &e2);
-            assert_ne!(fp_is_equal(&d, &e), 0);
-
-            fp_sub(&mut e, &a, &a);
-            assert_ne!(fp_is_zero(&e), 0);
+            assert_eq!((a - b) - c, a - (b + c));
+            assert_eq!(a - b, -(b - a));
+            assert!((a - a).is_zero());
         }
     }
 
@@ -632,33 +670,11 @@ mod tests {
             let a = fp_random(&mut prng);
             let b = fp_random(&mut prng);
             let c = fp_random(&mut prng);
-            let mut d = Fp::default();
-            let mut e = Fp::default();
-            let mut f = Fp::default();
-
-            fp_mul(&mut d, &a, &b);
-            fp_mul(&mut e, &d, &c);
-            fp_mul(&mut d, &b, &c);
-            fp_mul(&mut f, &d, &a);
-            assert_ne!(fp_is_equal(&e, &f), 0);
-
-            fp_add(&mut d, &b, &c);
-            fp_mul(&mut e, &a, &d);
-            fp_mul(&mut d, &a, &b);
-            fp_mul(&mut f, &a, &c);
-            let f2 = f;
-            fp_add(&mut f, &d, &f2);
-            assert_ne!(fp_is_equal(&e, &f), 0);
-
-            fp_mul(&mut d, &a, &b);
-            fp_mul(&mut e, &b, &a);
-            assert_ne!(fp_is_equal(&d, &e), 0);
-
-            fp_mul(&mut d, &a, &ONE);
-            assert_ne!(fp_is_equal(&a, &d), 0);
-
-            fp_mul(&mut d, &a, &ZERO);
-            assert_ne!(fp_is_zero(&d), 0);
+            assert_eq!((a * b) * c, a * (b * c));
+            assert_eq!(a * (b + c), a * b + a * c);
+            assert_eq!(a * b, b * a);
+            assert_eq!(a * Fp::ONE, a);
+            assert!((a * Fp::ZERO).is_zero());
         }
     }
 
@@ -667,15 +683,9 @@ mod tests {
         let mut prng = Prng(0x4);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut b = Fp::default();
-            let mut c = Fp::default();
-            fp_sqr(&mut b, &a);
-            fp_mul(&mut c, &a, &a);
-            assert_ne!(fp_is_equal(&b, &c), 0);
+            assert_eq!(a.square(), a * a);
         }
-        let mut d = Fp::default();
-        fp_sqr(&mut d, &ZERO);
-        assert_ne!(fp_is_zero(&d), 0);
+        assert!(Fp::ZERO.square().is_zero());
     }
 
     #[test]
@@ -683,15 +693,9 @@ mod tests {
         let mut prng = Prng(0x5);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut b = a;
-            fp_inv(&mut b);
-            let mut c = Fp::default();
-            fp_mul(&mut c, &a, &b);
-            assert_ne!(fp_is_equal(&c, &ONE), 0);
+            assert_eq!(a * a.inv(), Fp::ONE);
         }
-        let mut z = ZERO;
-        fp_inv(&mut z);
-        assert_ne!(fp_is_zero(&z), 0);
+        assert!(Fp::ZERO.inv().is_zero());
     }
 
     #[test]
@@ -699,13 +703,10 @@ mod tests {
         let mut prng = Prng(0x6);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut c = Fp::default();
-            fp_sqr(&mut c, &a);
-            assert_ne!(fp_is_square(&c), 0);
-            fp_sqrt(&mut c);
-            let mut d = Fp::default();
-            fp_neg(&mut d, &c);
-            assert!(fp_is_equal(&a, &c) != 0 || fp_is_equal(&a, &d) != 0);
+            let c = a.square();
+            assert!(c.is_square());
+            let r = c.sqrt();
+            assert!(r == a || r == -a);
         }
     }
 
@@ -714,60 +715,35 @@ mod tests {
         let mut prng = Prng(0x7);
         for _ in 0..ITERS {
             let a = fp_random(&mut prng);
-            let mut buf = [0u8; FP_ENCODED_BYTES];
-            fp_encode(&mut buf, &a);
-            let mut b = Fp::default();
-            let ok = fp_decode(&mut b, &buf);
-            assert_eq!(ok, 0xFFFF_FFFF);
-            assert_ne!(fp_is_equal(&a, &b), 0);
+            assert_eq!(Fp::try_decode(&a.encode()), Some(a));
         }
     }
 
     #[test]
     fn decode_rejects_noncanonical() {
         let buf = [0xFFu8; FP_ENCODED_BYTES];
-        let mut d = Fp::default();
-        let ok = fp_decode(&mut d, &buf);
-        assert_eq!(ok, 0);
-        assert_ne!(fp_is_zero(&d), 0);
+        assert_eq!(Fp::try_decode(&buf), None);
     }
 
     /// Golden vectors extracted from the C reference (libsqisign_gf_lvl1.a).
     #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
     #[test]
     fn golden_c_vectors() {
-        let mut enc = [0u8; FP_ENCODED_BYTES];
-
-        let mut a = Fp::ONE;
-        fp_encode(&mut enc, &a);
         assert_hex(
-            &enc,
+            &Fp::ONE.encode(),
             "0100000000000000000000000000000000000000000000000000000000000000",
         );
-
-        let mut c = Fp::default();
-        a = Fp::from_small(5);
-        let mut b = Fp::from_small(7);
-        fp_mul(&mut c, &a, &b);
-        fp_encode(&mut enc, &c);
+        let c = Fp::from_small(5) * Fp::from_small(7);
         assert_hex(
-            &enc,
+            &c.encode(),
             "2300000000000000000000000000000000000000000000000000000000000000",
         );
-
-        fp_inv(&mut c);
-        fp_encode(&mut enc, &c);
         assert_hex(
-            &enc,
+            &c.inv().encode(),
             "9224499224499224499224499224499224499224499224499224499224499201",
         );
-
-        a = Fp::from_small(12345);
-        fp_sqr(&mut b, &a);
-        fp_sqrt(&mut b);
-        fp_encode(&mut enc, &b);
         assert_hex(
-            &enc,
+            &Fp::from_small(12345).square().sqrt().encode(),
             "c6cfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04",
         );
 
@@ -775,34 +751,20 @@ mod tests {
         for i in 0..64 {
             src[i] = (i as u8).wrapping_mul(7).wrapping_add(1);
         }
-        fp_decode_reduce(&mut a, &src);
-        fp_encode(&mut enc, &a);
         assert_hex(
-            &enc,
+            &Fp::decode_reduce(&src).encode(),
             "a43cd712e8565f34a3ab4d895ecdd577b388f7ffa1ddb2212acc07dd4b54f602",
         );
-
-        fp_decode_reduce(&mut a, &src[..47]);
-        fp_encode(&mut enc, &a);
         assert_hex(
-            &enc,
+            &Fp::decode_reduce(&src[..47]).encode(),
             "2c35d712e8565f34a3ab4d895ecdd57771787f868d949ba2a9b0b7bec5ccd303",
         );
     }
 
     #[test]
     fn precomp_fp_constants_match() {
-        let mut neg1 = Fp::ONE;
-        let one = neg1;
-        fp_neg(&mut neg1, &one);
-        assert_eq!(
-            fp_is_equal(&one, &crate::precomp::FP2_CONSTANTS[1].re),
-            0xFFFF_FFFF
-        );
-        assert_eq!(
-            fp_is_equal(&neg1, &crate::precomp::FP2_CONSTANTS[3].re),
-            0xFFFF_FFFF
-        );
+        assert_eq!(Fp::ONE, crate::precomp::FP2_CONSTANTS[1].re);
+        assert_eq!(-Fp::ONE, crate::precomp::FP2_CONSTANTS[3].re);
     }
 
     #[test]
@@ -810,19 +772,14 @@ mod tests {
         let mut prng = Prng(0x8);
         let a = fp_random(&mut prng);
         let b = fp_random(&mut prng);
-        let mut d = Fp::default();
-        fp_select(&mut d, &a, &b, 0);
-        assert_ne!(fp_is_equal(&d, &a), 0);
-        fp_select(&mut d, &a, &b, 0xFFFF_FFFF);
-        assert_ne!(fp_is_equal(&d, &b), 0);
+        assert_eq!(Fp::select(&a, &b, 0), a);
+        assert_eq!(Fp::select(&a, &b, 0xFFFF_FFFF), b);
 
         let mut x = a;
         let mut y = b;
-        fp_cswap(&mut x, &mut y, 0);
-        assert_ne!(fp_is_equal(&x, &a), 0);
-        assert_ne!(fp_is_equal(&y, &b), 0);
-        fp_cswap(&mut x, &mut y, 0xFFFF_FFFF);
-        assert_ne!(fp_is_equal(&x, &b), 0);
-        assert_ne!(fp_is_equal(&y, &a), 0);
+        Fp::cswap(&mut x, &mut y, 0);
+        assert_eq!((x, y), (a, b));
+        Fp::cswap(&mut x, &mut y, 0xFFFF_FFFF);
+        assert_eq!((x, y), (b, a));
     }
 }

@@ -89,7 +89,7 @@ pub fn quat_represent_integer(
         let t = adjusted_n_gamma.clone();
         ibz_mul(&mut adjusted_n_gamma, &t, ibz_const_two());
     } else {
-        ibz_copy(&mut adjusted_n_gamma, n_gamma);
+        adjusted_n_gamma.clone_from(n_gamma);
     }
 
     ibz_div(
@@ -99,15 +99,12 @@ pub fn quat_represent_integer(
         &params.algebra.p,
     );
     ibz_set(&mut temp, params.order.q as i32);
-    let t = sq_bound.clone();
-    ibz_sub(&mut sq_bound, &t, &temp);
+    sq_bound -= &temp;
     ibz_sqrt_floor(&mut bound, &sq_bound);
 
     let mut counter = Ibz::default();
-    let t = temp.clone();
-    ibz_mul(&mut temp, &t, &params.algebra.p);
-    let t = temp.clone();
-    ibz_mul(&mut temp, &t, &params.algebra.p);
+    temp *= &params.algebra.p;
+    temp *= &params.algebra.p;
     let t = temp.clone();
     ibz_sqrt_floor(&mut temp, &t);
     let tm = temp.clone();
@@ -137,12 +134,9 @@ pub fn quat_represent_integer(
         ibz_rand_interval(&mut coeffs[3], ibz_const_one(), &temp);
 
         ibz_mul(&mut temp, &coeffs[3], &coeffs[3]);
-        let t = temp.clone();
-        ibz_mul(&mut temp, &q, &t);
-        let ct = cornacchia_target.clone();
-        ibz_add(&mut cornacchia_target, &ct, &temp);
-        let ct = cornacchia_target.clone();
-        ibz_mul(&mut cornacchia_target, &ct, &params.algebra.p);
+        temp *= &q;
+        cornacchia_target += &temp;
+        cornacchia_target *= &params.algebra.p;
         let ct = cornacchia_target.clone();
         ibz_sub(&mut cornacchia_target, &adjusted_n_gamma, &ct);
         debug_assert!(ibz_cmp(&cornacchia_target, ibz_const_zero()) > 0);
@@ -191,9 +185,9 @@ pub fn quat_represent_integer(
         let c = coeffs.clone();
         ibz_mat_4x4_eval(&mut coeffs, &params.order.order.basis, &c);
         for i in 0..4 {
-            ibz_copy(&mut gamma.coord[i], &coeffs[i]);
+            gamma.coord[i].clone_from(&coeffs[i]);
         }
-        ibz_copy(&mut gamma.denom, &params.order.order.denom);
+        gamma.denom.clone_from(&params.order.order.denom);
     }
     found
 }
@@ -255,12 +249,10 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
 
 pub fn quat_change_to_o0_basis(vec: &mut IbzVec4, el: &QuatAlgElem) {
     let mut tmp = Ibz::default();
-    ibz_copy(&mut vec[2], &el.coord[2]);
-    let t = vec[2].clone();
-    ibz_add(&mut vec[2], &t, &t);
-    ibz_copy(&mut vec[3], &el.coord[3]);
-    let t = vec[3].clone();
-    ibz_add(&mut vec[3], &t, &t);
+    vec[2].clone_from(&el.coord[2]);
+    vec[2] += vec[2].clone();
+    vec[3].clone_from(&el.coord[3]);
+    vec[3] += vec[3].clone();
     ibz_sub(&mut vec[0], &el.coord[0], &el.coord[3]);
     ibz_sub(&mut vec[1], &el.coord[1], &el.coord[2]);
 

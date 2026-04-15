@@ -18,7 +18,7 @@ impl Neg for JacPoint {
     type Output = Self;
     #[inline]
     fn neg(mut self) -> Self {
-        fp2_neg_ip(&mut self.y);
+        self.y.neg_ip();
         self
     }
 }
@@ -34,63 +34,45 @@ impl From<JacPoint> for EcPoint {
 
 /// Projective equality on Jacobian (X:Y:Z) ↔ (X/Z², Y/Z³).
 pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> bool {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
+    let mut t0 = q.z.square();
+    let mut t2 = p.x * t0;
+    let mut t1 = p.z.square();
+    let t3 = q.x * t1;
+    t2 -= t3;
 
-    fp2_sqr(&mut t0, &q.z);
-    fp2_mul(&mut t2, &p.x, &t0);
-    fp2_sqr(&mut t1, &p.z);
-    fp2_mul(&mut t3, &q.x, &t1);
-    fp2_sub_ip(&mut t2, &t3);
+    t0 *= q.z;
+    t0 *= p.y;
+    t1 *= p.z;
+    t1 *= q.y;
+    t0 -= t1;
 
-    fp2_mul_ip(&mut t0, &q.z);
-    fp2_mul_ip(&mut t0, &p.y);
-    fp2_mul_ip(&mut t1, &p.z);
-    fp2_mul_ip(&mut t1, &q.y);
-    fp2_sub_ip(&mut t0, &t1);
-
-    (fp2_is_zero(&t0) & fp2_is_zero(&t2)) != 0
+    (t0.is_zero_ct() & t2.is_zero_ct()) != 0
 }
 
 /// Drop Y to convert (X:Y:Z) → (X:Z²), fixing up (0:1:0) → (1:0).
 pub fn jac_to_xz(p: &mut EcPoint, xy: &JacPoint) {
     p.x = xy.x;
     p.z = xy.z;
-    fp2_sqr_ip(&mut p.z);
+    p.z.square_ip();
 
-    let c1 = fp2_is_zero(&p.x);
-    let c2 = fp2_is_zero(&p.z);
-    let px = p.x;
-    fp2_select(&mut p.x, &px, &Fp2::ONE, c1 & c2);
+    let c1 = p.x.is_zero_ct();
+    let c2 = p.z.is_zero_ct();
+    p.x = Fp2::select(&p.x, &Fp2::ONE, c1 & c2);
 }
 
 /// Convert Montgomery-Jacobian → short-Weierstrass modified-Jacobian (X:Y:Z:T=a·Z⁴).
 pub fn jac_to_ws(q: &mut JacPoint, t: &mut Fp2, ao3: &mut Fp2, p: &JacPoint, curve: &EcCurve) {
-    let mut a = Fp2::default();
-    if fp2_is_zero(&curve.a) == 0 {
-        fp_div3(&mut ao3.re, &curve.a.re);
-        fp_div3(&mut ao3.im, &curve.a.im);
-        fp2_sqr(t, &p.z);
-        let st = *t;
-        fp2_mul(&mut q.x, ao3, &st);
-        let qx = q.x;
-        fp2_add(&mut q.x, &qx, &p.x);
-        let st = *t;
-        fp2_sqr(t, &st);
-        fp2_mul(&mut a, ao3, &curve.a);
-        let are = a.re;
-        fp_sub(&mut a.re, &Fp::ONE, &are);
-        let aim = a.im;
-        fp_neg(&mut a.im, &aim);
-        let st = *t;
-        fp2_mul(t, &st, &a);
-    } else {
+    if curve.a.is_zero() {
         q.x = p.x;
-        fp2_sqr(t, &p.z);
-        let st = *t;
-        fp2_sqr(t, &st);
+        *t = p.z.square().square();
+    } else {
+        ao3.re = curve.a.re.div3();
+        ao3.im = curve.a.im.div3();
+        *t = p.z.square();
+        q.x = *ao3 * *t + p.x;
+        t.square_ip();
+        let a = Fp2::ONE - *ao3 * curve.a;
+        *t *= a;
     }
     q.y = p.y;
     q.z = p.z;
@@ -98,11 +80,10 @@ pub fn jac_to_ws(q: &mut JacPoint, t: &mut Fp2, ao3: &mut Fp2, p: &JacPoint, cur
 
 /// Inverse of [`jac_to_ws`].
 pub fn jac_from_ws(q: &mut JacPoint, p: &JacPoint, ao3: &Fp2, curve: &EcCurve) {
-    if fp2_is_zero(&curve.a) == 0 {
-        let mut t = Fp2::default();
-        fp2_sqr(&mut t, &p.z);
-        fp2_mul_ip(&mut t, ao3);
-        fp2_sub(&mut q.x, &p.x, &t);
+    if curve.a.is_zero_ct() == 0 {
+        let mut t = p.z.square();
+        t *= ao3;
+        q.x = p.x - t;
     }
     q.y = p.y;
     q.z = p.z;
@@ -110,192 +91,125 @@ pub fn jac_from_ws(q: &mut JacPoint, p: &JacPoint, ao3: &Fp2, curve: &EcCurve) {
 
 /// Jacobian doubling on a Montgomery curve. Cost 6M + 6S.
 pub fn jac_dbl(q: &mut JacPoint, p: &JacPoint, ac: &EcCurve) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
+    let flag = p.x.is_zero_ct() & p.z.is_zero_ct();
 
-    let flag = fp2_is_zero(&p.x) & fp2_is_zero(&p.z);
-
-    fp2_sqr(&mut t0, &p.x);
-    fp2_add(&mut t1, &t0, &t0);
-    fp2_add_ip(&mut t0, &t1);
-    fp2_sqr(&mut t1, &p.z);
-    fp2_mul(&mut t2, &p.x, &ac.a);
-    fp2_dbl_ip(&mut t2);
-    fp2_add_ip(&mut t2, &t1);
-    fp2_mul_ip(&mut t2, &t1);
-    fp2_add_ip(&mut t2, &t0);
-    fp2_mul(&mut q.z, &p.y, &p.z);
-    let qz = q.z;
-    fp2_add(&mut q.z, &qz, &qz);
-    fp2_sqr(&mut t0, &q.z);
-    fp2_mul_ip(&mut t0, &ac.a);
-    fp2_sqr(&mut t1, &p.y);
-    fp2_dbl_ip(&mut t1);
-    fp2_add(&mut t3, &p.x, &p.x);
-    fp2_mul_ip(&mut t3, &t1);
-    fp2_sqr(&mut q.x, &t2);
+    let mut t0 = p.x.square();
+    let mut t1 = t0 + t0;
+    t0 += t1;
+    t1 = p.z.square();
+    let mut t2 = p.x * ac.a;
+    t2.dbl_ip();
+    t2 += t1;
+    t2 *= t1;
+    t2 += t0;
+    q.z = p.y * p.z;
+    q.z.dbl_ip();
+    t0 = q.z.square();
+    t0 *= ac.a;
+    t1 = p.y.square();
+    t1.dbl_ip();
+    let mut t3 = p.x + p.x;
+    t3 *= t1;
+    q.x = t2.square();
+    q.x -= t0;
+    q.x -= t3;
+    q.x -= t3;
     let qx = q.x;
-    fp2_sub(&mut q.x, &qx, &t0);
-    let qx = q.x;
-    fp2_sub(&mut q.x, &qx, &t3);
-    let qx = q.x;
-    fp2_sub(&mut q.x, &qx, &t3);
-    let qx = q.x;
-    fp2_sub(&mut q.y, &t3, &qx);
-    let qy = q.y;
-    fp2_mul(&mut q.y, &qy, &t2);
-    fp2_sqr_ip(&mut t1);
-    let qy = q.y;
-    fp2_sub(&mut q.y, &qy, &t1);
-    let qy = q.y;
-    fp2_sub(&mut q.y, &qy, &t1);
+    q.y = t3 - qx;
+    q.y *= t2;
+    t1.square_ip();
+    q.y -= t1;
+    q.y -= t1;
 
     // C passes `-flag` (uint32) which yields 1, violating the 0/-1 contract;
     // harmless there because the doubling formula already gives O for O. We
     // pass the mask directly so the select is well-defined.
-    let qx = q.x;
-    fp2_select(&mut q.x, &qx, &p.x, flag);
-    let qz = q.z;
-    fp2_select(&mut q.z, &qz, &p.z, flag);
+    q.x = Fp2::select(&q.x, &p.x, flag);
+    q.z = Fp2::select(&q.z, &p.z, flag);
 }
 
 /// Weierstrass modified-Jacobian doubling. Cost 3M + 5S.
 pub fn jac_dblw(q: &mut JacPoint, u: &mut Fp2, p: &JacPoint, t: &Fp2) {
-    let flag = fp2_is_zero(&p.x) & fp2_is_zero(&p.z);
-
-    let mut xx = Fp2::default();
-    let mut c = Fp2::default();
-    let mut cc = Fp2::default();
-    let mut r = Fp2::default();
-    let mut s = Fp2::default();
-    let mut m = Fp2::default();
-
-    fp2_sqr(&mut xx, &p.x);
-    fp2_sqr(&mut c, &p.y);
-    let sc = c;
-    fp2_add(&mut c, &sc, &sc);
-    fp2_sqr(&mut cc, &c);
-    fp2_add(&mut r, &cc, &cc);
-    fp2_add(&mut s, &p.x, &c);
-    let ss = s;
-    fp2_sqr(&mut s, &ss);
-    let ss = s;
-    fp2_sub(&mut s, &ss, &xx);
-    let ss = s;
-    fp2_sub(&mut s, &ss, &cc);
-    fp2_add(&mut m, &xx, &xx);
-    let sm = m;
-    fp2_add(&mut m, &sm, &xx);
-    let sm = m;
-    fp2_add(&mut m, &sm, t);
-    fp2_sqr(&mut q.x, &m);
-    let qx = q.x;
-    fp2_sub(&mut q.x, &qx, &s);
-    let qx = q.x;
-    fp2_sub(&mut q.x, &qx, &s);
-    fp2_mul(&mut q.z, &p.y, &p.z);
-    let qz = q.z;
-    fp2_add(&mut q.z, &qz, &qz);
-    let qx = q.x;
-    fp2_sub(&mut q.y, &s, &qx);
-    let qy = q.y;
-    fp2_mul(&mut q.y, &qy, &m);
-    let qy = q.y;
-    fp2_sub(&mut q.y, &qy, &r);
-    fp2_mul(u, t, &r);
-    let su = *u;
-    fp2_add(u, &su, &su);
+    let flag = p.x.is_zero_ct() & p.z.is_zero_ct();
+    let _cc = Fp2::default();
+    let xx = p.x.square();
+    let c = p.y.square().dbl();
+    let cc = c.square();
+    let r = cc.dbl();
+    let s = (p.x + c).square() - xx - cc;
+    let m = xx.dbl() + xx + t;
+    q.x = m.square() - s - s;
+    q.z = (p.y * p.z).dbl();
+    q.y = (s - q.x) * m - r;
+    *u = (t * r).dbl();
 
     // C passes `-flag` (uint32) which yields 1, violating the 0/-1 contract;
     // harmless there because the doubling formula already gives O for O. We
     // pass the mask directly so the select is well-defined.
-    let qx = q.x;
-    fp2_select(&mut q.x, &qx, &p.x, flag);
-    let qz = q.z;
-    fp2_select(&mut q.z, &qz, &p.z, flag);
+    q.x = Fp2::select(&q.x, &p.x, flag);
+    q.z = Fp2::select(&q.z, &p.z, flag);
 }
 
 #[inline]
 pub fn select_jac_point(q: &mut JacPoint, p1: &JacPoint, p2: &JacPoint, option: u64) {
     let ctl = option as u32;
-    fp2_select(&mut q.x, &p1.x, &p2.x, ctl);
-    fp2_select(&mut q.y, &p1.y, &p2.y, ctl);
-    fp2_select(&mut q.z, &p1.z, &p2.z, ctl);
+    q.x = Fp2::select(&p1.x, &p2.x, ctl);
+    q.y = Fp2::select(&p1.y, &p2.y, ctl);
+    q.z = Fp2::select(&p1.z, &p2.z, ctl);
 }
 
 /// Complete Jacobian addition on a Montgomery curve. Cost 17M + 6S + 13a.
 pub fn jac_add(r: &mut JacPoint, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    let mut u1 = Fp2::default();
-    let mut u2 = Fp2::default();
-    let mut v1 = Fp2::default();
-    let mut dx = Fp2::default();
-    let mut dy = Fp2::default();
+    let ctl1 = p.z.is_zero_ct();
+    let ctl2 = q.z.is_zero_ct();
 
-    let ctl1 = fp2_is_zero(&p.z);
-    let ctl2 = fp2_is_zero(&q.z);
+    let mut t0 = p.z.square();
+    let mut t1 = q.z.square();
 
-    fp2_sqr(&mut t0, &p.z);
-    fp2_sqr(&mut t1, &q.z);
+    let mut v1 = t1 * q.z;
+    let mut t2 = t0 * p.z;
+    v1 *= p.y;
+    t2 *= q.y;
+    let mut dy = t2 - v1;
+    let u2 = t0 * q.x;
+    let u1 = t1 * p.x;
+    let mut dx = u2 - u1;
 
-    fp2_mul(&mut v1, &t1, &q.z);
-    fp2_mul(&mut t2, &t0, &p.z);
-    fp2_mul_ip(&mut v1, &p.y);
-    fp2_mul_ip(&mut t2, &q.y);
-    fp2_sub(&mut dy, &t2, &v1);
-    fp2_mul(&mut u2, &t0, &q.x);
-    fp2_mul(&mut u1, &t1, &p.x);
-    fp2_sub(&mut dx, &u2, &u1);
+    t1 = p.y + p.y;
+    t2 = ac.a + ac.a;
+    t2 *= p.x;
+    t2 += t0;
+    t2 *= t0;
+    t0 = p.x.square();
+    t2 += t0;
+    t2 += t0;
+    t2 += t0;
+    t2 *= q.z;
 
-    fp2_add(&mut t1, &p.y, &p.y);
-    fp2_add(&mut t2, &ac.a, &ac.a);
-    fp2_mul_ip(&mut t2, &p.x);
-    fp2_add_ip(&mut t2, &t0);
-    fp2_mul_ip(&mut t2, &t0);
-    fp2_sqr(&mut t0, &p.x);
-    fp2_add_ip(&mut t2, &t0);
-    fp2_add_ip(&mut t2, &t0);
-    fp2_add_ip(&mut t2, &t0);
-    fp2_mul_ip(&mut t2, &q.z);
+    let ctl = dx.is_zero_ct() & dy.is_zero_ct();
+    dx = Fp2::select(&dx, &t1, ctl);
+    dy = Fp2::select(&dy, &t2, ctl);
 
-    let ctl = fp2_is_zero(&dx) & fp2_is_zero(&dy);
-    let sdx = dx;
-    fp2_select(&mut dx, &sdx, &t1, ctl);
-    let sdy = dy;
-    fp2_select(&mut dy, &sdy, &t2, ctl);
+    t0 = p.z * q.z;
+    t1 = t0.square();
+    t2 = dx.square();
+    let mut t3 = dy.square();
 
-    fp2_mul(&mut t0, &p.z, &q.z);
-    fp2_sqr(&mut t1, &t0);
-    fp2_sqr(&mut t2, &dx);
-    fp2_sqr(&mut t3, &dy);
-
-    fp2_mul(&mut r.x, &ac.a, &t1);
-    let rx = r.x;
-    fp2_add(&mut r.x, &rx, &u1);
-    let rx = r.x;
-    fp2_add(&mut r.x, &rx, &u2);
-    let rx = r.x;
-    fp2_mul(&mut r.x, &rx, &t2);
-    let rx = r.x;
-    fp2_sub(&mut r.x, &t3, &rx);
+    r.x = ac.a * t1;
+    r.x += u1;
+    r.x += u2;
+    r.x *= t2;
+    r.x = t3 - r.x;
 
     let rx = r.x;
-    fp2_mul(&mut r.y, &u1, &t2);
-    let ry = r.y;
-    fp2_sub(&mut r.y, &ry, &rx);
-    let ry = r.y;
-    fp2_mul(&mut r.y, &ry, &dy);
-    fp2_mul(&mut t3, &t2, &dx);
-    fp2_mul_ip(&mut t3, &v1);
-    let ry = r.y;
-    fp2_sub(&mut r.y, &ry, &t3);
+    r.y = u1 * t2;
+    r.y -= rx;
+    r.y *= dy;
+    t3 = t2 * dx;
+    t3 *= v1;
+    r.y -= t3;
 
-    fp2_mul(&mut r.z, &dx, &t0);
+    r.z = dx * t0;
 
     let sr = *r;
     select_jac_point(r, &sr, q, ctl1 as u64);
@@ -305,35 +219,27 @@ pub fn jac_add(r: &mut JacPoint, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
 
 /// Compute (u,v,w) such that x(P+Q)=(u-v:w) and x(P-Q)=(u+v:w).
 pub fn jac_to_xz_add_components(out: &mut AddComponents, p: &JacPoint, q: &JacPoint, ac: &EcCurve) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    let mut t4 = Fp2::default();
-    let mut t5 = Fp2::default();
-    let mut t6 = Fp2::default();
-
-    fp2_sqr(&mut t0, &p.z);
-    fp2_sqr(&mut t1, &q.z);
-    fp2_mul(&mut t2, &p.x, &t1);
-    fp2_mul(&mut t3, &t0, &q.x);
-    fp2_mul(&mut t4, &p.y, &q.z);
-    fp2_mul_ip(&mut t4, &t1);
-    fp2_mul(&mut t5, &p.z, &q.y);
-    fp2_mul_ip(&mut t5, &t0);
-    fp2_mul_ip(&mut t0, &t1);
-    fp2_mul(&mut t6, &t4, &t5);
-    fp2_add(&mut out.v, &t6, &t6);
-    fp2_sqr_ip(&mut t4);
-    fp2_sqr_ip(&mut t5);
-    fp2_add_ip(&mut t4, &t5);
-    fp2_add(&mut t5, &t2, &t3);
-    fp2_add(&mut t6, &t3, &t3);
-    fp2_rsub_ip(&mut t6, &t5);
-    fp2_sqr_ip(&mut t6);
-    fp2_mul(&mut t1, &ac.a, &t0);
-    fp2_add_ip(&mut t1, &t5);
-    fp2_mul_ip(&mut t1, &t6);
-    fp2_sub(&mut out.u, &t4, &t1);
-    fp2_mul(&mut out.w, &t6, &t0);
+    let mut t0 = p.z.square();
+    let mut t1 = q.z.square();
+    let t2 = p.x * t1;
+    let t3 = t0 * q.x;
+    let mut t4 = p.y * q.z;
+    t4 *= t1;
+    let mut t5 = p.z * q.y;
+    t5 *= t0;
+    t0 *= t1;
+    let mut t6 = t4 * t5;
+    out.v = t6 + t6;
+    t4.square_ip();
+    t5.square_ip();
+    t4 += t5;
+    t5 = t2 + t3;
+    t6 = t3 + t3;
+    t6 = t5 - t6;
+    t6.square_ip();
+    t1 = ac.a * t0;
+    t1 += t5;
+    t1 *= t6;
+    out.u = t4 - t1;
+    out.w = t6 * t0;
 }

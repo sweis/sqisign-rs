@@ -20,13 +20,6 @@ pub fn quat_lideal_norm(lideal: &mut QuatLeftIdeal) {
     debug_assert!(ok);
 }
 
-pub fn quat_lideal_copy(copy: &mut QuatLeftIdeal, copied: &QuatLeftIdeal) {
-    copy.parent_order = copied.parent_order;
-    ibz_copy(&mut copy.norm, &copied.norm);
-    ibz_copy(&mut copy.lattice.denom, &copied.lattice.denom);
-    ibz_mat_4x4_copy(&mut copy.lattice.basis, &copied.lattice.basis);
-}
-
 pub fn quat_lideal_create_principal(
     lideal: &mut QuatLeftIdeal,
     x: &QuatAlgElem,
@@ -42,7 +35,7 @@ pub fn quat_lideal_create_principal(
     quat_lattice_reduce_denom(&mut lideal.lattice, &l);
     quat_alg_norm(&mut norm_n, &mut norm_d, x, alg);
     debug_assert!(ibz_is_one(&norm_d));
-    ibz_copy(&mut lideal.norm, &norm_n);
+    lideal.norm.clone_from(&norm_n);
     lideal.parent_order = Some(order);
 }
 
@@ -58,7 +51,7 @@ pub fn quat_lideal_create(
     let mut on = QuatLattice::default();
     quat_lideal_create_principal(lideal, x, order, alg);
     ibz_mat_4x4_scalar_mul(&mut on.basis, n, &order.basis);
-    ibz_copy(&mut on.denom, &order.denom);
+    on.denom.clone_from(&order.denom);
     let l = lideal.lattice.clone();
     quat_lattice_add(&mut lideal.lattice, &l, &on);
     lideal.parent_order = Some(order);
@@ -85,7 +78,7 @@ pub fn quat_lideal_generator(gen: &mut QuatAlgElem, lideal: &QuatLeftIdeal, alg:
                     ibz_vec_4_content(&mut gcd, &vec);
                     if ibz_is_one(&gcd) {
                         ibz_mat_4x4_eval(&mut gen.coord, &lideal.lattice.basis, &vec);
-                        ibz_copy(&mut gen.denom, &lideal.lattice.denom);
+                        gen.denom.clone_from(&lideal.lattice.denom);
                         quat_alg_norm(&mut norm_int, &mut norm_denom, gen, alg);
                         debug_assert!(ibz_is_one(&norm_denom));
                         ibz_div(&mut q, &mut r, &norm_int, &lideal.norm);
@@ -150,8 +143,7 @@ pub fn quat_lideal_inverse_lattice_without_hnf(
 ) {
     debug_assert!(quat_order_is_maximal(lideal.parent_order.unwrap(), alg) != 0);
     quat_lattice_conjugate_without_hnf(inv, &lideal.lattice);
-    let d = inv.denom.clone();
-    ibz_mul(&mut inv.denom, &d, &lideal.norm);
+    inv.denom *= &lideal.norm;
 }
 
 pub fn quat_lideal_right_transporter(
@@ -178,8 +170,7 @@ pub fn quat_lideal_class_gram(g: &mut IbzMat4x4, lideal: &QuatLeftIdeal, alg: &Q
     let mut divisor = Ibz::default();
     let mut rmd = Ibz::default();
     ibz_mul(&mut divisor, &lideal.lattice.denom, &lideal.lattice.denom);
-    let d = divisor.clone();
-    ibz_mul(&mut divisor, &d, &lideal.norm);
+    divisor *= &lideal.norm;
     for i in 0..4 {
         for j in 0..=i {
             let t = g[i][j].clone();
@@ -190,7 +181,7 @@ pub fn quat_lideal_class_gram(g: &mut IbzMat4x4, lideal: &QuatLeftIdeal, alg: &Q
     for i in 0..4 {
         for j in 0..i {
             let t = g[i][j].clone();
-            ibz_copy(&mut g[j][i], &t);
+            g[j][i].clone_from(&t);
         }
     }
 }
@@ -205,7 +196,7 @@ pub fn quat_lideal_conjugate_without_hnf(
     // precomputed since it must outlive `conj` (`&'static`).
     quat_lattice_conjugate_without_hnf(&mut conj.lattice, &lideal.lattice);
     conj.parent_order = Some(new_parent_order);
-    ibz_copy(&mut conj.norm, &lideal.norm);
+    conj.norm.clone_from(&lideal.norm);
 }
 
 /// Variant that mirrors C's behaviour exactly: computes the right order
@@ -222,7 +213,7 @@ pub fn quat_lideal_conjugate_without_hnf_dyn(
     quat_lideal_right_order(right_order_out, lideal, alg);
     quat_lattice_conjugate_without_hnf(&mut conj.lattice, &lideal.lattice);
     conj.parent_order = None;
-    ibz_copy(&mut conj.norm, &lideal.norm);
+    conj.norm.clone_from(&lideal.norm);
 }
 
 pub fn quat_order_discriminant(disc: &mut Ibz, order: &QuatLattice, alg: &QuatAlg) -> i32 {
@@ -234,8 +225,8 @@ pub fn quat_order_discriminant(disc: &mut Ibz, order: &QuatLattice, alg: &QuatAl
     let mut prod = ibz_mat_4x4_init();
     ibz_mat_4x4_transpose(&mut transposed, &order.basis);
     ibz_mat_4x4_identity(&mut norm);
-    ibz_copy(&mut norm[2][2], &alg.p);
-    ibz_copy(&mut norm[3][3], &alg.p);
+    norm[2][2].clone_from(&alg.p);
+    norm[3][3].clone_from(&alg.p);
     let n = norm.clone();
     ibz_mat_4x4_scalar_mul(&mut norm, ibz_const_two(), &n);
     ibz_mat_4x4_mul(&mut prod, &transposed, &norm);
@@ -243,10 +234,8 @@ pub fn quat_order_discriminant(disc: &mut Ibz, order: &QuatLattice, alg: &QuatAl
     ibz_mat_4x4_mul(&mut prod, &p, &order.basis);
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det, &prod);
     ibz_mul(&mut div, &order.denom, &order.denom);
-    let d = div.clone();
-    ibz_mul(&mut div, &d, &d);
-    let d = div.clone();
-    ibz_mul(&mut div, &d, &d);
+    div *= div.clone();
+    div *= div.clone();
     let dv = div.clone();
     ibz_div(&mut sqr, &mut div, &det, &dv);
     (ibz_is_zero(&div) && ibz_sqrt(disc, &sqr)) as i32
@@ -278,7 +267,7 @@ pub fn quat_lideal_reduce_basis(
         &lideal.lattice.denom,
     );
     quat_lideal_class_gram(gram, lideal, alg);
-    ibz_mat_4x4_copy(reduced, &lideal.lattice.basis);
+    (reduced).clone_from(&lideal.lattice.basis);
     quat_lll_core(gram, reduced);
     let g = gram.clone();
     ibz_mat_4x4_scalar_mul(gram, &gram_corrector, &g);
@@ -303,7 +292,7 @@ pub fn quat_lideal_lideal_mul_reduced(
     prod.parent_order = lideal1.parent_order;
     quat_lideal_norm(prod);
     quat_lideal_reduce_basis(&mut red, gram, prod, alg);
-    ibz_mat_4x4_copy(&mut prod.lattice.basis, &red);
+    prod.lattice.basis.clone_from(&red);
 }
 
 /// Variant where `lideal1.parent_order` is not `'static` and is supplied
@@ -325,7 +314,7 @@ pub fn quat_lideal_lideal_mul_reduced_dyn(
     let ok = ibz_sqrt(&mut prod.norm, &n);
     debug_assert!(ok);
     quat_lideal_reduce_basis(&mut red, gram, prod, alg);
-    ibz_mat_4x4_copy(&mut prod.lattice.basis, &red);
+    prod.lattice.basis.clone_from(&red);
 }
 
 pub fn quat_lideal_prime_norm_reduced_equivalent(
@@ -369,12 +358,11 @@ pub fn quat_lideal_prime_norm_reduced_equivalent(
         if ibz_probab_prime(&tmp, primality_num_iter) != 0 {
             let coord = new_alpha.coord.clone();
             ibz_mat_4x4_eval(&mut new_alpha.coord, &red, &coord);
-            ibz_copy(&mut new_alpha.denom, &lideal.lattice.denom);
+            new_alpha.denom.clone_from(&lideal.lattice.denom);
             debug_assert!(quat_lattice_contains(None, &lideal.lattice, &new_alpha) != 0);
             let na = new_alpha.clone();
             quat_alg_conj(&mut new_alpha, &na);
-            let d = new_alpha.denom.clone();
-            ibz_mul(&mut new_alpha.denom, &d, &lideal.norm);
+            new_alpha.denom *= &lideal.norm;
             let li = lideal.clone();
             quat_lideal_mul(lideal, &li, &new_alpha, alg);
             debug_assert!(ibz_probab_prime(&lideal.norm, primality_num_iter) != 0);

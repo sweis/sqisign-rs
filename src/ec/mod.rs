@@ -136,20 +136,16 @@ pub fn ac_to_a24(a24: &mut EcPoint, e: &EcCurve) {
         *a24 = e.a24;
         return;
     }
-    fp2_add(&mut a24.z, &e.c, &e.c);
+    a24.z = e.c + e.c;
     let z = a24.z;
-    fp2_add(&mut a24.x, &e.a, &z);
-    fp2_add(&mut a24.z, &z, &z);
+    a24.x = e.a + z;
+    a24.z = z + z;
 }
 
 /// Recover (A : C) = (2·(A24.x·2 - A24.z) : A24.z) from A24 = (A+2C : 4C).
 #[inline]
 pub fn a24_to_ac(e: &mut EcCurve, a24: &EcPoint) {
-    let mut t = Fp2::default();
-    fp2_add(&mut t, &a24.x, &a24.x);
-    fp2_sub(&mut e.a, &t, &a24.z);
-    let a = e.a;
-    fp2_add(&mut e.a, &a, &a);
+    e.a = (a24.x.dbl() - a24.z).dbl();
     e.c = a24.z;
 }
 
@@ -161,244 +157,202 @@ pub fn a24_to_ac(e: &mut EcCurve, a24: &EcPoint) {
 #[inline]
 pub fn select_point(q: &mut EcPoint, p1: &EcPoint, p2: &EcPoint, option: Digit) {
     let ctl = option as u32;
-    fp2_select(&mut q.x, &p1.x, &p2.x, ctl);
-    fp2_select(&mut q.z, &p1.z, &p2.z, ctl);
+    q.x = Fp2::select(&p1.x, &p2.x, ctl);
+    q.z = Fp2::select(&p1.z, &p2.z, ctl);
 }
 
 /// Constant-time conditional swap: if option is all-ones swap P↔Q.
 #[inline]
 pub fn cswap_points(p: &mut EcPoint, q: &mut EcPoint, option: Digit) {
     let ctl = option as u32;
-    fp2_cswap(&mut p.x, &mut q.x, ctl);
-    fp2_cswap(&mut p.z, &mut q.z, ctl);
+    Fp2::cswap(&mut p.x, &mut q.x, ctl);
+    Fp2::cswap(&mut p.z, &mut q.z, ctl);
 }
 
-/// Normalize (X : Z) → (X/Z : 1) in place.
-pub fn ec_normalize_point(p: &mut EcPoint) {
-    fp2_inv(&mut p.z);
-    let (x, z) = (p.x, p.z);
-    fp2_mul(&mut p.x, &x, &z);
-    p.z = Fp2::ONE;
-}
-
-/// Normalize (A : C) → (A/C : 1) in place.
-pub fn ec_normalize_curve(e: &mut EcCurve) {
-    fp2_inv(&mut e.c);
-    let (a, c) = (e.a, e.c);
-    fp2_mul(&mut e.a, &a, &c);
-    e.c = Fp2::ONE;
-}
-
-/// Compute and cache the normalized A24 = ((A+2C)/4C : 1).
-pub fn ec_curve_normalize_a24(e: &mut EcCurve) {
-    if !e.is_a24_computed_and_normalized {
-        let mut a24 = EcPoint::default();
-        ac_to_a24(&mut a24, e);
-        ec_normalize_point(&mut a24);
-        e.a24 = a24;
-        e.is_a24_computed_and_normalized = true;
+impl EcPoint {
+    /// Normalize (X : Z) → (X/Z : 1) in place.
+    pub fn normalize(&mut self) {
+        self.x *= self.z.inv();
+        self.z = Fp2::ONE;
     }
-    debug_assert!(fp2_is_one(&e.a24.z) != 0);
-}
-
-/// Normalize both (A : C) and A24 in place.
-pub fn ec_normalize_curve_and_a24(e: &mut EcCurve) {
-    if fp2_is_one(&e.c) == 0 {
-        ec_normalize_curve(e);
+    #[inline]
+    pub fn is_zero_ct(&self) -> u32 {
+        self.z.is_zero_ct()
     }
-    if !e.is_a24_computed_and_normalized {
-        let a = e.a;
-        fp2_add_one(&mut e.a24.x, &a);
-        let t = e.a24.x;
-        fp2_add_one(&mut e.a24.x, &t);
-        e.a24.x.im = e.a.im;
-        let t = e.a24.x;
-        fp2_half(&mut e.a24.x, &t);
-        let t = e.a24.x;
-        fp2_half(&mut e.a24.x, &t);
-        e.a24.z = Fp2::ONE;
-        e.is_a24_computed_and_normalized = true;
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.z.is_zero()
+    }
+    #[inline]
+    pub fn has_zero_coordinate_ct(&self) -> u32 {
+        self.x.is_zero_ct() | self.z.is_zero_ct()
+    }
+    /// Projective equality: P = Q iff both zero, or neither zero and Px·Qz = Qx·Pz.
+    pub fn is_equal_ct(&self, q: &EcPoint) -> u32 {
+        let l_zero = self.is_zero_ct();
+        let r_zero = q.is_zero_ct();
+        let lr_equal = (self.x * q.z).is_equal_ct(&(self.z * q.x));
+        // Faithful port of C's `(~l_zero & ~r_zero * lr_equal)`: `*` binds tighter than `&`.
+        (l_zero & r_zero) | (!l_zero & (!r_zero).wrapping_mul(lr_equal))
     }
 }
 
-#[inline]
-pub fn ec_is_zero(p: &EcPoint) -> u32 {
-    fp2_is_zero(&p.z)
-}
-
-#[inline]
-pub fn ec_has_zero_coordinate(p: &EcPoint) -> u32 {
-    fp2_is_zero(&p.x) | fp2_is_zero(&p.z)
-}
-
-/// Projective equality on (X:Z): P = Q iff both zero, or neither zero and Px·Qz = Qx·Pz.
-pub fn ec_is_equal(p: &EcPoint, q: &EcPoint) -> u32 {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let l_zero = ec_is_zero(p);
-    let r_zero = ec_is_zero(q);
-    fp2_mul(&mut t0, &p.x, &q.z);
-    fp2_mul(&mut t1, &p.z, &q.x);
-    let lr_equal = fp2_is_equal(&t0, &t1);
-    // Faithful port of C's `(~l_zero & ~r_zero * lr_equal)`: `*` binds tighter than `&`.
-    (l_zero & r_zero) | (!l_zero & (!r_zero).wrapping_mul(lr_equal))
-}
-
-/// Nonzero iff P is exact 2-torsion (nonzero and 2P = 0).
-pub fn ec_is_two_torsion(p: &EcPoint, e: &EcCurve) -> u32 {
-    if ec_is_zero(p) != 0 {
-        return 0;
+impl PartialEq for EcPoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.is_equal_ct(other) != 0
     }
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sqr_ip(&mut t0);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_sqr_ip(&mut t1);
-    fp2_sub(&mut t2, &t0, &t1);
-    fp2_add_ip(&mut t1, &t0);
-    fp2_mul_ip(&mut t2, &e.a);
-    fp2_mul_ip(&mut t1, &e.c);
-    fp2_dbl_ip(&mut t1);
-    fp2_add(&mut t0, &t1, &t2);
-    let x_is_zero = fp2_is_zero(&p.x);
-    let tmp_is_zero = fp2_is_zero(&t0);
-    x_is_zero | tmp_is_zero
 }
+impl Eq for EcPoint {}
 
-/// Nonzero iff P is exact 4-torsion.
-pub fn ec_is_four_torsion(p: &EcPoint, e: &EcCurve) -> u32 {
-    let mut test = EcPoint::default();
-    xdbl_a24(&mut test, p, &e.a24, e.is_a24_computed_and_normalized);
-    ec_is_two_torsion(&test, e)
-}
-
-/// Nonzero iff (P, Q) form a full 4-basis.
-pub fn ec_is_basis_four_torsion(b: &EcBasis, e: &EcCurve) -> u32 {
-    let mut p2 = EcPoint::default();
-    let mut q2 = EcPoint::default();
-    xdbl_a24(&mut p2, &b.p, &e.a24, e.is_a24_computed_and_normalized);
-    xdbl_a24(&mut q2, &b.q, &e.a24, e.is_a24_computed_and_normalized);
-    // C `!` is logical-not (0 or 1); Rust `!` on u32 is bitwise. Use explicit compare.
-    ec_is_two_torsion(&p2, e) & ec_is_two_torsion(&q2, e) & u32::from(ec_is_equal(&p2, &q2) == 0)
-}
-
-/// True iff A is a valid Montgomery coefficient (A ≠ ±2).
-pub fn ec_curve_verify_a(a: &Fp2) -> bool {
-    let two = Fp2::from_small(2);
-    let mut neg_two = Fp2::default();
-    fp2_neg(&mut neg_two, &two);
-    fp2_is_equal(a, &two) == 0 && fp2_is_equal(a, &neg_two) == 0
-}
-
-/// Construct a curve from coefficient A, or `None` if A is invalid.
-pub fn ec_curve_init_from_a(a: &Fp2) -> Option<EcCurve> {
-    ec_curve_verify_a(a).then(|| EcCurve {
-        a: *a,
-        ..EcCurve::e0()
-    })
-}
-
-/// j-invariant of the Montgomery curve.
-pub fn ec_j_inv(j_inv: &mut Fp2, curve: &EcCurve) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    fp2_sqr(&mut t1, &curve.c);
-    fp2_sqr(j_inv, &curve.a);
-    fp2_add(&mut t0, &t1, &t1);
-    let j = *j_inv;
-    fp2_rsub_ip(&mut t0, &j);
-    fp2_sub_ip(&mut t0, &t1);
-    fp2_sub(j_inv, &t0, &t1);
-    fp2_sqr_ip(&mut t1);
-    let j = *j_inv;
-    fp2_mul(j_inv, &j, &t1);
-    fp2_dbl_ip(&mut t0);
-    fp2_dbl_ip(&mut t0);
-    fp2_sqr(&mut t1, &t0);
-    fp2_mul_ip(&mut t0, &t1);
-    fp2_dbl_ip(&mut t0);
-    fp2_dbl_ip(&mut t0);
-    fp2_inv(j_inv);
-    let j = *j_inv;
-    fp2_mul(j_inv, &t0, &j);
+impl EcCurve {
+    /// Normalize (A : C) → (A/C : 1) in place.
+    pub fn normalize(&mut self) {
+        self.a *= self.c.inv();
+        self.c = Fp2::ONE;
+    }
+    /// Compute and cache the normalized A24 = ((A+2C)/4C : 1).
+    pub fn normalize_a24(&mut self) {
+        if !self.is_a24_computed_and_normalized {
+            let mut a24 = EcPoint::default();
+            ac_to_a24(&mut a24, self);
+            a24.normalize();
+            self.a24 = a24;
+            self.is_a24_computed_and_normalized = true;
+        }
+        debug_assert!(self.a24.z.is_one());
+    }
+    /// Normalize both (A : C) and A24 in place.
+    pub fn normalize_and_a24(&mut self) {
+        if !self.c.is_one() {
+            self.normalize();
+        }
+        if !self.is_a24_computed_and_normalized {
+            self.a24.x = Fp2 {
+                re: self.a.re + Fp::from_small(2),
+                im: self.a.im,
+            }
+            .half()
+            .half();
+            self.a24.z = Fp2::ONE;
+            self.is_a24_computed_and_normalized = true;
+        }
+    }
+    /// j-invariant.
+    pub fn j_inv(&self) -> Fp2 {
+        let cc = self.c.square();
+        let t0 = self.a.square() - cc.mul_small(3);
+        // 256·(A² − 3C²)³ / (C⁴·(A² − 4C²))
+        let num = (t0.square() * t0).mul_small(256);
+        num * (cc.square() * (t0 - cc)).inv()
+    }
+    /// True iff A is a valid Montgomery coefficient (A ≠ ±2).
+    pub fn verify_a(a: &Fp2) -> bool {
+        let two = Fp2::from_small(2);
+        *a != two && *a != -two
+    }
+    /// Construct a curve from coefficient A, or `None` if A is invalid.
+    pub fn try_from_a(a: &Fp2) -> Option<Self> {
+        Self::verify_a(a).then(|| Self {
+            a: *a,
+            ..Self::e0()
+        })
+    }
+    /// True iff P has exact 2-torsion (nonzero and 2P = 0).
+    pub fn is_two_torsion_ct(&self, p: &EcPoint) -> u32 {
+        if p.is_zero() {
+            return 0;
+        }
+        let t0 = (p.x + p.z).square();
+        let t1 = (p.x - p.z).square();
+        let s = (t0 - t1) * self.a + (t0 + t1) * self.c.dbl();
+        p.x.is_zero_ct() | s.is_zero_ct()
+    }
+    /// True iff P has exact 4-torsion.
+    pub fn is_four_torsion_ct(&self, p: &EcPoint) -> u32 {
+        let mut test = EcPoint::default();
+        xdbl_a24(&mut test, p, &self.a24, self.is_a24_computed_and_normalized);
+        self.is_two_torsion_ct(&test)
+    }
+    /// True iff (P, Q) form a full 4-basis.
+    pub fn is_basis_four_torsion(&self, b: &EcBasis) -> bool {
+        let mut p2 = EcPoint::default();
+        let mut q2 = EcPoint::default();
+        xdbl_a24(
+            &mut p2,
+            &b.p,
+            &self.a24,
+            self.is_a24_computed_and_normalized,
+        );
+        xdbl_a24(
+            &mut q2,
+            &b.q,
+            &self.a24,
+            self.is_a24_computed_and_normalized,
+        );
+        (self.is_two_torsion_ct(&p2) & self.is_two_torsion_ct(&q2)) != 0 && p2 != q2
+    }
 }
 
 /// x-only doubling on E₀ (A=0, C=1).
 pub fn xdbl_e0(q: &mut EcPoint, p: &EcPoint) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sqr_ip(&mut t0);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_sqr_ip(&mut t1);
-    fp2_sub(&mut t2, &t0, &t1);
-    fp2_dbl_ip(&mut t1);
-    fp2_mul(&mut q.x, &t0, &t1);
-    fp2_add(&mut q.z, &t1, &t2);
-    fp2_mul_ip(&mut q.z, &t2);
+    let mut t0 = p.x + p.z;
+    t0.square_ip();
+    let mut t1 = p.x - p.z;
+    t1.square_ip();
+    let t2 = t0 - t1;
+    t1.dbl_ip();
+    q.x = t0 * t1;
+    q.z = t1 + t2;
+    q.z *= t2;
 }
 
 /// x-only doubling, computing A24 from (A:C) on the fly.
 pub fn xdbl(q: &mut EcPoint, p: &EcPoint, ac: &EcPoint) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sqr_ip(&mut t0);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_sqr_ip(&mut t1);
-    fp2_sub(&mut t2, &t0, &t1);
-    fp2_add(&mut t3, &ac.z, &ac.z);
-    fp2_mul_ip(&mut t1, &t3);
-    fp2_dbl_ip(&mut t1);
-    fp2_mul(&mut q.x, &t0, &t1);
-    fp2_add(&mut t0, &t3, &ac.x);
-    fp2_mul_ip(&mut t0, &t2);
-    fp2_add_ip(&mut t0, &t1);
-    fp2_mul(&mut q.z, &t0, &t2);
+    let mut t0 = p.x + p.z;
+    t0.square_ip();
+    let mut t1 = p.x - p.z;
+    t1.square_ip();
+    let t2 = t0 - t1;
+    let t3 = ac.z + ac.z;
+    t1 *= t3;
+    t1.dbl_ip();
+    q.x = t0 * t1;
+    t0 = t3 + ac.x;
+    t0 *= t2;
+    t0 += t1;
+    q.z = t0 * t2;
 }
 
 /// x-only doubling using precomputed A24 = (A+2C : 4C) (or normalized).
 pub fn xdbl_a24(q: &mut EcPoint, p: &EcPoint, a24: &EcPoint, a24_normalized: bool) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sqr_ip(&mut t0);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_sqr_ip(&mut t1);
-    fp2_sub(&mut t2, &t0, &t1);
+    let mut t0 = p.x + p.z;
+    t0.square_ip();
+    let mut t1 = p.x - p.z;
+    t1.square_ip();
+    let t2 = t0 - t1;
     if !a24_normalized {
-        fp2_mul_ip(&mut t1, &a24.z);
+        t1 *= a24.z;
     }
-    fp2_mul(&mut q.x, &t0, &t1);
-    fp2_mul(&mut t0, &t2, &a24.x);
-    fp2_add_ip(&mut t0, &t1);
-    fp2_mul(&mut q.z, &t0, &t2);
+    q.x = t0 * t1;
+    t0 = t2 * a24.x;
+    t0 += t1;
+    q.z = t0 * t2;
 }
 
 /// Differential addition: R = P + Q given PQ = P - Q.
 pub fn xadd(r: &mut EcPoint, p: &EcPoint, q: &EcPoint, pq: &EcPoint) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_add(&mut t2, &q.x, &q.z);
-    fp2_sub(&mut t3, &q.x, &q.z);
-    fp2_mul_ip(&mut t0, &t3);
-    fp2_mul_ip(&mut t1, &t2);
-    fp2_add(&mut t2, &t0, &t1);
-    fp2_sub(&mut t3, &t0, &t1);
-    fp2_sqr_ip(&mut t2);
-    fp2_sqr_ip(&mut t3);
-    fp2_mul_ip(&mut t2, &pq.z);
-    fp2_mul(&mut r.z, &pq.x, &t3);
+    let mut t0 = p.x + p.z;
+    let mut t1 = p.x - p.z;
+    let mut t2 = q.x + q.z;
+    let mut t3 = q.x - q.z;
+    t0 *= t3;
+    t1 *= t2;
+    t2 = t0 + t1;
+    t3 = t0 - t1;
+    t2.square_ip();
+    t3.square_ip();
+    t2 *= pq.z;
+    r.z = pq.x * t3;
     r.x = t2;
 }
 
@@ -412,42 +366,31 @@ pub fn xdbladd(
     a24: &EcPoint,
     a24_normalized: bool,
 ) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_sqr(&mut r.x, &t0);
-    fp2_sub(&mut t2, &q.x, &q.z);
-    fp2_add(&mut s.x, &q.x, &q.z);
-    let st0 = t0;
-    fp2_mul(&mut t0, &st0, &t2);
-    fp2_sqr(&mut r.z, &t1);
-    let st1 = t1;
-    fp2_mul(&mut t1, &st1, &s.x);
+    let mut t0 = p.x + p.z;
+    let mut t1 = p.x - p.z;
+    r.x = t0.square();
+    let mut t2 = q.x - q.z;
+    s.x = q.x + q.z;
+    t0 *= t2;
+    r.z = t1.square();
+    t1 *= s.x;
     let rx = r.x;
-    fp2_sub(&mut t2, &rx, &r.z);
+    t2 = rx - r.z;
     if !a24_normalized {
-        let rz = r.z;
-        fp2_mul(&mut r.z, &rz, &a24.z);
+        r.z *= a24.z;
     }
     let (rx, rz) = (r.x, r.z);
-    fp2_mul(&mut r.x, &rx, &rz);
-    fp2_mul(&mut s.x, &a24.x, &t2);
-    fp2_sub(&mut s.z, &t0, &t1);
+    r.x = rx * rz;
+    s.x = a24.x * t2;
+    s.z = t0 - t1;
     let (rz, sx) = (r.z, s.x);
-    fp2_add(&mut r.z, &rz, &sx);
-    fp2_add(&mut s.x, &t0, &t1);
-    let rz = r.z;
-    fp2_mul(&mut r.z, &rz, &t2);
-    let sz = s.z;
-    fp2_sqr(&mut s.z, &sz);
-    let sx = s.x;
-    fp2_sqr(&mut s.x, &sx);
-    let sz = s.z;
-    fp2_mul(&mut s.z, &sz, &pq.x);
-    let sx = s.x;
-    fp2_mul(&mut s.x, &sx, &pq.z);
+    r.z = rz + sx;
+    s.x = t0 + t1;
+    r.z *= t2;
+    s.z.square_ip();
+    s.x.square_ip();
+    s.z *= pq.x;
+    s.x *= pq.z;
 }
 
 /// Montgomery ladder: Q = k·P over `kbits` bits.
@@ -456,12 +399,12 @@ pub fn xmul(q: &mut EcPoint, p: &EcPoint, k: &[Digit], kbits: i32, curve: &EcCur
     if curve.is_a24_computed_and_normalized {
         a24.x = curve.a24.x;
         a24.z = curve.a24.z;
-        debug_assert!(fp2_is_one(&a24.z) != 0);
+        debug_assert!(a24.z.is_one());
     } else {
-        fp2_add(&mut a24.x, &curve.c, &curve.c);
+        a24.x = curve.c + curve.c;
         let s = a24.x;
-        fp2_add(&mut a24.z, &s, &s);
-        fp2_add_ip(&mut a24.x, &curve.a);
+        a24.z = s + s;
+        a24.x += curve.a;
     }
 
     let mut r0 = EcPoint::IDENTITY;
@@ -496,7 +439,9 @@ pub fn xdblmul(
     kbits: i32,
     curve: &EcCurve,
 ) -> Option<EcPoint> {
-    if (ec_has_zero_coordinate(p) | ec_has_zero_coordinate(q) | ec_has_zero_coordinate(pq)) != 0 {
+    if ((p).has_zero_coordinate_ct() | (q).has_zero_coordinate_ct() | (pq).has_zero_coordinate_ct())
+        != 0
+    {
         return None;
     }
 
@@ -560,13 +505,13 @@ pub fn xdblmul(
 
     let (r1, r2) = (rr[1], rr[2]);
     xadd(&mut rr[2], &r1, &r2, pq);
-    if ec_has_zero_coordinate(&rr[2]) != 0 {
+    if rr[2].has_zero_coordinate_ct() != 0 {
         return None;
     }
     let mut diff2a = rr[2];
     let mut diff2b = *pq;
 
-    let a_is_zero = fp2_is_zero(&curve.a) != 0;
+    let a_is_zero = curve.a.is_zero();
 
     let mut t = [EcPoint::default(); 3];
     for i in (0..kbits as usize).rev() {
@@ -580,7 +525,7 @@ pub fn xdblmul(
         if a_is_zero {
             xdbl_e0(&mut t[0], &t0);
         } else {
-            debug_assert!(fp2_is_one(&curve.a24.z) != 0);
+            debug_assert!(curve.a24.z.is_one());
             xdbl_a24(&mut t[0], &t0, &curve.a24, true);
         }
 
@@ -617,7 +562,7 @@ pub fn ec_ladder3pt(
     e: &EcCurve,
 ) -> Option<EcPoint> {
     debug_assert!(e.is_a24_computed_and_normalized);
-    if fp2_is_one(&e.a24.z) == 0 || ec_has_zero_coordinate(pq) != 0 {
+    if e.a24.z.is_one_ct() == 0 || (pq).has_zero_coordinate_ct() != 0 {
         return None;
     }
 
@@ -642,7 +587,7 @@ pub fn ec_ladder3pt(
 /// Single doubling, choosing the cheapest formula given curve normalization.
 pub fn ec_dbl(res: &mut EcPoint, p: &EcPoint, curve: &EcCurve) {
     if curve.is_a24_computed_and_normalized {
-        debug_assert!(fp2_is_one(&curve.a24.z) != 0);
+        debug_assert!(curve.a24.z.is_one());
         xdbl_a24(res, p, &curve.a24, true);
     } else {
         let ac = EcPoint {
@@ -660,10 +605,10 @@ pub fn ec_dbl_iter(res: &mut EcPoint, n: i32, p: &EcPoint, curve: &mut EcCurve) 
         return;
     }
     if n > 50 {
-        ec_curve_normalize_a24(curve);
+        curve.normalize_a24();
     }
     if curve.is_a24_computed_and_normalized {
-        debug_assert!(fp2_is_one(&curve.a24.z) != 0);
+        debug_assert!(curve.a24.z.is_one());
         xdbl_a24(res, p, &curve.a24, true);
         for _ in 0..n - 1 {
             let s = *res;
@@ -692,7 +637,7 @@ pub fn ec_dbl_iter_basis(res: &mut EcBasis, n: i32, b: &EcBasis, curve: &mut EcC
 /// Scalar multiplication wrapper.
 pub fn ec_mul(res: &mut EcPoint, scalar: &[Digit], kbits: i32, p: &EcPoint, curve: &mut EcCurve) {
     if kbits > 50 {
-        ec_curve_normalize_a24(curve);
+        curve.normalize_a24();
     }
     xmul(res, p, scalar, kbits, curve);
 }
@@ -705,13 +650,13 @@ pub fn ec_biscalar_mul(
     pq: &EcBasis,
     curve: &EcCurve,
 ) -> Option<EcPoint> {
-    if fp2_is_zero(&pq.pmq.z) != 0 {
+    if pq.pmq.z.is_zero() {
         return None;
     }
     if kbits == 1 {
-        if ec_is_two_torsion(&pq.p, curve) == 0
-            || ec_is_two_torsion(&pq.q, curve) == 0
-            || ec_is_two_torsion(&pq.pmq, curve) == 0
+        if curve.is_two_torsion_ct(&pq.p) == 0
+            || curve.is_two_torsion_ct(&pq.q) == 0
+            || curve.is_two_torsion_ct(&pq.pmq) == 0
         {
             return None;
         }
@@ -724,8 +669,8 @@ pub fn ec_biscalar_mul(
         });
     }
     let mut e = *curve;
-    if fp2_is_zero(&curve.a) == 0 {
-        ec_curve_normalize_a24(&mut e);
+    if curve.a.is_zero_ct() == 0 {
+        e.normalize_a24();
     }
     let mut res = EcPoint::default();
     xdblmul(
@@ -741,17 +686,17 @@ pub fn ec_biscalar_mul(
 pub fn test_point_order_twof(p: &EcPoint, e: &EcCurve, t: i32) -> bool {
     let mut test = *p;
     let mut curve = *e;
-    if ec_is_zero(&test) != 0 {
+    if test.is_zero_ct() != 0 {
         return false;
     }
     let pt = test;
     ec_dbl_iter(&mut test, t - 1, &pt, &mut curve);
-    if ec_is_zero(&test) != 0 {
+    if test.is_zero_ct() != 0 {
         return false;
     }
     let pt = test;
     ec_dbl(&mut test, &pt, &curve);
-    ec_is_zero(&test) != 0
+    test.is_zero_ct() != 0
 }
 
 /// True iff all of P, Q, P−Q have order exactly 2^t.
@@ -764,19 +709,19 @@ pub fn test_basis_order_twof(b: &EcBasis, e: &EcCurve, t: i32) -> bool {
 /// True iff Jacobian P has order exactly 2^t.
 pub fn test_jac_order_twof(p: &JacPoint, e: &EcCurve, t: i32) -> bool {
     let mut test = *p;
-    if fp2_is_zero(&test.z) != 0 {
+    if test.z.is_zero() {
         return false;
     }
     for _ in 0..t - 1 {
         let s = test;
         jac_dbl(&mut test, &s, e);
     }
-    if fp2_is_zero(&test.z) != 0 {
+    if test.z.is_zero() {
         return false;
     }
     let s = test;
     jac_dbl(&mut test, &s, e);
-    fp2_is_zero(&test.z) != 0
+    test.z.is_zero()
 }
 
 // ===========================================================================
@@ -790,20 +735,17 @@ mod tests {
     use crate::test_util::Prng;
 
     fn projective_is_on_curve(p: &EcPoint, curve: &EcCurve) -> bool {
-        let mut t0 = Fp2::default();
-        let mut t1 = Fp2::default();
-        let mut t2 = Fp2::default();
-        fp2_mul(&mut t0, &curve.c, &p.x);
-        fp2_mul(&mut t1, &t0, &p.z);
-        fp2_mul_ip(&mut t1, &curve.a);
-        fp2_mul(&mut t2, &curve.c, &p.z);
-        fp2_sqr_ip(&mut t0);
-        fp2_sqr_ip(&mut t2);
-        fp2_add_ip(&mut t0, &t1);
-        fp2_add_ip(&mut t0, &t2);
-        fp2_mul_ip(&mut t0, &p.x);
-        fp2_mul_ip(&mut t0, &p.z);
-        fp2_is_square(&t0) != 0 || fp2_is_zero(&t0) != 0
+        let mut t0 = curve.c * p.x;
+        let mut t1 = t0 * p.z;
+        t1 *= curve.a;
+        let mut t2 = curve.c * p.z;
+        t0.square_ip();
+        t2.square_ip();
+        t0 += t1;
+        t0 += t2;
+        t0 *= p.x;
+        t0 *= p.z;
+        t0.is_square() || t0.is_zero()
     }
 
     fn ec_random(prng: &mut Prng, curve: &EcCurve) -> EcPoint {
@@ -816,65 +758,59 @@ mod tests {
             }
         }
         let z = prng.fp2();
-        let px = p.x;
-        fp2_mul(&mut p.x, &px, &z);
+        p.x *= z;
         p.z = z;
         p
     }
 
     /// Port of test_extras.c::projective_difference_point.
     fn projective_difference_point(pq: &mut EcPoint, p: &EcPoint, q: &EcPoint, curve: &EcCurve) {
-        let mut bxx = Fp2::default();
-        let mut bxz = Fp2::default();
-        let mut bzz = Fp2::default();
-        let mut t0 = Fp2::default();
-        let mut t1 = Fp2::default();
-        fp2_mul(&mut t0, &p.x, &q.x);
-        fp2_mul(&mut t1, &p.z, &q.z);
-        fp2_sub(&mut bxx, &t0, &t1);
-        fp2_sqr_ip(&mut bxx);
-        fp2_mul_ip(&mut bxx, &curve.c);
-        fp2_add(&mut bxz, &t0, &t1);
-        fp2_mul(&mut t0, &p.x, &q.z);
-        fp2_mul(&mut t1, &p.z, &q.x);
-        fp2_add(&mut bzz, &t0, &t1);
-        fp2_mul_ip(&mut bxz, &bzz);
-        fp2_sub(&mut bzz, &t0, &t1);
-        fp2_sqr_ip(&mut bzz);
-        fp2_mul_ip(&mut bzz, &curve.c);
-        fp2_mul_ip(&mut bxz, &curve.c);
-        fp2_mul_ip(&mut t0, &t1);
-        fp2_mul_ip(&mut t0, &curve.a);
-        fp2_dbl_ip(&mut t0);
-        fp2_add_ip(&mut bxz, &t0);
+        let mut t0 = p.x * q.x;
+        let mut t1 = p.z * q.z;
+        let mut bxx = t0 - t1;
+        bxx.square_ip();
+        bxx *= curve.c;
+        let mut bxz = t0 + t1;
+        t0 = p.x * q.z;
+        t1 = p.z * q.x;
+        let mut bzz = t0 + t1;
+        bxz *= bzz;
+        bzz = t0 - t1;
+        bzz.square_ip();
+        bzz *= curve.c;
+        bxz *= curve.c;
+        t0 *= t1;
+        t0 *= curve.a;
+        t0.dbl_ip();
+        bxz += t0;
 
         t0.re = curve.c.re;
-        fp_neg(&mut t0.im, &curve.c.im);
-        fp2_sqr_ip(&mut t0);
-        fp2_mul_ip(&mut t0, &curve.c);
+        t0.im = -curve.c.im;
+        t0.square_ip();
+        t0 *= curve.c;
         t1.re = p.z.re;
-        fp_neg(&mut t1.im, &p.z.im);
-        fp2_sqr_ip(&mut t1);
-        fp2_mul_ip(&mut t0, &t1);
+        t1.im = -p.z.im;
+        t1.square_ip();
+        t0 *= t1;
         t1.re = q.z.re;
-        fp_neg(&mut t1.im, &q.z.im);
-        fp2_sqr_ip(&mut t1);
-        fp2_mul_ip(&mut t0, &t1);
-        fp2_mul_ip(&mut bxx, &t0);
-        fp2_mul_ip(&mut bxz, &t0);
-        fp2_mul_ip(&mut bzz, &t0);
+        t1.im = -q.z.im;
+        t1.square_ip();
+        t0 *= t1;
+        bxx *= t0;
+        bxz *= t0;
+        bzz *= t0;
 
-        fp2_sqr(&mut t0, &bxz);
-        fp2_mul(&mut t1, &bxx, &bzz);
-        fp2_sub_ip(&mut t0, &t1);
-        fp2_sqrt(&mut t0);
-        fp2_add(&mut pq.x, &bxz, &t0);
+        t0 = bxz.square();
+        t1 = bxx * bzz;
+        t0 -= t1;
+        t0 = t0.sqrt();
+        pq.x = bxz + t0;
         pq.z = bzz;
     }
 
     fn make_e0() -> EcCurve {
         let mut curve = EcCurve::e0();
-        ec_curve_normalize_a24(&mut curve);
+        curve.normalize_a24();
         curve
     }
 
@@ -883,10 +819,9 @@ mod tests {
     #[test]
     fn j_invariant_e0_is_1728() {
         let curve = make_e0();
-        let mut j = Fp2::default();
-        ec_j_inv(&mut j, &curve);
+        let j = curve.j_inv();
         let expected = Fp2::from_small(1728);
-        assert_ne!(fp2_is_equal(&j, &expected), 0, "j(E0) != 1728");
+        assert_ne!(j.is_equal_ct(&expected), 0, "j(E0) != 1728");
     }
 
     #[test]
@@ -910,7 +845,7 @@ mod tests {
             ec_dbl(&mut q, &sq, &curve);
             ec_dbl(&mut pq, &spq, &curve);
             xadd(&mut r2, &p, &q, &pq);
-            assert_ne!(ec_is_equal(&r1, &r2), 0, "2(P+Q) != 2P+2Q");
+            assert_ne!(r1.is_equal_ct(&r2), 0, "2(P+Q) != 2P+2Q");
 
             // (P+Q)+(P-Q) = 2P
             xadd(&mut r1, &p, &q, &pq);
@@ -920,7 +855,7 @@ mod tests {
             xadd(&mut r1, &sr1, &pq, &q);
             let sp = p;
             ec_dbl(&mut p, &sp, &curve);
-            assert_ne!(ec_is_equal(&r1, &p), 0, "(P+Q)+(P-Q) != 2P");
+            assert_ne!(r1.is_equal_ct(&p), 0, "(P+Q)+(P-Q) != 2P");
         }
     }
 
@@ -941,10 +876,10 @@ mod tests {
             xdbladd(&mut r1, &mut r2, &p, &q, &pq, &a24, false);
             let mut sum = EcPoint::default();
             xadd(&mut sum, &p, &q, &pq);
-            assert_ne!(ec_is_equal(&r2, &sum), 0, "xDBLADD add wrong");
+            assert_ne!(r2.is_equal_ct(&sum), 0, "xDBLADD add wrong");
             let mut dbl = EcPoint::default();
             ec_dbl(&mut dbl, &p, &curve);
-            assert_ne!(ec_is_equal(&r1, &dbl), 0, "xDBLADD dbl wrong");
+            assert_ne!(r1.is_equal_ct(&dbl), 0, "xDBLADD dbl wrong");
         }
     }
 
@@ -954,12 +889,12 @@ mod tests {
         let mut a24 = EcPoint::default();
         ac_to_a24(&mut a24, &curve);
         let mut a24n = a24;
-        ec_normalize_point(&mut a24n);
+        a24n.normalize();
         let mut prng = Prng(0x1234);
         let z = prng.fp2();
         let mut a24r = EcPoint::default();
-        fp2_mul(&mut a24r.x, &a24.x, &z);
-        fp2_mul(&mut a24r.z, &a24.z, &z);
+        a24r.x = a24.x * z;
+        a24r.z = a24.z * z;
 
         for _ in 0..ITERS {
             let p = ec_random(&mut prng, &curve);
@@ -975,9 +910,9 @@ mod tests {
             xdbl_a24(&mut r2, &p, &a24r, false);
             xdbl_a24(&mut r3, &p, &a24n, true);
             xdbl_e0(&mut r4, &p);
-            assert_ne!(ec_is_equal(&r1, &r2), 0);
-            assert_ne!(ec_is_equal(&r1, &r3), 0);
-            assert_ne!(ec_is_equal(&r1, &r4), 0);
+            assert_ne!(r1.is_equal_ct(&r2), 0);
+            assert_ne!(r1.is_equal_ct(&r3), 0);
+            assert_ne!(r1.is_equal_ct(&r4), 0);
         }
     }
 
@@ -986,33 +921,33 @@ mod tests {
         let curve = make_e0();
         let mut prng = Prng(0xCAFE);
         let zero = EcPoint::IDENTITY;
-        assert_ne!(ec_is_zero(&zero), 0);
+        assert_ne!(zero.is_zero_ct(), 0);
 
         for _ in 0..ITERS {
             let p = ec_random(&mut prng, &curve);
             let mut r = EcPoint::default();
             xadd(&mut r, &zero, &zero, &zero);
-            assert_ne!(ec_is_zero(&r), 0, "0+0 != 0");
+            assert_ne!(r.is_zero_ct(), 0, "0+0 != 0");
 
             ec_dbl(&mut r, &p, &curve);
             let r2 = r;
             xadd(&mut r, &p, &p, &r2);
-            assert_ne!(ec_is_zero(&r), 0, "P-P != 0");
+            assert_ne!(r.is_zero_ct(), 0, "P-P != 0");
 
             ec_dbl(&mut r, &zero, &curve);
-            assert_ne!(ec_is_zero(&r), 0, "2·0 != 0");
+            assert_ne!(r.is_zero_ct(), 0, "2·0 != 0");
 
             xadd(&mut r, &p, &zero, &p);
-            assert_ne!(ec_is_equal(&r, &p), 0, "P+0 != P");
+            assert_ne!(r.is_equal_ct(&p), 0, "P+0 != P");
             xadd(&mut r, &zero, &p, &p);
-            assert_ne!(ec_is_equal(&r, &p), 0, "0+P != P");
+            assert_ne!(r.is_equal_ct(&p), 0, "0+P != P");
 
             let mut q = EcPoint::default();
             xdbladd(&mut r, &mut q, &p, &zero, &p, &curve.a24, false);
-            assert_ne!(ec_is_equal(&q, &p), 0, "P+0 != P (xdbladd)");
+            assert_ne!(q.is_equal_ct(&p), 0, "P+0 != P (xdbladd)");
             xdbladd(&mut r, &mut q, &zero, &p, &p, &curve.a24, false);
-            assert_ne!(ec_is_equal(&q, &p), 0, "0+P != P (xdbladd)");
-            assert_ne!(ec_is_zero(&r), 0, "2·0 != 0 (xdbladd)");
+            assert_ne!(q.is_equal_ct(&p), 0, "0+P != P (xdbladd)");
+            assert_ne!(r.is_zero_ct(), 0, "2·0 != 0 (xdbladd)");
         }
     }
 
@@ -1024,18 +959,20 @@ mod tests {
 
         for _ in 0..ITERS {
             let mut p = ec_random(&mut prng, &curve);
-            ec_normalize_point(&mut p);
+            p.normalize();
             let mut q = ec_random(&mut prng, &curve);
-            ec_normalize_point(&mut q);
+            q.normalize();
 
-            let mut s = JacPoint::default();
-            let mut t = JacPoint::default();
-            s.x = p.x;
-            ec_recover_y(&mut s.y, &s.x, &curve);
-            s.z = Fp2::ONE;
-            t.x = q.x;
-            ec_recover_y(&mut t.y, &t.x, &curve);
-            t.z = Fp2::ONE;
+            let mut s = JacPoint {
+                x: p.x,
+                y: ec_recover_y(&p.x, &curve).unwrap(),
+                z: Fp2::ONE,
+            };
+            let t = JacPoint {
+                x: q.x,
+                y: ec_recover_y(&q.x, &curve).unwrap(),
+                z: Fp2::ONE,
+            };
 
             let mut r = JacPoint::default();
             let mut u = JacPoint::default();
@@ -1061,18 +998,18 @@ mod tests {
             assert!(jac_is_equal(&r, &u), "P+P=2P jac");
 
             jac_add(&mut r, &t, &s, &curve);
-            let st = t;
-            jac_add(&mut t, &s, &st, &curve);
-            assert!(jac_is_equal(&r, &t), "comm jac");
+            let mut t2 = JacPoint::default();
+            jac_add(&mut t2, &s, &t, &curve);
+            assert!(jac_is_equal(&r, &t2), "comm jac");
 
             // Associativity
             let r2 = r;
             jac_dbl(&mut r, &r2, &curve);
-            jac_add(&mut u, &s, &t, &curve);
+            jac_add(&mut u, &s, &t2, &curve);
             let su = u;
             jac_add(&mut u, &su, &r, &curve);
             let r2 = r;
-            jac_add(&mut r, &r2, &t, &curve);
+            jac_add(&mut r, &r2, &t2, &curve);
             let r2 = r;
             jac_add(&mut r, &r2, &s, &curve);
             assert!(jac_is_equal(&r, &u), "assoc jac");
@@ -1119,7 +1056,7 @@ mod tests {
             ec_dbl(&mut r2, &p, &curve);
             let s = r2;
             ec_dbl(&mut r2, &s, &curve);
-            assert_ne!(ec_is_equal(&r1, &r2), 0, "[4]P via ladder != dbl·dbl");
+            assert_ne!(r1.is_equal_ct(&r2), 0, "[4]P via ladder != dbl·dbl");
         }
     }
 
@@ -1141,10 +1078,10 @@ mod tests {
                 curve.is_a24_computed_and_normalized,
             );
         }
-        assert_eq!(ec_is_zero(&p), 0, "P not full order");
-        assert_eq!(ec_is_zero(&q), 0, "Q not full order");
-        assert_eq!(ec_is_equal(&p, &q), 0, "P,Q dependent");
-        assert_ne!(fp2_is_zero(&q.x), 0, "Q not above (0,0)");
+        assert_eq!(p.is_zero_ct(), 0, "P not full order");
+        assert_eq!(q.is_zero_ct(), 0, "Q not full order");
+        assert_eq!(p.is_equal_ct(&q), 0, "P,Q dependent");
+        assert_ne!(q.x.is_zero_ct(), 0, "Q not above (0,0)");
         let (sp, sq) = (p, q);
         xdbl_a24(
             &mut p,
@@ -1158,8 +1095,8 @@ mod tests {
             &curve.a24,
             curve.is_a24_computed_and_normalized,
         );
-        assert_ne!(ec_is_zero(&p), 0, "P order != 2^n");
-        assert_ne!(ec_is_zero(&q), 0, "Q order != 2^n");
+        assert_ne!(p.is_zero_ct(), 0, "P order != 2^n");
+        assert_ne!(q.is_zero_ct(), 0, "Q order != 2^n");
     }
 
     #[test]
@@ -1175,7 +1112,7 @@ mod tests {
         let mut curve = EcCurve::e0();
         curve.a = Fp2::from_small(6);
         curve.c = Fp2::ONE;
-        ec_curve_normalize_a24(&mut curve);
+        curve.normalize_a24();
 
         let mut basis = EcBasis::default();
         let hint = ec_curve_to_basis_2f_to_hint(&mut basis, &mut curve, TORSION_EVEN_POWER as i32);
@@ -1183,9 +1120,9 @@ mod tests {
 
         let basis2 =
             ec_curve_to_basis_2f_from_hint(&mut curve, TORSION_EVEN_POWER as i32, hint).unwrap();
-        assert_ne!(ec_is_equal(&basis.p, &basis2.p), 0);
-        assert_ne!(ec_is_equal(&basis.q, &basis2.q), 0);
-        assert_ne!(ec_is_equal(&basis.pmq, &basis2.pmq), 0);
+        assert_ne!(basis.p.is_equal_ct(&basis2.p), 0);
+        assert_ne!(basis.q.is_equal_ct(&basis2.q), 0);
+        assert_ne!(basis.pmq.is_equal_ct(&basis2.pmq), 0);
 
         // partial order
         let mut basis3 = EcBasis::default();
@@ -1197,7 +1134,7 @@ mod tests {
     fn lift_basis_roundtrip() {
         let mut curve = EcCurve::e0();
         curve.a = Fp2::from_small(6);
-        ec_curve_normalize_a24(&mut curve);
+        curve.normalize_a24();
 
         let mut basis = EcBasis::default();
         ec_curve_to_basis_2f_to_hint(&mut basis, &mut curve, TORSION_EVEN_POWER as i32);
@@ -1209,6 +1146,6 @@ mod tests {
         // jac → xz should recover x(P), x(Q)
         let mut xp = EcPoint::default();
         jac_to_xz(&mut xp, &jp);
-        assert_ne!(ec_is_equal(&xp, &basis.p), 0);
+        assert_ne!(xp.is_equal_ct(&basis.p), 0);
     }
 }

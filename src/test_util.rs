@@ -1,6 +1,6 @@
 //! Test-only helpers shared across modules.
 
-use crate::gf::{fp_decode_reduce, Fp, Fp2, FP_ENCODED_BYTES};
+use crate::gf::{Fp, Fp2, FP_ENCODED_BYTES};
 
 /// xorshift64* PRNG for property tests (not cryptographic).
 pub struct Prng(pub u64);
@@ -21,9 +21,7 @@ impl Prng {
     pub fn fp(&mut self) -> Fp {
         let mut buf = [0u8; FP_ENCODED_BYTES];
         self.fill(&mut buf);
-        let mut a = Fp::default();
-        fp_decode_reduce(&mut a, &buf);
-        a
+        Fp::decode_reduce(&buf)
     }
     pub fn fp2(&mut self) -> Fp2 {
         Fp2 {

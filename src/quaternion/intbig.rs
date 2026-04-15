@@ -57,7 +57,7 @@ pub fn ibz_rand_interval(rand: &mut Ibz, a: &Ibz, b: &Ibz) -> i32 {
     let mut bmina = ibz_new();
     ibz_sub(&mut bmina, b, a);
     if ibz_is_zero(&bmina) {
-        ibz_copy(rand, a);
+        (rand).clone_from(a);
         return 1;
     }
     debug_assert!(ibz_is_positive(&bmina));
@@ -226,8 +226,7 @@ pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> bool {
                 ibz_mul(&mut tmp, &x, &z);
                 ibz_mod(&mut x, &tmp, p);
                 ibz_mul(&mut tmp, &y, &z);
-                let t = tmp.clone();
-                ibz_mul(&mut tmp, &t, &z);
+                tmp *= &z;
                 ibz_mod(&mut y, &tmp, p);
             }
             // z = z² mod p
@@ -237,7 +236,7 @@ pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> bool {
             let ee = exp.clone();
             ibz_div_2exp(&mut exp, &ee, 1);
         }
-        ibz_copy(sqrt, &x);
+        (sqrt).clone_from(&x);
     }
     true
 }
@@ -526,8 +525,7 @@ mod tests {
             let mut t = ibz_new();
             ibz_mul(&mut s, &u, &a);
             ibz_mul(&mut t, &v, &b);
-            let sc = s.clone();
-            ibz_add(&mut s, &sc, &t);
+            s += &t;
             assert_eq!(ibz_cmp(&s, &g), 0, "identity u·a+v·b=g");
             // GMP-convention values.
             assert_eq!(

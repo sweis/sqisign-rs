@@ -6,65 +6,54 @@ use crate::precomp::{
     BASIS_E0_PX, BASIS_E0_QX, P_COFACTOR_FOR_2F, P_COFACTOR_FOR_2F_BITLENGTH, TORSION_EVEN_POWER,
 };
 
-/// Recover y from x on y² = x³ + Ax² + x. Returns 0xFFFFFFFF iff x was on-curve.
-pub fn ec_recover_y(y: &mut Fp2, px: &Fp2, curve: &EcCurve) -> u32 {
-    let mut t0 = Fp2::default();
-    fp2_sqr(&mut t0, px);
-    fp2_mul(y, &t0, &curve.a);
-    fp2_add_ip(y, px);
-    fp2_mul_ip(&mut t0, px);
-    fp2_add_ip(y, &t0);
-    fp2_sqrt_verify(y)
+/// Recover y from x on y² = x³ + Ax² + x. Returns y iff x is on-curve.
+pub fn ec_recover_y(px: &Fp2, curve: &EcCurve) -> Option<Fp2> {
+    let t0 = px.square();
+    (t0 * curve.a + px + t0 * px).sqrt_verify()
 }
 
 /// Deterministic x(P-Q) from x(P), x(Q) per ePrint 2017/518 Prop. 3.
 fn difference_point(pq: &mut EcPoint, p: &EcPoint, q: &EcPoint, curve: &EcCurve) {
-    let mut bxx = Fp2::default();
-    let mut bxz = Fp2::default();
-    let mut bzz = Fp2::default();
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-
-    fp2_mul(&mut t0, &p.x, &q.x);
-    fp2_mul(&mut t1, &p.z, &q.z);
-    fp2_sub(&mut bxx, &t0, &t1);
-    fp2_sqr_ip(&mut bxx);
-    fp2_mul_ip(&mut bxx, &curve.c);
-    fp2_add(&mut bxz, &t0, &t1);
-    fp2_mul(&mut t0, &p.x, &q.z);
-    fp2_mul(&mut t1, &p.z, &q.x);
-    fp2_add(&mut bzz, &t0, &t1);
-    fp2_mul_ip(&mut bxz, &bzz);
-    fp2_sub(&mut bzz, &t0, &t1);
-    fp2_sqr_ip(&mut bzz);
-    fp2_mul_ip(&mut bzz, &curve.c);
-    fp2_mul_ip(&mut bxz, &curve.c);
-    fp2_mul_ip(&mut t0, &t1);
-    fp2_mul_ip(&mut t0, &curve.a);
-    fp2_dbl_ip(&mut t0);
-    fp2_add_ip(&mut bxz, &t0);
+    let mut t0 = p.x * q.x;
+    let mut t1 = p.z * q.z;
+    let mut bxx = t0 - t1;
+    bxx.square_ip();
+    bxx *= curve.c;
+    let mut bxz = t0 + t1;
+    t0 = p.x * q.z;
+    t1 = p.z * q.x;
+    let mut bzz = t0 + t1;
+    bxz *= bzz;
+    bzz = t0 - t1;
+    bzz.square_ip();
+    bzz *= curve.c;
+    bxz *= curve.c;
+    t0 *= t1;
+    t0 *= curve.a;
+    t0.dbl_ip();
+    bxz += t0;
 
     t0.re = curve.c.re;
-    fp_neg(&mut t0.im, &curve.c.im);
-    fp2_sqr_ip(&mut t0);
-    fp2_mul_ip(&mut t0, &curve.c);
+    t0.im = -curve.c.im;
+    t0.square_ip();
+    t0 *= curve.c;
     t1.re = p.z.re;
-    fp_neg(&mut t1.im, &p.z.im);
-    fp2_sqr_ip(&mut t1);
-    fp2_mul_ip(&mut t0, &t1);
+    t1.im = -p.z.im;
+    t1.square_ip();
+    t0 *= t1;
     t1.re = q.z.re;
-    fp_neg(&mut t1.im, &q.z.im);
-    fp2_sqr_ip(&mut t1);
-    fp2_mul_ip(&mut t0, &t1);
-    fp2_mul_ip(&mut bxx, &t0);
-    fp2_mul_ip(&mut bxz, &t0);
-    fp2_mul_ip(&mut bzz, &t0);
+    t1.im = -q.z.im;
+    t1.square_ip();
+    t0 *= t1;
+    bxx *= t0;
+    bxz *= t0;
+    bzz *= t0;
 
-    fp2_sqr(&mut t0, &bxz);
-    fp2_mul(&mut t1, &bxx, &bzz);
-    fp2_sub_ip(&mut t0, &t1);
-    fp2_sqrt(&mut t0);
-    fp2_add(&mut pq.x, &bxz, &t0);
+    t0 = bxz.square();
+    t1 = bxx * bzz;
+    t0 -= t1;
+    t0 = t0.sqrt();
+    pq.x = bxz + t0;
     pq.z = bzz;
 }
 
@@ -75,81 +64,63 @@ pub fn lift_basis_normalized(
     b: &mut EcBasis,
     e: &EcCurve,
 ) -> bool {
-    debug_assert!(fp2_is_one(&b.p.z) != 0);
-    debug_assert!(fp2_is_one(&e.c) != 0);
+    debug_assert!(b.p.z.is_one());
+    debug_assert!(e.c.is_one());
 
     p.x = b.p.x;
     q.x = b.q.x;
     q.z = b.q.z;
     p.z = Fp2::ONE;
-    let px = p.x;
-    let ret = ec_recover_y(&mut p.y, &px, e);
+    let Some(py) = ec_recover_y(&p.x, e) else {
+        return false;
+    };
+    p.y = py;
 
-    let mut v1 = Fp2::default();
-    let mut v2 = Fp2::default();
-    let mut v3 = Fp2::default();
-    let mut v4 = Fp2::default();
-    fp2_mul(&mut v1, &p.x, &q.z);
-    let qx = q.x;
-    fp2_add(&mut v2, &qx, &v1);
-    fp2_sub(&mut v3, &qx, &v1);
-    fp2_sqr_ip(&mut v3);
-    fp2_mul_ip(&mut v3, &b.pmq.x);
-    fp2_add(&mut v1, &e.a, &e.a);
-    fp2_mul_ip(&mut v1, &q.z);
-    fp2_add_ip(&mut v2, &v1);
-    fp2_mul(&mut v4, &p.x, &q.x);
-    fp2_add_ip(&mut v4, &q.z);
-    fp2_mul_ip(&mut v2, &v4);
-    fp2_mul_ip(&mut v1, &q.z);
-    fp2_sub_ip(&mut v2, &v1);
-    fp2_mul_ip(&mut v2, &b.pmq.z);
-    fp2_sub(&mut q.y, &v3, &v2);
-    fp2_add(&mut v1, &p.y, &p.y);
-    fp2_mul_ip(&mut v1, &q.z);
-    fp2_mul_ip(&mut v1, &b.pmq.z);
-    let qx = q.x;
-    fp2_mul(&mut q.x, &qx, &v1);
-    let qz = q.z;
-    fp2_mul(&mut q.z, &qz, &v1);
+    let mut v1 = p.x * q.z;
+    let mut v2 = q.x + v1;
+    let v3 = (q.x - v1).square() * b.pmq.x;
+    v1 = e.a.dbl() * q.z;
+    v2 += v1;
+    let v4 = p.x * q.x + q.z;
+    v2 *= v4;
+    v1 *= q.z;
+    v2 -= v1;
+    v2 *= b.pmq.z;
+    q.y = v3 - v2;
+    v1 = p.y.dbl() * q.z * b.pmq.z;
+    q.x *= v1;
+    q.z *= v1;
 
-    let qz = q.z;
-    fp2_sqr(&mut v1, &qz);
-    let qy = q.y;
-    fp2_mul(&mut q.y, &qy, &v1);
-    let qx = q.x;
-    fp2_mul(&mut q.x, &qx, &qz);
-    ret != 0
+    v1 = q.z.square();
+    q.y *= v1;
+    q.x *= q.z;
+    true
 }
 
 /// Lift an x-only basis to a Jacobian pair, normalizing first.
 /// Returns `false` if any input projective coordinate is zero (point at
 /// infinity), since the batched inverse would otherwise silently zero `e.a`.
 pub fn lift_basis(p: &mut JacPoint, q: &mut JacPoint, b: &mut EcBasis, e: &mut EcCurve) -> bool {
-    if (fp2_is_zero(&b.p.z) | fp2_is_zero(&e.c)) != 0 {
+    if (b.p.z.is_zero_ct() | e.c.is_zero_ct()) != 0 {
         return false;
     }
     let mut inverses = [b.p.z, e.c];
     fp2_batched_inv(&mut inverses);
     b.p.z = Fp2::ONE;
     e.c = Fp2::ONE;
-    let bx = b.p.x;
-    fp2_mul(&mut b.p.x, &bx, &inverses[0]);
-    let ea = e.a;
-    fp2_mul(&mut e.a, &ea, &inverses[1]);
+    b.p.x *= inverses[0];
+    e.a *= inverses[1];
     lift_basis_normalized(p, q, b, e)
 }
 
 /// On-curve test for an affine x (assumes C=1).
 fn is_on_curve(x: &Fp2, curve: &EcCurve) -> bool {
-    debug_assert!(fp2_is_one(&curve.c) != 0);
-    let mut t0 = Fp2::default();
-    fp2_add(&mut t0, x, &curve.a);
-    fp2_mul_ip(&mut t0, x);
-    let s = t0;
-    fp2_add_one(&mut t0, &s);
-    fp2_mul_ip(&mut t0, x);
-    fp2_is_square(&t0) != 0
+    debug_assert!(curve.c.is_one());
+    let mut t0 = x + curve.a;
+    t0 *= x;
+    t0 = t0.add_one();
+    t0 *= x;
+    t0.is_square()
 }
 
 /// Clear odd cofactor and excess 2-power so that P has order exactly 2ᶠ.
@@ -182,7 +153,7 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
     let mut n: u16 = start as u16;
     let mut z;
     let mut t0;
-    let mut t1 = Fp2::default();
+    let mut t1;
 
     let cap = n.saturating_add(BASIS_SEARCH_CAP);
     loop {
@@ -191,7 +162,7 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
             if n >= cap {
                 return None;
             }
-            qr_b = fp_is_square(&Fp::from_small((n as u64) * (n as u64) + 1)) != 0;
+            qr_b = (Fp::from_small((n as u64) * (n as u64) + 1).is_square_ct()) != 0;
             n += 1;
         }
 
@@ -202,19 +173,19 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
             im: b,
         };
 
-        fp2_sqr(&mut t1, &curve.a);
-        fp2_mul_ip(&mut t0, &t1);
-        fp2_sqr(&mut t1, &z);
-        fp2_sub_ip(&mut t0, &t1);
-        if fp2_is_square(&t0) == 0 {
+        t1 = curve.a.square();
+        t0 *= t1;
+        t1 = z.square();
+        t0 -= t1;
+        if t0.is_square_ct() == 0 {
             break;
         }
     }
 
     *x = z;
-    fp2_inv(x);
-    fp2_mul_ip(x, &curve.a);
-    fp2_neg_ip(x);
+    *x = x.inv();
+    *x *= curve.a;
+    x.neg_ip();
 
     Some(if n <= 128 { (n - 1) as u8 } else { 0 })
 }
@@ -231,14 +202,14 @@ fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
     if n == 1 {
         *x = curve.a;
     } else {
-        fp2_mul_small(x, &curve.a, n as u32);
+        *x = curve.a.mul_small(n as u32);
     }
     let cap = n.saturating_add(BASIS_SEARCH_CAP);
     while !is_on_curve(x, curve) {
         if n >= cap {
             return None;
         }
-        fp2_add_ip(x, &curve.a);
+        *x += curve.a;
         n += 1;
     }
     Some(if n < 128 { n as u8 } else { 0 })
@@ -246,7 +217,7 @@ fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
 
 /// Precomputed E₀ basis specialised for A=0.
 fn ec_basis_e0_2f(pq2: &mut EcBasis, curve: &EcCurve, f: i32) {
-    debug_assert!(fp2_is_zero(&curve.a) != 0);
+    debug_assert!(curve.a.is_zero());
     let mut p = EcPoint::default();
     let mut q = EcPoint::default();
     p.x = BASIS_E0_PX;
@@ -267,14 +238,14 @@ fn ec_basis_e0_2f(pq2: &mut EcBasis, curve: &EcCurve, f: i32) {
 
 /// Deterministically compute an E[2ᶠ] basis with Q above (0,0); returns a hint byte.
 pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i32) -> u8 {
-    ec_normalize_curve_and_a24(curve);
+    curve.normalize_and_a24();
 
-    if fp2_is_zero(&curve.a) != 0 {
+    if curve.a.is_zero() {
         ec_basis_e0_2f(pq2, curve, f);
         return 0;
     }
 
-    let hint_a = fp2_is_square(&curve.a) != 0;
+    let hint_a = curve.a.is_square();
 
     let mut p = EcPoint::default();
     let mut q = EcPoint::default();
@@ -289,9 +260,8 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
     .expect("basis search failed on honest curve");
 
     p.z = Fp2::ONE;
-    fp2_add(&mut q.x, &curve.a, &p.x);
-    let qx = q.x;
-    fp2_neg(&mut q.x, &qx);
+    q.x = curve.a + p.x;
+    q.x.neg_ip();
     q.z = Fp2::ONE;
 
     clear_cofactor_for_maximal_even_order(&mut p, curve, f);
@@ -308,10 +278,10 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
 /// Recompute the same E[2ᶠ] basis from a previously-returned hint.
 /// Returns `None` if hint validation fails or the search cap is reached.
 pub fn ec_curve_to_basis_2f_from_hint(curve: &mut EcCurve, f: i32, hint: u8) -> Option<EcBasis> {
-    ec_normalize_curve_and_a24(curve);
+    curve.normalize_and_a24();
 
     let mut pq2 = EcBasis::default();
-    if fp2_is_zero(&curve.a) != 0 {
+    if curve.a.is_zero() {
         ec_basis_e0_2f(&mut pq2, curve, f);
         return Some(pq2);
     }
@@ -329,24 +299,23 @@ pub fn ec_curve_to_basis_2f_from_hint(curve: &mut EcCurve, f: i32, hint: u8) -> 
             find_na_x_coord(&mut p.x, curve, 128)?;
         }
     } else if !hint_a {
-        fp2_mul_small(&mut p.x, &curve.a, hint_p as u32);
+        p.x = curve.a.mul_small(hint_p as u32);
     } else {
         p.x.re = Fp::ONE;
         p.x.im = Fp::from_small(hint_p as u64);
-        fp2_inv(&mut p.x);
-        fp2_mul_ip(&mut p.x, &curve.a);
-        fp2_neg_ip(&mut p.x);
+        p.x = (p.x).inv();
+        p.x *= curve.a;
+        p.x.neg_ip();
     }
     p.z = Fp2::ONE;
 
     #[cfg(debug_assertions)]
-    if !is_on_curve(&p.x, curve) || fp2_is_square(&p.x) != 0 {
+    if !is_on_curve(&p.x, curve) || p.x.is_square() {
         return None;
     }
 
-    fp2_add(&mut q.x, &curve.a, &p.x);
-    let qx = q.x;
-    fp2_neg(&mut q.x, &qx);
+    q.x = curve.a + p.x;
+    q.x.neg_ip();
     q.z = Fp2::ONE;
 
     clear_cofactor_for_maximal_even_order(&mut p, curve, f);

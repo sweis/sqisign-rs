@@ -75,10 +75,6 @@ pub fn ibz_set(i: &mut Ibz, x: i32) {
     *i = Int::from_i64(i64::from(x));
 }
 #[inline]
-pub fn ibz_copy(target: &mut Ibz, value: &Ibz) {
-    *target = *value;
-}
-#[inline]
 pub fn ibz_swap(a: &mut Ibz, b: &mut Ibz) {
     core::mem::swap(a, b);
 }

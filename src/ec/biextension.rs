@@ -7,10 +7,7 @@
 //! formula. This cancels in the Weil pairing and in the reduced Tate pairing
 //! over Fp² (final exponentiation), but would be wrong for Tate over Fp.
 
-use crate::gf::{
-    fp2_add, fp2_batched_inv, fp2_frob, fp2_inv, fp2_is_equal, fp2_is_one, fp2_is_zero, fp2_mul,
-    fp2_mul_ip, fp2_select, fp2_sqr, fp2_sqr_ip, fp2_sub, Fp2,
-};
+use crate::gf::{fp2_batched_inv, Fp2};
 use crate::mp::{mp_add, multiple_mp_shiftl, Digit};
 use crate::precomp::{NWORDS_ORDER, P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
@@ -18,8 +15,8 @@ use super::jac::jac_add;
 #[cfg(any(debug_assertions, test))]
 use super::{ec_biscalar_mul, ec_dbl_iter};
 use super::{
-    ec_curve_normalize_a24, ec_is_equal, ec_is_zero, lift_basis_normalized, test_basis_order_twof,
-    test_point_order_twof, EcBasis, EcCurve, EcPoint, JacPoint,
+    lift_basis_normalized, test_basis_order_twof, test_point_order_twof, EcBasis, EcCurve, EcPoint,
+    JacPoint,
 };
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -62,25 +59,17 @@ pub struct PairingDlogParams {
 /// difference. Cost: 3M + 2S + 3a + 3s.
 #[inline]
 fn cubical_add(r: &mut EcPoint, p: &EcPoint, q: &EcPoint, ix_pq: &Fp2) {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_add(&mut t2, &q.x, &q.z);
-    fp2_sub(&mut t3, &q.x, &q.z);
-    let s0 = t0;
-    fp2_mul(&mut t0, &s0, &t3);
-    let s1 = t1;
-    fp2_mul(&mut t1, &s1, &t2);
-    fp2_add(&mut t2, &t0, &t1);
-    fp2_sub(&mut t3, &t0, &t1);
-    fp2_sqr(&mut r.z, &t3);
-    let s2 = t2;
-    fp2_sqr(&mut t2, &s2);
-    fp2_mul(&mut r.x, ix_pq, &t2);
+    let mut t0 = p.x + p.z;
+    let mut t1 = p.x - p.z;
+    let mut t2 = q.x + q.z;
+    let mut t3 = q.x - q.z;
+    t0 *= t3;
+    t1 *= t2;
+    t2 = t0 + t1;
+    t3 = t0 - t1;
+    r.z = t3.square();
+    t2.square_ip();
+    r.x = ix_pq * t2;
 }
 
 /// Cubical combined double-and-add: given P, Q, ix(P-Q), compute P+Q and [2]Q.
@@ -94,37 +83,27 @@ fn cubical_dbladd(
     ix_pq: &Fp2,
     a24: &EcPoint,
 ) {
-    debug_assert!(fp2_is_one(&a24.z) != 0);
+    debug_assert!(a24.z.is_one());
 
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-
-    fp2_add(&mut t0, &p.x, &p.z);
-    fp2_sub(&mut t1, &p.x, &p.z);
-    fp2_add(&mut ppq.x, &q.x, &q.z);
-    fp2_sub(&mut t3, &q.x, &q.z);
-    fp2_sqr(&mut t2, &ppq.x);
-    fp2_sqr(&mut qq.z, &t3);
-    let s0 = t0;
-    fp2_mul(&mut t0, &s0, &t3);
-    let s1 = t1;
-    fp2_mul(&mut t1, &s1, &ppq.x);
-    fp2_add(&mut ppq.x, &t0, &t1);
-    fp2_sub(&mut t3, &t0, &t1);
-    fp2_sqr(&mut ppq.z, &t3);
-    let sx = ppq.x;
-    fp2_sqr(&mut ppq.x, &sx);
-    let sx = ppq.x;
-    fp2_mul(&mut ppq.x, ix_pq, &sx);
-    fp2_sub(&mut t3, &t2, &qq.z);
-    fp2_mul(&mut qq.x, &t2, &qq.z);
-    fp2_mul(&mut t0, &t3, &a24.x);
+    let mut t0 = p.x + p.z;
+    let mut t1 = p.x - p.z;
+    ppq.x = q.x + q.z;
+    let mut t3 = q.x - q.z;
+    let t2 = ppq.x.square();
+    qq.z = t3.square();
+    t0 *= t3;
+    t1 *= ppq.x;
+    ppq.x = t0 + t1;
+    t3 = t0 - t1;
+    ppq.z = t3.square();
+    ppq.x.square_ip();
+    ppq.x = ix_pq * ppq.x;
+    t3 = t2 - qq.z;
+    qq.x = t2 * qq.z;
+    t0 = t3 * a24.x;
     let sz = qq.z;
-    let s0 = t0;
-    fp2_add(&mut t0, &s0, &sz);
-    fp2_mul(&mut qq.z, &t0, &t3);
+    t0 += sz;
+    qq.z = t0 * t3;
 }
 
 #[inline]
@@ -161,37 +140,23 @@ fn biext_ladder_2e(
 /// Monodromy ratio (X:Z) using `(1,0)` as cubical lift of 0_E.
 #[inline]
 fn point_ratio(r: &mut EcPoint, pnq: &EcPoint, nq: &EcPoint, p: &EcPoint) {
-    debug_assert!(ec_is_zero(nq) != 0);
-    debug_assert!(ec_is_equal(pnq, p) != 0);
-    fp2_mul(&mut r.x, &nq.x, &p.x);
+    debug_assert!((nq).is_zero_ct() != 0);
+    debug_assert!((pnq).is_equal_ct(p) != 0);
+    r.x = nq.x * p.x;
     r.z = pnq.x;
 }
 
 /// Cubical translation of `p` by a 2-torsion point `t`, in constant time.
 fn translate(p: &mut EcPoint, t: &EcPoint) {
-    let mut px_new = Fp2::default();
-    let mut pz_new = Fp2::default();
-    {
-        let mut t0 = Fp2::default();
-        let mut t1 = Fp2::default();
-        fp2_mul(&mut t0, &t.x, &p.x);
-        fp2_mul(&mut t1, &t.z, &p.z);
-        fp2_sub(&mut px_new, &t0, &t1);
-        fp2_mul(&mut t0, &t.z, &p.x);
-        fp2_mul(&mut t1, &t.x, &p.z);
-        fp2_sub(&mut pz_new, &t0, &t1);
-    }
-    let ta_is_zero = fp2_is_zero(&t.x);
-    let snx = px_new;
-    fp2_select(&mut px_new, &snx, &p.z, ta_is_zero);
-    let snz = pz_new;
-    fp2_select(&mut pz_new, &snz, &p.x, ta_is_zero);
+    let mut px_new = t.x * p.x - t.z * p.z;
+    let mut pz_new = t.z * p.x - t.x * p.z;
+    let ta_is_zero = t.x.is_zero_ct();
+    px_new = Fp2::select(&px_new, &p.z, ta_is_zero);
+    pz_new = Fp2::select(&pz_new, &p.x, ta_is_zero);
 
-    let tb_is_zero = fp2_is_zero(&t.z);
-    let snx = px_new;
-    fp2_select(&mut px_new, &snx, &p.x, tb_is_zero);
-    let snz = pz_new;
-    fp2_select(&mut pz_new, &snz, &p.z, tb_is_zero);
+    let tb_is_zero = t.z.is_zero_ct();
+    px_new = Fp2::select(&px_new, &p.x, tb_is_zero);
+    pz_new = Fp2::select(&pz_new, &p.z, tb_is_zero);
 
     p.x = px_new;
     p.z = pz_new;
@@ -223,10 +188,10 @@ fn monodromy_i(r: &mut EcPoint, pd: &PairingParams, swap_pq: bool) {
 fn cubical_normalization(pd: &mut PairingParams, p: &EcPoint, q: &EcPoint) {
     let mut t = [p.x, p.z, q.x, q.z];
     fp2_batched_inv(&mut t);
-    fp2_mul(&mut pd.ixp, &p.z, &t[0]);
-    fp2_mul(&mut pd.ixq, &q.z, &t[2]);
-    fp2_mul(&mut pd.p.x, &p.x, &t[1]);
-    fp2_mul(&mut pd.q.x, &q.x, &t[3]);
+    pd.ixp = p.z * t[0];
+    pd.ixq = q.z * t[2];
+    pd.p.x = p.x * t[1];
+    pd.q.x = q.x * t[3];
     pd.p.z = Fp2::ONE;
     pd.q.z = Fp2::ONE;
 }
@@ -237,10 +202,10 @@ fn weil_n(r: &mut Fp2, pd: &PairingParams) {
     let mut r1 = EcPoint::default();
     monodromy_i(&mut r0, pd, true);
     monodromy_i(&mut r1, pd, false);
-    fp2_mul(r, &r0.x, &r1.z);
-    fp2_inv(r);
-    fp2_mul_ip(r, &r0.z);
-    fp2_mul_ip(r, &r1.x);
+    *r = r0.x * r1.z;
+    *r = r.inv();
+    *r *= r0.z;
+    *r *= r1.x;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +221,7 @@ pub fn weil(r: &mut Fp2, e: u32, p: &EcPoint, q: &EcPoint, pq: &EcPoint, curve: 
     };
     cubical_normalization(&mut pd, p, q);
     pd.pq = *pq;
-    ec_curve_normalize_a24(curve);
+    curve.normalize_a24();
     pd.a24 = curve.a24;
     weil_n(r, &pd);
 }
@@ -269,9 +234,9 @@ pub fn clear_cofac(r: &mut Fp2, a: &Fp2) {
     let x = *a;
     *r = *a;
     while exp > 0 {
-        fp2_sqr_ip(r);
+        r.square_ip();
         if exp & 1 != 0 {
-            fp2_mul_ip(r, &x);
+            *r *= x;
         }
         exp >>= 1;
     }
@@ -294,27 +259,26 @@ pub fn reduced_tate(
     };
     cubical_normalization(&mut pd, p, q);
     pd.pq = *pq;
-    ec_curve_normalize_a24(curve);
+    curve.normalize_a24();
     pd.a24 = curve.a24;
 
     let mut rr = EcPoint::default();
     monodromy_i(&mut rr, &pd, true);
 
     // reduced Tate = -(R.z/R.x)^((p^2-1)/2^f); split ^(p-1) into Frobenius * inverse.
-    let mut frob = Fp2::default();
     let tmp = rr.x;
-    fp2_frob(&mut frob, &rr.x);
+    let mut frob = rr.x.conj();
     let s = rr.z;
-    fp2_mul(&mut rr.x, &s, &frob);
-    fp2_frob(&mut frob, &s);
-    fp2_mul(&mut rr.z, &tmp, &frob);
-    fp2_inv(&mut rr.x);
-    fp2_mul(r, &rr.x, &rr.z);
+    rr.x = s * frob;
+    frob = s.conj();
+    rr.z = tmp * frob;
+    rr.x = (rr.x).inv();
+    *r = rr.x * rr.z;
 
     let s = *r;
     clear_cofac(r, &s);
     for _ in 0..e_diff {
-        fp2_sqr_ip(r);
+        r.square_ip();
     }
 }
 
@@ -337,21 +301,20 @@ fn fp2_dlog_2e_rec(
         return true;
     }
     if len == 1 {
-        if fp2_is_one(&pows_f[stacklen - 1]) != 0 {
+        if pows_f[stacklen - 1].is_one() {
             *a = [0; NWORDS_ORDER];
             for i in 0..stacklen - 1 {
-                fp2_sqr_ip(&mut pows_g[i]);
+                pows_g[i].square_ip();
             }
             return true;
         }
-        if fp2_is_equal(&pows_f[stacklen - 1], &pows_g[stacklen - 1]) != 0 {
+        if pows_f[stacklen - 1].is_equal_ct(&pows_g[stacklen - 1]) != 0 {
             *a = [0; NWORDS_ORDER];
             a[0] = 1;
             for i in 0..stacklen - 1 {
                 let g = pows_g[i];
-                let f = pows_f[i];
-                fp2_mul(&mut pows_f[i], &f, &g);
-                fp2_sqr(&mut pows_g[i], &g);
+                pows_f[i] *= g;
+                pows_g[i] = g.square();
             }
             return true;
         }
@@ -363,10 +326,8 @@ fn fp2_dlog_2e_rec(
     pows_f[stacklen] = pows_f[stacklen - 1];
     pows_g[stacklen] = pows_g[stacklen - 1];
     for _ in 0..left {
-        let sf = pows_f[stacklen];
-        fp2_sqr(&mut pows_f[stacklen], &sf);
-        let sg = pows_g[stacklen];
-        fp2_sqr(&mut pows_g[stacklen], &sg);
+        pows_f[stacklen].square_ip();
+        pows_g[stacklen].square_ip();
     }
     let mut dlp1 = [0; NWORDS_ORDER];
     let mut dlp2 = [0; NWORDS_ORDER];
@@ -422,35 +383,29 @@ fn cubical_normalization_dlog(pd: &mut PairingDlogParams, curve: &mut EcCurve) {
     fp2_batched_inv(&mut t);
 
     let pz = pd.pq.p.z;
-    fp2_mul(&mut pd.ixp, &pz, &t[0]);
-    let px = pd.pq.p.x;
-    fp2_mul(&mut pd.pq.p.x, &px, &t[1]);
+    pd.ixp = pz * t[0];
+    pd.pq.p.x *= t[1];
     pd.pq.p.z = Fp2::ONE;
 
     let qz = pd.pq.q.z;
-    fp2_mul(&mut pd.ixq, &qz, &t[2]);
-    let qx = pd.pq.q.x;
-    fp2_mul(&mut pd.pq.q.x, &qx, &t[3]);
+    pd.ixq = qz * t[2];
+    pd.pq.q.x *= t[3];
     pd.pq.q.z = Fp2::ONE;
 
-    let pmqx = pd.pq.pmq.x;
-    fp2_mul(&mut pd.pq.pmq.x, &pmqx, &t[5]);
+    pd.pq.pmq.x *= t[5];
     pd.pq.pmq.z = Fp2::ONE;
 
     let rz = pd.rs.p.z;
-    fp2_mul(&mut pd.ixr, &rz, &t[6]);
-    let rx = pd.rs.p.x;
-    fp2_mul(&mut pd.rs.p.x, &rx, &t[7]);
+    pd.ixr = rz * t[6];
+    pd.rs.p.x *= t[7];
     pd.rs.p.z = Fp2::ONE;
 
     let sz = pd.rs.q.z;
-    fp2_mul(&mut pd.ixs, &sz, &t[8]);
-    let sx = pd.rs.q.x;
-    fp2_mul(&mut pd.rs.q.x, &sx, &t[9]);
+    pd.ixs = sz * t[8];
+    pd.rs.q.x *= t[9];
     pd.rs.q.z = Fp2::ONE;
 
-    let a = curve.a;
-    fp2_mul(&mut curve.a, &a, &t[10]);
+    curve.a *= t[10];
     curve.c = Fp2::ONE;
 }
 
@@ -541,36 +496,36 @@ fn weil_dlog(
     // e(P,Q) = w0 — swap w1/w2 here so w1[0] is already 1/w0 after batch inv.
     point_ratio(&mut t0, &npq, &np, &pd.pq.q);
     point_ratio(&mut t1, &pnq, &nq, &pd.pq.p);
-    fp2_mul(&mut w2[0], &t0.x, &t1.z);
-    fp2_mul(&mut w1[0], &t1.x, &t0.z);
+    w2[0] = t0.x * t1.z;
+    w1[0] = t1.x * t0.z;
 
     // e(P,R) = w0^r2
     point_ratio(&mut t0, &npr, &np, &pd.rs.p);
     point_ratio(&mut t1, &pnr, &nr, &pd.pq.p);
-    fp2_mul(&mut w1[1], &t0.x, &t1.z);
-    fp2_mul(&mut w2[1], &t1.x, &t0.z);
+    w1[1] = t0.x * t1.z;
+    w2[1] = t1.x * t0.z;
 
     // e(R,Q) = w0^r1
     point_ratio(&mut t0, &nrq, &nr, &pd.pq.q);
     point_ratio(&mut t1, &rnq, &nq, &pd.rs.p);
-    fp2_mul(&mut w1[2], &t0.x, &t1.z);
-    fp2_mul(&mut w2[2], &t1.x, &t0.z);
+    w1[2] = t0.x * t1.z;
+    w2[2] = t1.x * t0.z;
 
     // e(P,S) = w0^s2
     point_ratio(&mut t0, &nps, &np, &pd.rs.q);
     point_ratio(&mut t1, &pns, &ns, &pd.pq.p);
-    fp2_mul(&mut w1[3], &t0.x, &t1.z);
-    fp2_mul(&mut w2[3], &t1.x, &t0.z);
+    w1[3] = t0.x * t1.z;
+    w2[3] = t1.x * t0.z;
 
     // e(S,Q) = w0^s1
     point_ratio(&mut t0, &nsq, &ns, &pd.pq.q);
     point_ratio(&mut t1, &snq, &nq, &pd.rs.q);
-    fp2_mul(&mut w1[4], &t0.x, &t1.z);
-    fp2_mul(&mut w2[4], &t1.x, &t0.z);
+    w1[4] = t0.x * t1.z;
+    w2[4] = t1.x * t0.z;
 
     fp2_batched_inv(&mut w1);
     for i in 0..5 {
-        fp2_mul_ip(&mut w1[i], &w2[i]);
+        w1[i] *= w2[i];
     }
 
     fp2_dlog_2e(r2, &w1[1], &w1[0], pd.e as i32);
@@ -594,7 +549,7 @@ pub fn ec_dlog_2_weil(
 ) {
     debug_assert!(test_point_order_twof(&pq.q, curve, e));
 
-    ec_curve_normalize_a24(curve);
+    curve.normalize_a24();
     let mut pd = PairingDlogParams {
         e: e as u32,
         pq: *pq,
@@ -610,9 +565,9 @@ pub fn ec_dlog_2_weil(
     {
         let mut test;
         test = ec_biscalar_mul(r1, r2, e, pq, curve).unwrap();
-        debug_assert!(ec_is_equal(&test, &rs.p) != 0);
+        debug_assert!(test.is_equal_ct(&rs.p) != 0);
         test = ec_biscalar_mul(s1, s2, e, pq, curve).unwrap();
-        debug_assert!(ec_is_equal(&test, &rs.q) != 0);
+        debug_assert!(test.is_equal_ct(&rs.q) != 0);
     }
 }
 
@@ -683,25 +638,24 @@ fn tate_dlog_partial(
     w1[4] = t0.z;
 
     for i in 0..5 {
-        let mut frob = Fp2::default();
         let tmp = w1[i];
-        fp2_frob(&mut frob, &w1[i]);
+        let mut frob = w1[i].conj();
         let s = w2[i];
-        fp2_mul(&mut w1[i], &s, &frob);
-        fp2_frob(&mut frob, &s);
-        fp2_mul(&mut w2[i], &tmp, &frob);
+        w1[i] = s * frob;
+        frob = s.conj();
+        w2[i] = tmp * frob;
     }
 
     fp2_batched_inv(&mut w2);
     for i in 0..5 {
-        fp2_mul_ip(&mut w1[i], &w2[i]);
+        w1[i] *= w2[i];
     }
 
     for i in 0..5 {
         let s = w1[i];
         clear_cofac(&mut w1[i], &s);
         for _ in 0..e_diff {
-            fp2_sqr_ip(&mut w1[i]);
+            w1[i].square_ip();
         }
     }
 
@@ -726,7 +680,7 @@ pub fn ec_dlog_2_tate(
 ) {
     debug_assert!(test_basis_order_twof(pq, curve, TORSION_EVEN_POWER as i32));
 
-    ec_curve_normalize_a24(curve);
+    curve.normalize_a24();
     let mut pd = PairingDlogParams {
         e: e as u32,
         pq: *pq,
@@ -746,11 +700,11 @@ pub fn ec_dlog_2_tate(
         test = ec_biscalar_mul(r1, r2, e, pq, curve).unwrap();
         let t = test;
         ec_dbl_iter(&mut test, e_diff, &t, curve);
-        debug_assert!(ec_is_equal(&test, &rs.p) != 0);
+        debug_assert!(test.is_equal_ct(&rs.p) != 0);
         test = ec_biscalar_mul(s1, s2, e, pq, curve).unwrap();
         let t = test;
         ec_dbl_iter(&mut test, e_diff, &t, curve);
-        debug_assert!(ec_is_equal(&test, &rs.q) != 0);
+        debug_assert!(test.is_equal_ct(&rs.q) != 0);
     }
 }
 
@@ -762,13 +716,13 @@ pub fn ec_dlog_2_tate(
 mod tests {
     use super::*;
     use crate::common::ctrdrbg::DrbgState;
-    use crate::ec::{ec_curve_to_basis_2f_to_hint, ec_is_zero, xadd, xdbl_a24};
+    use crate::ec::{ec_curve_to_basis_2f_to_hint, xadd, xdbl_a24};
     use crate::mp::mp_invert_matrix;
 
     fn fp2_exp_2e(r: &mut Fp2, e: u32, x: &Fp2) {
         *r = *x;
         for _ in 0..e {
-            fp2_sqr_ip(r);
+            r.square_ip();
         }
     }
 
@@ -776,7 +730,7 @@ mod tests {
         let mut curve = EcCurve::e0();
         curve.a = Fp2::from_small(6);
         curve.c = Fp2::ONE;
-        ec_curve_normalize_a24(&mut curve);
+        curve.normalize_a24();
         let e = TORSION_EVEN_POWER as u32;
         let mut basis = EcBasis::default();
         let _hint = ec_curve_to_basis_2f_to_hint(&mut basis, &mut curve, e as i32);
@@ -794,7 +748,7 @@ mod tests {
         for pt in [&p, &q, &pmq] {
             let mut tmp = EcPoint::default();
             ec_dbl_iter(&mut tmp, e as i32, pt, &mut curve);
-            assert!(ec_is_zero(&tmp) != 0);
+            assert!(tmp.is_zero_ct() != 0);
         }
 
         let mut ppq = EcPoint::default();
@@ -807,15 +761,15 @@ mod tests {
         let one = Fp2::ONE;
         let mut r2 = Fp2::default();
         fp2_exp_2e(&mut r2, e - 1, &r1);
-        assert!(fp2_is_equal(&r2, &one) == 0);
+        assert!(r2.is_equal_ct(&one) == 0);
         fp2_exp_2e(&mut r2, e, &r1);
-        assert!(fp2_is_equal(&r2, &one) != 0);
+        assert!(r2.is_equal_ct(&one) != 0);
 
         // Antisymmetry: e(P,Q,P+Q) = 1/e(P,Q,P-Q).
         let mut r2 = Fp2::default();
         weil(&mut r2, e, &p, &q, &pmq, &mut curve);
-        fp2_inv(&mut r2);
-        assert!(fp2_is_equal(&r1, &r2) != 0);
+        r2 = (r2).inv();
+        assert!(r1.is_equal_ct(&r2) != 0);
 
         // Bilinearity: e([2]P,Q) = e(P,[2]Q) = e(P,Q)^2.
         let a24 = curve.a24;
@@ -831,10 +785,9 @@ mod tests {
         let mut r3 = Fp2::default();
         weil(&mut r2, e, &pp, &q, &ppq2, &mut curve);
         weil(&mut r3, e, &p, &qq, &pqq, &mut curve);
-        assert!(fp2_is_equal(&r2, &r3) != 0);
-        let mut rr1 = Fp2::default();
-        fp2_sqr(&mut rr1, &r1);
-        assert!(fp2_is_equal(&rr1, &r2) != 0);
+        assert!(r2.is_equal_ct(&r3) != 0);
+        let rr1 = r1.square();
+        assert!(rr1.is_equal_ct(&r2) != 0);
 
         // Cubic case.
         let mut ppp = EcPoint::default();
@@ -847,10 +800,9 @@ mod tests {
         xadd(&mut pqqq, &pqq, &q, &ppq);
         weil(&mut r2, e, &ppp, &q, &pppq, &mut curve);
         weil(&mut r3, e, &p, &qqq, &pqqq, &mut curve);
-        assert!(fp2_is_equal(&r2, &r3) != 0);
-        let mut rrr1 = Fp2::default();
-        fp2_mul(&mut rrr1, &rr1, &r1);
-        assert!(fp2_is_equal(&rrr1, &r2) != 0);
+        assert!(r2.is_equal_ct(&r3) != 0);
+        let rrr1 = rr1 * r1;
+        assert!(rrr1.is_equal_ct(&r2) != 0);
     }
 
     #[test]
@@ -863,9 +815,9 @@ mod tests {
         let one = Fp2::ONE;
         let mut r2 = Fp2::default();
         fp2_exp_2e(&mut r2, e - 1, &tp);
-        assert!(fp2_is_equal(&r2, &one) == 0);
+        assert!(r2.is_equal_ct(&one) == 0);
         fp2_exp_2e(&mut r2, e, &tp);
-        assert!(fp2_is_equal(&r2, &one) != 0);
+        assert!(r2.is_equal_ct(&one) != 0);
     }
 
     fn random_mixed_basis(
@@ -923,18 +875,18 @@ mod tests {
             &mut sr1, &mut sr2, &mut ss1, &mut ss2, &bpq, &brs, &mut curve, e as i32,
         );
         let mut tmp = ec_biscalar_mul(&sr1, &sr2, e as i32, &bpq, &curve).unwrap();
-        assert!(ec_is_equal(&tmp, &brs.p) != 0);
+        assert!(tmp.is_equal_ct(&brs.p) != 0);
         tmp = ec_biscalar_mul(&ss1, &ss2, e as i32, &bpq, &curve).unwrap();
-        assert!(ec_is_equal(&tmp, &brs.q) != 0);
+        assert!(tmp.is_equal_ct(&brs.q) != 0);
 
         // Tate-based dlog at full order.
         ec_dlog_2_tate(
             &mut sr1, &mut sr2, &mut ss1, &mut ss2, &bpq, &brs, &mut curve, e as i32,
         );
         tmp = ec_biscalar_mul(&sr1, &sr2, e as i32, &bpq, &curve).unwrap();
-        assert!(ec_is_equal(&tmp, &brs.p) != 0);
+        assert!(tmp.is_equal_ct(&brs.p) != 0);
         tmp = ec_biscalar_mul(&ss1, &ss2, e as i32, &bpq, &curve).unwrap();
-        assert!(ec_is_equal(&tmp, &brs.q) != 0);
+        assert!(tmp.is_equal_ct(&brs.q) != 0);
 
         // Partial-torsion Tate.
         let e_full = TORSION_EVEN_POWER as i32;
@@ -950,11 +902,11 @@ mod tests {
         tmp = ec_biscalar_mul(&sr1, &sr2, e as i32, &bpq, &curve).unwrap();
         let s = tmp;
         ec_dbl_iter(&mut tmp, e_full - e_partial, &s, &mut curve);
-        assert!(ec_is_equal(&tmp, &brs_p.p) != 0);
+        assert!(tmp.is_equal_ct(&brs_p.p) != 0);
         tmp = ec_biscalar_mul(&ss1, &ss2, e as i32, &bpq, &curve).unwrap();
         let s = tmp;
         ec_dbl_iter(&mut tmp, e_full - e_partial, &s, &mut curve);
-        assert!(ec_is_equal(&tmp, &brs_p.q) != 0);
+        assert!(tmp.is_equal_ct(&brs_p.q) != 0);
 
         // Tate "to full basis": invert the recovered matrix.
         ec_dlog_2_tate(
@@ -971,9 +923,9 @@ mod tests {
         tmp = ec_biscalar_mul(&sr1, &sr2, e as i32, &brs_p, &curve).unwrap();
         let mut tmp2 = EcPoint::default();
         ec_dbl_iter(&mut tmp2, e_full - e_partial, &bpq.p, &mut curve);
-        assert!(ec_is_equal(&tmp, &tmp2) != 0);
+        assert!(tmp.is_equal_ct(&tmp2) != 0);
         tmp = ec_biscalar_mul(&ss1, &ss2, e as i32, &brs_p, &curve).unwrap();
         ec_dbl_iter(&mut tmp2, e_full - e_partial, &bpq.q, &mut curve);
-        assert!(ec_is_equal(&tmp, &tmp2) != 0);
+        assert!(tmp.is_equal_ct(&tmp2) != 0);
     }
 }

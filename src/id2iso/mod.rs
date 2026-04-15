@@ -98,18 +98,14 @@ pub fn id2iso_ideal_to_kernel_dlogs_even(vec: &mut IbzVec2, lideal: &QuatLeftIde
         let g3 = action_gen3();
         let g4 = action_gen4();
         for i in 0..2 {
-            let mij = mat[i][i].clone();
-            ibz_add(&mut mat[i][i], &mij, &coeffs[0]);
+            mat[i][i] += &coeffs[0];
             for j in 0..2 {
                 ibz_mul(&mut tmp, &g2[i][j], &coeffs[1]);
-                let mij = mat[i][j].clone();
-                ibz_add(&mut mat[i][j], &mij, &tmp);
+                mat[i][j] += &tmp;
                 ibz_mul(&mut tmp, &g3[i][j], &coeffs[2]);
-                let mij = mat[i][j].clone();
-                ibz_add(&mut mat[i][j], &mij, &tmp);
+                mat[i][j] += &tmp;
                 ibz_mul(&mut tmp, &g4[i][j], &coeffs[3]);
-                let mij = mat[i][j].clone();
-                ibz_add(&mut mat[i][j], &mij, &tmp);
+                mat[i][j] += &tmp;
             }
         }
     }
@@ -209,20 +205,15 @@ pub fn endomorphism_application_even_basis(
 
     let cwe = &curves_with_endomorphisms()[index_alternate_curve];
     for i in 0..2 {
-        let mij = mat[i][i].clone();
-        ibz_add(&mut mat[i][i], &mij, &coeffs[0]);
+        mat[i][i] += &coeffs[0];
         for j in 0..2 {
             ibz_mul(&mut tmp, &cwe.action_gen2[i][j], &coeffs[1]);
-            let mij = mat[i][j].clone();
-            ibz_add(&mut mat[i][j], &mij, &tmp);
+            mat[i][j] += &tmp;
             ibz_mul(&mut tmp, &cwe.action_gen3[i][j], &coeffs[2]);
-            let mij = mat[i][j].clone();
-            ibz_add(&mut mat[i][j], &mij, &tmp);
+            mat[i][j] += &tmp;
             ibz_mul(&mut tmp, &cwe.action_gen4[i][j], &coeffs[3]);
-            let mij = mat[i][j].clone();
-            ibz_add(&mut mat[i][j], &mij, &tmp);
-            let mij = mat[i][j].clone();
-            ibz_mul(&mut mat[i][j], &mij, &content);
+            mat[i][j] += &tmp;
+            mat[i][j] *= &content;
         }
     }
 
@@ -236,25 +227,23 @@ pub fn id2iso_kernel_dlogs_to_ideal_even(lideal: &mut QuatLeftIdeal, vec2: &IbzV
     let mut vec = ibz_vec_2_init();
 
     if f as usize == TORSION_EVEN_POWER {
-        ibz_copy(&mut two_pow, torsion_plus_2power());
+        two_pow.clone_from(torsion_plus_2power());
     } else {
         ibz_pow(&mut two_pow, ibz_const_two(), f as u32);
     }
 
     {
         let mut mat = ibz_mat_2x2_init();
-        ibz_copy(&mut mat[0][0], &vec2[0]);
-        ibz_copy(&mut mat[1][0], &vec2[1]);
+        mat[0][0].clone_from(&vec2[0]);
+        mat[1][0].clone_from(&vec2[1]);
 
         ibz_mat_2x2_eval(&mut vec, action_j(), vec2);
-        ibz_copy(&mut mat[0][1], &vec[0]);
-        ibz_copy(&mut mat[1][1], &vec[1]);
+        mat[0][1].clone_from(&vec[0]);
+        mat[1][1].clone_from(&vec[1]);
 
         ibz_mat_2x2_eval(&mut vec, action_gen4(), vec2);
-        let m01 = mat[0][1].clone();
-        ibz_add(&mut mat[0][1], &m01, &vec[0]);
-        let m11 = mat[1][1].clone();
-        ibz_add(&mut mat[1][1], &m11, &vec[1]);
+        mat[0][1] += &vec[0];
+        mat[1][1] += &vec[1];
 
         let m01 = mat[0][1].clone();
         ibz_mod(&mut mat[0][1], &m01, &two_pow);
@@ -276,9 +265,8 @@ pub fn id2iso_kernel_dlogs_to_ideal_even(lideal: &mut QuatLeftIdeal, vec2: &IbzV
     ibz_add(&mut gen.coord[0], &vec[0], &vec[0]);
     ibz_set(&mut gen.coord[1], -2);
     ibz_add(&mut gen.coord[2], &vec[1], &vec[1]);
-    ibz_copy(&mut gen.coord[3], &vec[1]);
-    let c0 = gen.coord[0].clone();
-    ibz_add(&mut gen.coord[0], &c0, &vec[1]);
+    gen.coord[3].clone_from(&vec[1]);
+    gen.coord[0] += &vec[1];
 
     quat_lideal_create(lideal, &gen, &two_pow, maxord_o0(), quatalg_pinfty());
     debug_assert!(ibz_cmp(&lideal.norm, &two_pow) == 0);
@@ -315,19 +303,19 @@ fn change_of_basis_matrix_tate_impl(
         if invert {
             test = ec_biscalar_mul(&x1, &x2, f, b2, e).unwrap();
             ec_dbl_iter(&mut test2, e_diff, &b1.p, e);
-            debug_assert!(ec_is_equal(&test, &test2) != 0);
+            debug_assert!(test.is_equal_ct(&test2) != 0);
             test = ec_biscalar_mul(&x3, &x4, f, b2, e).unwrap();
             ec_dbl_iter(&mut test2, e_diff, &b1.q, e);
-            debug_assert!(ec_is_equal(&test, &test2) != 0);
+            debug_assert!(test.is_equal_ct(&test2) != 0);
         } else {
             test = ec_biscalar_mul(&x1, &x2, f, b2, e).unwrap();
             let s = test;
             ec_dbl_iter(&mut test, e_diff, &s, e);
-            debug_assert!(ec_is_equal(&test, &b1.p) != 0);
+            debug_assert!(test.is_equal_ct(&b1.p) != 0);
             test = ec_biscalar_mul(&x3, &x4, f, b2, e).unwrap();
             let s = test;
             ec_dbl_iter(&mut test, e_diff, &s, e);
-            debug_assert!(ec_is_equal(&test, &b1.q) != 0);
+            debug_assert!(test.is_equal_ct(&b1.q) != 0);
         }
     }
 
@@ -374,8 +362,8 @@ mod tests {
         quat_alg_elem_set(&mut theta, 1, 1, 0, 0, 0);
         endomorphism_application_even_basis(&mut bas, 0, &e0, &theta, TORSION_EVEN_POWER as i32);
         // Compare projectively.
-        assert_ne!(ec_is_equal(&bas.p, &basis_even().p), 0);
-        assert_ne!(ec_is_equal(&bas.q, &basis_even().q), 0);
+        assert_ne!(bas.p.is_equal_ct(&basis_even().p), 0);
+        assert_ne!(bas.q.is_equal_ct(&basis_even().q), 0);
     }
 
     #[test]

@@ -25,14 +25,12 @@ pub fn ibz_mat_2x2_eval(res: &mut IbzVec2, mat: &IbzMat2x2, vec: &IbzVec2) {
     let mut mv = ibz_vec_2_init();
     ibz_mul(&mut mv[0], &mat[0][0], &vec[0]);
     ibz_mul(&mut prod, &mat[0][1], &vec[1]);
-    let t = mv[0].clone();
-    ibz_add(&mut mv[0], &t, &prod);
+    mv[0] += &prod;
     ibz_mul(&mut mv[1], &mat[1][0], &vec[0]);
     ibz_mul(&mut prod, &mat[1][1], &vec[1]);
-    let t = mv[1].clone();
-    ibz_add(&mut mv[1], &t, &prod);
-    ibz_copy(&mut res[0], &mv[0]);
-    ibz_copy(&mut res[1], &mv[1]);
+    mv[1] += &prod;
+    res[0].clone_from(&mv[0]);
+    res[1].clone_from(&mv[1]);
 }
 
 /// `prod = (mat_a * mat_b) mod m` (entrywise reduction during accumulation).
@@ -43,8 +41,7 @@ pub fn ibz_2x2_mul_mod(prod: &mut IbzMat2x2, mat_a: &IbzMat2x2, mat_b: &IbzMat2x
         for j in 0..2 {
             for k in 0..2 {
                 ibz_mul(&mut mul, &mat_a[i][k], &mat_b[k][j]);
-                let t = sums[i][j].clone();
-                ibz_add(&mut sums[i][j], &t, &mul);
+                sums[i][j] += &mul;
                 let t = sums[i][j].clone();
                 ibz_mod(&mut sums[i][j], &t, m);
             }
@@ -52,7 +49,7 @@ pub fn ibz_2x2_mul_mod(prod: &mut IbzMat2x2, mat_a: &IbzMat2x2, mat_b: &IbzMat2x
     }
     for i in 0..2 {
         for j in 0..2 {
-            ibz_copy(&mut prod[i][j], &sums[i][j]);
+            prod[i][j].clone_from(&sums[i][j]);
         }
     }
 }
@@ -66,8 +63,7 @@ pub fn ibz_mat_2x2_inv_mod(inv: &mut IbzMat2x2, mat: &IbzMat2x2, m: &Ibz) -> i32
     let t = det.clone();
     ibz_mod(&mut det, &t, m);
     ibz_mul(&mut prod, &mat[0][1], &mat[1][0]);
-    let t = det.clone();
-    ibz_sub(&mut det, &t, &prod);
+    det -= &prod;
     let t = det.clone();
     ibz_mod(&mut det, &t, m);
     let res = {
@@ -76,18 +72,16 @@ pub fn ibz_mat_2x2_inv_mod(inv: &mut IbzMat2x2, mat: &IbzMat2x2, m: &Ibz) -> i32
     };
     // Zero matrix if non-invertible determinant.
     ibz_set(&mut prod, res);
-    let t = det.clone();
-    ibz_mul(&mut det, &t, &prod);
+    det *= &prod;
     // Adjugate.
-    ibz_copy(&mut prod, &mat[0][0]);
-    ibz_copy(&mut inv[0][0], &mat[1][1]);
-    ibz_copy(&mut inv[1][1], &prod);
+    prod.clone_from(&mat[0][0]);
+    inv[0][0].clone_from(&mat[1][1]);
+    inv[1][1].clone_from(&prod);
     ibz_neg(&mut inv[1][0], &mat[1][0]);
     ibz_neg(&mut inv[0][1], &mat[0][1]);
     for i in 0..2 {
         for j in 0..2 {
-            let t = inv[i][j].clone();
-            ibz_mul(&mut inv[i][j], &t, &det);
+            inv[i][j] *= &det;
             let t = inv[i][j].clone();
             ibz_mod(&mut inv[i][j], &t, m);
         }

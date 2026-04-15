@@ -14,15 +14,11 @@ pub fn ibz_vec_4_set(vec: &mut IbzVec4, c0: i32, c1: i32, c2: i32, c3: i32) {
     ibz_set(&mut vec[3], c3);
 }
 
-pub fn ibz_vec_4_copy(dst: &mut IbzVec4, src: &IbzVec4) {
-    dst.clone_from(src);
-}
-
 pub fn ibz_vec_4_copy_ibz(res: &mut IbzVec4, c0: &Ibz, c1: &Ibz, c2: &Ibz, c3: &Ibz) {
-    ibz_copy(&mut res[0], c0);
-    ibz_copy(&mut res[1], c1);
-    ibz_copy(&mut res[2], c2);
-    ibz_copy(&mut res[3], c3);
+    res[0].clone_from(c0);
+    res[1].clone_from(c1);
+    res[2].clone_from(c2);
+    res[3].clone_from(c3);
 }
 
 pub fn ibz_vec_4_content(content: &mut Ibz, v: &IbzVec4) {
@@ -61,10 +57,9 @@ pub fn ibz_vec_4_linear_combination(
     for i in 0..4 {
         ibz_mul(&mut sums[i], coeff_a, &vec_a[i]);
         ibz_mul(&mut prod, coeff_b, &vec_b[i]);
-        let t = sums[i].clone();
-        ibz_add(&mut sums[i], &t, &prod);
+        sums[i] += &prod;
     }
-    ibz_vec_4_copy(lc, &sums);
+    (lc).clone_from(&sums);
 }
 
 pub fn ibz_vec_4_scalar_mul(prod: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) {
@@ -94,26 +89,21 @@ pub fn ibz_mat_4x4_mul(res: &mut IbzMat4x4, a: &IbzMat4x4, b: &IbzMat4x4) {
             ibz_set(&mut mat[i][j], 0);
             for k in 0..4 {
                 ibz_mul(&mut prod, &a[i][k], &b[k][j]);
-                let t = mat[i][j].clone();
-                ibz_add(&mut mat[i][j], &t, &prod);
+                mat[i][j] += &prod;
             }
         }
     }
-    ibz_mat_4x4_copy(res, &mat);
-}
-
-pub fn ibz_mat_4x4_copy(dst: &mut IbzMat4x4, src: &IbzMat4x4) {
-    dst.clone_from(src);
+    (res).clone_from(&mat);
 }
 
 pub fn ibz_mat_4x4_transpose(transposed: &mut IbzMat4x4, mat: &IbzMat4x4) {
     let mut work = ibz_mat_4x4_init();
     for i in 0..4 {
         for j in 0..4 {
-            ibz_copy(&mut work[i][j], &mat[j][i]);
+            work[i][j].clone_from(&mat[j][i]);
         }
     }
-    ibz_mat_4x4_copy(transposed, &work);
+    (transposed).clone_from(&work);
 }
 
 pub fn ibz_mat_4x4_identity(id: &mut IbzMat4x4) {
@@ -161,7 +151,7 @@ pub fn ibz_mat_4x4_gcd(gcd: &mut Ibz, mat: &IbzMat4x4) {
             ibz_gcd(&mut d, &t, &mat[i][j]);
         }
     }
-    ibz_copy(gcd, &d);
+    (gcd).clone_from(&d);
 }
 
 pub fn ibz_mat_4x4_scalar_div(quot: &mut IbzMat4x4, scalar: &Ibz, mat: &IbzMat4x4) -> bool {
@@ -183,8 +173,7 @@ fn coeff_pmp(out: &mut Ibz, a1: &Ibz, a2: &Ibz, b1: &Ibz, b2: &Ibz, c1: &Ibz, c2
     let mut sum = Ibz::default();
     ibz_mul(&mut sum, a1, a2);
     ibz_mul(&mut prod, b1, b2);
-    let t = sum.clone();
-    ibz_sub(&mut sum, &t, &prod);
+    sum -= &prod;
     ibz_mul(&mut prod, c1, c2);
     ibz_add(out, &sum, &prod);
 }
@@ -194,8 +183,7 @@ fn coeff_mpm(out: &mut Ibz, a1: &Ibz, a2: &Ibz, b1: &Ibz, b2: &Ibz, c1: &Ibz, c2
     let mut sum = Ibz::default();
     ibz_mul(&mut sum, b1, b2);
     ibz_mul(&mut prod, a1, a2);
-    let t = sum.clone();
-    ibz_sub(&mut sum, &t, &prod);
+    sum -= &prod;
     ibz_mul(&mut prod, c1, c2);
     ibz_sub(out, &sum, &prod);
 }
@@ -353,7 +341,7 @@ pub fn ibz_mat_4x4_inv_with_det_as_denom(
         ibz_set(&mut prod, (!ibz_is_zero(&work_det)) as i32);
         ibz_mat_4x4_scalar_mul(inv, &prod, &work);
     }
-    ibz_copy(det, &work_det);
+    (det).clone_from(&work_det);
     (!ibz_is_zero(det)) as i32
 }
 
@@ -364,11 +352,10 @@ pub fn ibz_mat_4x4_eval(res: &mut IbzVec4, mat: &IbzMat4x4, vec: &IbzVec4) {
     for i in 0..4 {
         for j in 0..4 {
             ibz_mul(&mut prod, &mat[i][j], &vec[j]);
-            let t = sum[i].clone();
-            ibz_add(&mut sum[i], &t, &prod);
+            sum[i] += &prod;
         }
     }
-    ibz_vec_4_copy(res, &sum);
+    (res).clone_from(&sum);
 }
 
 /// `res = vecᵀ * mat`.
@@ -378,11 +365,10 @@ pub fn ibz_mat_4x4_eval_t(res: &mut IbzVec4, vec: &IbzVec4, mat: &IbzMat4x4) {
     for i in 0..4 {
         for j in 0..4 {
             ibz_mul(&mut prod, &mat[j][i], &vec[j]);
-            let t = sum[i].clone();
-            ibz_add(&mut sum[i], &t, &prod);
+            sum[i] += &prod;
         }
     }
-    ibz_vec_4_copy(res, &sum);
+    (res).clone_from(&sum);
 }
 
 /// Quadratic form evaluation: `res = coordᵀ · qf · coord`.
@@ -393,13 +379,12 @@ pub fn quat_qf_eval(res: &mut Ibz, qf: &IbzMat4x4, coord: &IbzVec4) {
     for i in 0..4 {
         ibz_mul(&mut prod, &sum[i], &coord[i]);
         if i > 0 {
-            let t = sum[0].clone();
-            ibz_add(&mut sum[0], &t, &prod);
+            sum[0] += &prod;
         } else {
-            ibz_copy(&mut sum[0], &prod);
+            sum[0].clone_from(&prod);
         }
     }
-    ibz_copy(res, &sum[0]);
+    (res).clone_from(&sum[0]);
 }
 
 #[cfg(test)]

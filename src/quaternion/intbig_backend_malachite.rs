@@ -63,10 +63,6 @@ pub fn ibz_set(i: &mut Ibz, x: i32) {
     *i = Integer::from(x);
 }
 #[inline]
-pub fn ibz_copy(target: &mut Ibz, value: &Ibz) {
-    target.clone_from(value);
-}
-#[inline]
 pub fn ibz_swap(a: &mut Ibz, b: &mut Ibz) {
     core::mem::swap(a, b);
 }

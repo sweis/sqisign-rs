@@ -23,10 +23,6 @@ pub fn ibz_set(i: &mut Ibz, x: i32) {
     i.assign(x);
 }
 #[inline]
-pub fn ibz_copy(target: &mut Ibz, value: &Ibz) {
-    target.assign(value);
-}
-#[inline]
 pub fn ibz_swap(a: &mut Ibz, b: &mut Ibz) {
     core::mem::swap(a, b);
 }

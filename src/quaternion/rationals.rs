@@ -41,7 +41,7 @@ pub fn ibq_add(sum: &mut Ibq, a: &Ibq, b: &Ibq) {
 }
 
 pub fn ibq_neg(neg: &mut Ibq, x: &Ibq) {
-    ibz_copy(&mut neg[1], &x[1]);
+    neg[1].clone_from(&x[1]);
     ibz_neg(&mut neg[0], &x[0]);
 }
 
@@ -69,8 +69,8 @@ pub fn ibq_mul(prod: &mut Ibq, a: &Ibq, b: &Ibq) {
 pub fn ibq_inv(inv: &mut Ibq, x: &Ibq) -> bool {
     let res = !ibq_is_zero(x);
     if res {
-        ibz_copy(&mut inv[0], &x[0]);
-        ibz_copy(&mut inv[1], &x[1]);
+        inv[0].clone_from(&x[0]);
+        inv[1].clone_from(&x[1]);
         inv.swap(0, 1);
     }
     res
@@ -101,14 +101,14 @@ pub fn ibq_is_one(x: &Ibq) -> bool {
 }
 
 pub fn ibq_set(q: &mut Ibq, a: &Ibz, b: &Ibz) -> bool {
-    ibz_copy(&mut q[0], a);
-    ibz_copy(&mut q[1], b);
+    q[0].clone_from(a);
+    q[1].clone_from(b);
     !ibz_is_zero(b)
 }
 
 pub fn ibq_copy(target: &mut Ibq, value: &Ibq) {
-    ibz_copy(&mut target[0], &value[0]);
-    ibz_copy(&mut target[1], &value[1]);
+    target[0].clone_from(&value[0]);
+    target[1].clone_from(&value[1]);
 }
 
 pub fn ibq_is_ibz(q: &Ibq) -> bool {

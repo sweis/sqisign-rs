@@ -161,7 +161,7 @@ mod tests {
     fn curve_e0_is_a_zero() {
         let e0 = curve_e0();
         assert!(e0.is_a24_computed_and_normalized);
-        assert_eq!(crate::gf::fp2_is_zero(&e0.a), 0xFFFF_FFFF);
+        assert!(e0.a.is_zero());
         let p = &curves_with_endomorphisms()[0].basis_even.p;
         assert_eq!(p.x.re.0, crate::precomp::BASIS_E0_PX.re.0);
         assert_eq!(p.x.im.0, crate::precomp::BASIS_E0_PX.im.0);

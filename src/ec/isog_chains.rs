@@ -10,7 +10,7 @@ fn ec_eval_even_strategy(
     kernel: &EcPoint,
     isog_len: i32,
 ) -> u32 {
-    ec_curve_normalize_a24(curve);
+    curve.normalize_a24();
     let mut a24 = curve.a24;
 
     let mut space = 1usize;
@@ -46,30 +46,30 @@ fn ec_eval_even_strategy(
         }
 
         if j == 0 {
-            debug_assert!(fp2_is_one(&a24.z) != 0);
-            if ec_is_four_torsion(&splits[current as usize], curve) == 0 {
+            debug_assert!(a24.z.is_one());
+            if curve.is_four_torsion_ct(&splits[current as usize]) == 0 {
                 return u32::MAX;
             }
             let mut t = EcPoint::default();
             xdbl_a24(&mut t, &splits[current as usize], &a24, false);
-            if fp2_is_zero(&t.x) != 0 {
+            if t.x.is_zero() {
                 return u32::MAX;
             }
         } else {
             debug_assert_eq!(todo[current as usize], 2);
             #[cfg(debug_assertions)]
             {
-                if fp2_is_zero(&splits[current as usize].z) != 0 {
+                if splits[current as usize].z.is_zero() {
                     eprintln!("splitting point z coordinate is unexpectedly zero");
                 }
                 let mut test = EcPoint::default();
                 xdbl_a24(&mut test, &splits[current as usize], &a24, false);
-                if fp2_is_zero(&test.z) != 0 {
+                if test.z.is_zero() {
                     eprintln!("z coordinate is unexpectedly zero before doubling");
                 }
                 let s = test;
                 xdbl_a24(&mut test, &s, &a24, false);
-                if fp2_is_zero(&test.z) == 0 {
+                if test.z.is_zero_ct() == 0 {
                     eprintln!("z coordinate is unexpectedly not zero after doubling");
                 }
             }
@@ -95,21 +95,21 @@ fn ec_eval_even_strategy(
     if isog_len % 2 != 0 {
         #[cfg(debug_assertions)]
         {
-            if fp2_is_zero(&splits[0].z) != 0 {
+            if splits[0].z.is_zero() {
                 eprintln!("splitting point z coordinate is unexpectedly zero");
             }
             let mut test = splits[0];
             let s = test;
             xdbl_a24(&mut test, &s, &a24, false);
-            if fp2_is_zero(&test.z) == 0 {
+            if test.z.is_zero_ct() == 0 {
                 eprintln!("z coordinate is unexpectedly not zero after doubling");
             }
         }
 
-        if isog_len == 1 && ec_is_two_torsion(&splits[0], curve) == 0 {
+        if isog_len == 1 && curve.is_two_torsion_ct(&splits[0]) == 0 {
             return u32::MAX;
         }
-        if fp2_is_zero(&splits[0].x) != 0 {
+        if splits[0].x.is_zero() {
             return u32::MAX;
         }
 
@@ -151,10 +151,10 @@ pub fn ec_eval_small_chain(
             let s = small_k;
             xdbl_a24(&mut small_k, &s, &a24, false);
         }
-        if i == 0 && ec_is_two_torsion(&small_k, curve) == 0 {
+        if i == 0 && curve.is_two_torsion_ct(&small_k) == 0 {
             return u32::MAX;
         }
-        if fp2_is_zero(&small_k.x) != 0 {
+        if small_k.x.is_zero() {
             if special {
                 let mut b24 = EcPoint::default();
                 xisog_2_singular(&mut kps, &mut b24, a24);
@@ -183,70 +183,60 @@ pub fn ec_eval_small_chain(
 
 /// Compute an isomorphism `from → to`. Returns 0xFFFFFFFF on degenerate output.
 pub fn ec_isomorphism(isom: &mut EcIsom, from: &EcCurve, to: &EcCurve) -> u32 {
-    let mut t0 = Fp2::default();
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    let mut t4 = Fp2::default();
+    let mut t0 = from.a * from.c;
+    let mut t1 = to.a * to.c;
+    let mut t2 = t1 * to.c;
+    let mut t3 = t2 + t2;
+    t3.dbl_ip();
+    t3.dbl_ip();
+    t2 += t3;
+    t3 = to.a.square();
+    t3 *= to.a;
+    t3.dbl_ip();
+    isom.nx = t3 - t2;
+    t2 = t0 * from.a;
+    t3 = from.c.square();
+    t3 *= from.c;
+    let mut t4 = t3 + t3;
+    t3 += t4;
+    t3 -= t2;
+    isom.nx *= t3;
 
-    fp2_mul(&mut t0, &from.a, &from.c);
-    fp2_mul(&mut t1, &to.a, &to.c);
+    t2 = t0 * from.c;
+    t3 = t2 + t2;
+    t3.dbl_ip();
+    t3.dbl_ip();
+    t2 += t3;
+    t3 = from.a.square();
+    t3 *= from.a;
+    t3.dbl_ip();
+    isom.d = t3 - t2;
+    t2 = t1 * to.a;
+    t3 = to.c.square();
+    t3 *= to.c;
+    t4 = t3 + t3;
+    t3 += t4;
+    t3 -= t2;
+    isom.d *= t3;
 
-    fp2_mul(&mut t2, &t1, &to.c);
-    fp2_add(&mut t3, &t2, &t2);
-    fp2_dbl_ip(&mut t3);
-    fp2_dbl_ip(&mut t3);
-    fp2_add_ip(&mut t2, &t3);
-    fp2_sqr(&mut t3, &to.a);
-    fp2_mul_ip(&mut t3, &to.a);
-    fp2_dbl_ip(&mut t3);
-    fp2_sub(&mut isom.nx, &t3, &t2);
-    fp2_mul(&mut t2, &t0, &from.a);
-    fp2_sqr(&mut t3, &from.c);
-    fp2_mul_ip(&mut t3, &from.c);
-    fp2_add(&mut t4, &t3, &t3);
-    fp2_add_ip(&mut t3, &t4);
-    fp2_sub_ip(&mut t3, &t2);
-    let nx = isom.nx;
-    fp2_mul(&mut isom.nx, &nx, &t3);
+    t0 = to.c * from.a;
+    t0 *= isom.nx;
+    t1 = from.c * to.a;
+    t1 *= isom.d;
+    isom.nz = t0 - t1;
+    t0 = from.c * to.c;
+    t1 = t0 + t0;
+    t0 += t1;
+    isom.d *= t0;
+    isom.nx *= t0;
 
-    fp2_mul(&mut t2, &t0, &from.c);
-    fp2_add(&mut t3, &t2, &t2);
-    fp2_dbl_ip(&mut t3);
-    fp2_dbl_ip(&mut t3);
-    fp2_add_ip(&mut t2, &t3);
-    fp2_sqr(&mut t3, &from.a);
-    fp2_mul_ip(&mut t3, &from.a);
-    fp2_dbl_ip(&mut t3);
-    fp2_sub(&mut isom.d, &t3, &t2);
-    fp2_mul(&mut t2, &t1, &to.a);
-    fp2_sqr(&mut t3, &to.c);
-    fp2_mul_ip(&mut t3, &to.c);
-    fp2_add(&mut t4, &t3, &t3);
-    fp2_add_ip(&mut t3, &t4);
-    fp2_sub_ip(&mut t3, &t2);
-    let d = isom.d;
-    fp2_mul(&mut isom.d, &d, &t3);
-
-    fp2_mul(&mut t0, &to.c, &from.a);
-    fp2_mul_ip(&mut t0, &isom.nx);
-    fp2_mul(&mut t1, &from.c, &to.a);
-    fp2_mul_ip(&mut t1, &isom.d);
-    fp2_sub(&mut isom.nz, &t0, &t1);
-    fp2_mul(&mut t0, &from.c, &to.c);
-    fp2_add(&mut t1, &t0, &t0);
-    fp2_add_ip(&mut t0, &t1);
-    fp2_mul_ip(&mut isom.d, &t0);
-    fp2_mul_ip(&mut isom.nx, &t0);
-
-    fp2_is_zero(&isom.nx) | fp2_is_zero(&isom.d)
+    isom.nx.is_zero_ct() | isom.d.is_zero_ct()
 }
 
 /// In-place evaluation of an isomorphism on a point.
 pub fn ec_iso_eval(p: &mut EcPoint, isom: &EcIsom) {
-    let mut tmp = Fp2::default();
-    fp2_mul_ip(&mut p.x, &isom.nx);
-    fp2_mul(&mut tmp, &p.z, &isom.nz);
-    fp2_add_ip(&mut p.x, &tmp);
-    fp2_mul_ip(&mut p.z, &isom.d);
+    p.x *= isom.nx;
+    let tmp = p.z * isom.nz;
+    p.x += tmp;
+    p.z *= isom.d;
 }

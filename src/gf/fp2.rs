@@ -1,7 +1,8 @@
 //! GF(p²) arithmetic, modulo X² + 1. Port of `lvlx/fp2.c`.
 
-use super::fp::*;
+use super::fp::{decode_masked, fp_binop, fp_ops, Digit, Fp, FP_ENCODED_BYTES, RADIX};
 use core::fmt;
+use core::ops::{AddAssign, MulAssign, SubAssign};
 
 /// `FP2_ENCODED_BYTES`.
 pub const FP2_ENCODED_BYTES: usize = 2 * FP_ENCODED_BYTES;
@@ -38,246 +39,236 @@ impl Fp2 {
         }
     }
 
+    // ---- arithmetic ----
+
+    /// Self². Karatsuba: re = (a+b)(a-b), im = 2ab.
     #[inline]
-    pub fn encode(&self) -> [u8; FP2_ENCODED_BYTES] {
-        let mut out = [0u8; FP2_ENCODED_BYTES];
-        fp2_encode(&mut out, self);
+    #[must_use]
+    pub fn square(self) -> Self {
+        let sum = self.re + self.im;
+        let diff = self.re - self.im;
+        Self {
+            re: sum * diff,
+            im: (self.re * self.im).dbl(),
+        }
+    }
+    #[inline]
+    pub fn square_ip(&mut self) {
+        *self = self.square();
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn dbl(self) -> Self {
+        Self {
+            re: self.re.dbl(),
+            im: self.im.dbl(),
+        }
+    }
+    #[inline]
+    pub fn dbl_ip(&mut self) {
+        self.re.dbl_ip();
+        self.im.dbl_ip();
+    }
+
+    #[inline]
+    pub fn neg_ip(&mut self) {
+        self.re.neg_ip();
+        self.im.neg_ip();
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn half(self) -> Self {
+        Self {
+            re: self.re.half(),
+            im: self.im.half(),
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn mul_small(self, n: u32) -> Self {
+        Self {
+            re: self.re.mul_small(n),
+            im: self.im.mul_small(n),
+        }
+    }
+
+    /// 1/self; returns 0 for input 0.
+    #[must_use]
+    pub fn inv(self) -> Self {
+        let n = (self.re.square() + self.im.square()).inv();
+        Self {
+            re: self.re * n,
+            im: -(self.im * n),
+        }
+    }
+
+    /// Frobenius / complex conjugation: self^p.
+    #[inline]
+    #[must_use]
+    pub fn conj(self) -> Self {
+        Self {
+            re: self.re,
+            im: -self.im,
+        }
+    }
+
+    /// Variable-time square-and-multiply: self^exp, exp little-endian limbs.
+    #[must_use]
+    pub fn pow_vartime(self, exp: &[Digit]) -> Self {
+        let mut acc = self;
+        let mut out = Fp2::ONE;
+        for &word in exp {
+            for i in 0..RADIX {
+                if (word >> i) & 1 == 1 {
+                    out *= acc;
+                }
+                acc.square_ip();
+            }
+        }
         out
     }
 
+    /// Square root in GF(p²) following Aardal et al. (ePrint 2024/1563),
+    /// canonicalized so the result has even real part (or, if re==0, even imag).
+    /// Result is undefined when self is not a square.
+    #[must_use]
+    pub fn sqrt(self) -> Self {
+        let s = (self.re.square() + self.im.square()).sqrt();
+        let mut x0 = Fp::select(&s, &self.re, self.im.is_zero_ct());
+        x0 += self.re;
+        let t0 = x0.dbl();
+
+        let mut x1 = t0.exp_3div4();
+
+        x0 *= x1;
+        x1 *= self.im;
+        let t1 = x0.dbl().square();
+        let f = (t0 - t1).is_zero_ct();
+        let t0 = Fp::select(&x1, &x0, f);
+        let t1 = Fp::select(&(-x0), &x1, f);
+
+        let t0_is_zero = t0.is_zero_ct();
+        let t0_is_odd = ((t0.encode()[0] & 1) as u32).wrapping_neg();
+        let t1_is_odd = ((t1.encode()[0] & 1) as u32).wrapping_neg();
+
+        let negate = t0_is_odd | (t0_is_zero & t1_is_odd);
+        Self {
+            re: Fp::select(&t0, &(-t0), negate),
+            im: Fp::select(&t1, &(-t1), negate),
+        }
+    }
+
+    /// √self if self is a square, else `None`. Constant-time in the value of self.
+    #[must_use]
+    pub fn sqrt_verify(self) -> Option<Self> {
+        let r = self.sqrt();
+        (r.square().is_equal_ct(&self) != 0).then_some(r)
+    }
+
+    /// `self + 1`.
     #[inline]
-    pub fn try_decode(bytes: &[u8]) -> Option<Self> {
+    #[must_use]
+    pub fn add_one(self) -> Self {
+        Self {
+            re: self.re + Fp::ONE,
+            im: self.im,
+        }
+    }
+
+    // ---- predicates ----
+    // _ct variants return all-ones / all-zeros u32 masks for constant-time select.
+
+    #[inline]
+    pub fn is_zero_ct(&self) -> u32 {
+        self.re.is_zero_ct() & self.im.is_zero_ct()
+    }
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.is_zero_ct() != 0
+    }
+    #[inline]
+    pub fn is_one_ct(&self) -> u32 {
+        self.re.is_equal_ct(&Fp::ONE) & self.im.is_zero_ct()
+    }
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        self.is_one_ct() != 0
+    }
+    #[inline]
+    pub fn is_equal_ct(&self, other: &Self) -> u32 {
+        self.re.is_equal_ct(&other.re) & self.im.is_equal_ct(&other.im)
+    }
+    #[inline]
+    pub fn is_square_ct(&self) -> u32 {
+        (self.re.square() + self.im.square()).is_square_ct()
+    }
+    #[inline]
+    pub fn is_square(&self) -> bool {
+        self.is_square_ct() != 0
+    }
+
+    // ---- conditional / encode ----
+
+    #[inline]
+    pub fn select(a0: &Self, a1: &Self, ctl: u32) -> Self {
+        Self {
+            re: Fp::select(&a0.re, &a1.re, ctl),
+            im: Fp::select(&a0.im, &a1.im, ctl),
+        }
+    }
+    #[inline]
+    pub fn cswap(a: &mut Self, b: &mut Self, ctl: u32) {
+        Fp::cswap(&mut a.re, &mut b.re, ctl);
+        Fp::cswap(&mut a.im, &mut b.im, ctl);
+    }
+
+    #[inline]
+    pub fn encode(&self) -> [u8; FP2_ENCODED_BYTES] {
+        let mut out = [0u8; FP2_ENCODED_BYTES];
+        out[..FP_ENCODED_BYTES].copy_from_slice(&self.re.encode());
+        out[FP_ENCODED_BYTES..].copy_from_slice(&self.im.encode());
+        out
+    }
+
+    /// Decode canonical little-endian bytes; returns `None` if either half ≥ p.
+    #[inline]
+    pub fn try_decode(src: &[u8]) -> Option<Self> {
         let mut x = Self::ZERO;
-        (fp2_decode(&mut x, bytes) == 0xFFFF_FFFF).then_some(x)
+        let re = decode_masked(&mut x.re, &src[..FP_ENCODED_BYTES]);
+        let im = decode_masked(&mut x.im, &src[FP_ENCODED_BYTES..2 * FP_ENCODED_BYTES]);
+        ((re & im) == 0xFFFF_FFFF).then_some(x)
     }
 }
 
-#[inline]
-pub fn fp2_mul_small(x: &mut Fp2, y: &Fp2, n: u32) {
-    fp_mul_small(&mut x.re, &y.re, n);
-    fp_mul_small(&mut x.im, &y.im, n);
+impl AddAssign<&Fp2> for Fp2 {
+    #[inline]
+    fn add_assign(&mut self, rhs: &Fp2) {
+        self.re += &rhs.re;
+        self.im += &rhs.im;
+    }
 }
-
-#[inline]
-pub fn fp2_is_zero(a: &Fp2) -> u32 {
-    fp_is_zero(&a.re) & fp_is_zero(&a.im)
+impl SubAssign<&Fp2> for Fp2 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &Fp2) {
+        self.re -= &rhs.re;
+        self.im -= &rhs.im;
+    }
 }
-
-#[inline]
-pub fn fp2_is_equal(a: &Fp2, b: &Fp2) -> u32 {
-    fp_is_equal(&a.re, &b.re) & fp_is_equal(&a.im, &b.im)
+/// (a + bi)(c + di), via Karatsuba.
+impl MulAssign<&Fp2> for Fp2 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &Fp2) {
+        let t0 = (self.re + self.im) * (rhs.re + rhs.im);
+        let t1 = self.im * rhs.im;
+        self.re *= &rhs.re;
+        self.im = t0 - t1 - self.re;
+        self.re -= t1;
+    }
 }
-
-#[inline]
-pub fn fp2_is_one(a: &Fp2) -> u32 {
-    fp_is_equal(&a.re, &ONE) & fp_is_zero(&a.im)
-}
-
-#[inline]
-pub fn fp2_add(x: &mut Fp2, y: &Fp2, z: &Fp2) {
-    fp_add(&mut x.re, &y.re, &z.re);
-    fp_add(&mut x.im, &y.im, &z.im);
-}
-
-#[inline]
-pub fn fp2_add_one(x: &mut Fp2, y: &Fp2) {
-    fp_add(&mut x.re, &y.re, &ONE);
-    x.im = y.im;
-}
-
-#[inline]
-pub fn fp2_sub(x: &mut Fp2, y: &Fp2, z: &Fp2) {
-    fp_sub(&mut x.re, &y.re, &z.re);
-    fp_sub(&mut x.im, &y.im, &z.im);
-}
-
-#[inline]
-pub fn fp2_neg(x: &mut Fp2, y: &Fp2) {
-    fp_neg(&mut x.re, &y.re);
-    fp_neg(&mut x.im, &y.im);
-}
-
-/// (y.re + y.im·i)(z.re + z.im·i), via Karatsuba.
-#[inline]
-pub fn fp2_mul(x: &mut Fp2, y: &Fp2, z: &Fp2) {
-    let mut t0 = Fp::default();
-    let mut t1 = Fp::default();
-
-    fp_add(&mut t0, &y.re, &y.im);
-    fp_add(&mut t1, &z.re, &z.im);
-    fp_mul_ip(&mut t0, &t1);
-    fp_mul(&mut t1, &y.im, &z.im);
-    fp_mul(&mut x.re, &y.re, &z.re);
-    fp_sub(&mut x.im, &t0, &t1);
-    fp_sub_ip(&mut x.im, &x.re);
-    fp_sub_ip(&mut x.re, &t1);
-}
-
-#[inline]
-pub fn fp2_sqr(x: &mut Fp2, y: &Fp2) {
-    let mut sum = Fp::default();
-    let mut diff = Fp::default();
-
-    fp_add(&mut sum, &y.re, &y.im);
-    fp_sub(&mut diff, &y.re, &y.im);
-    fp_mul(&mut x.im, &y.re, &y.im);
-    fp_dbl_ip(&mut x.im);
-    fp_mul(&mut x.re, &sum, &diff);
-}
-
-// ---------------------------------------------------------------------------
-// In-place variants for the common `let s = x; fp2_op(&mut x, &s, ...)` pattern.
-// These avoid an Fp2 (80B) caller-side copy by doing the work at the Fp level.
-// ---------------------------------------------------------------------------
-
-/// `r *= b`.
-#[inline]
-pub fn fp2_mul_ip(r: &mut Fp2, b: &Fp2) {
-    let mut t0 = Fp::default();
-    let mut t1 = Fp::default();
-    fp_add(&mut t0, &r.re, &r.im);
-    fp_add(&mut t1, &b.re, &b.im);
-    fp_mul_ip(&mut t0, &t1);
-    fp_mul(&mut t1, &r.im, &b.im);
-    fp_mul_ip(&mut r.re, &b.re);
-    fp_sub(&mut r.im, &t0, &t1);
-    fp_sub_ip(&mut r.im, &r.re);
-    fp_sub_ip(&mut r.re, &t1);
-}
-
-/// `r = r²`.
-#[inline]
-pub fn fp2_sqr_ip(r: &mut Fp2) {
-    let mut sum = Fp::default();
-    let mut diff = Fp::default();
-    fp_add(&mut sum, &r.re, &r.im);
-    fp_sub(&mut diff, &r.re, &r.im);
-    fp_mul_ip(&mut r.im, &r.re);
-    fp_dbl_ip(&mut r.im);
-    fp_mul(&mut r.re, &sum, &diff);
-}
-
-/// `r += b`.
-#[inline]
-pub fn fp2_add_ip(r: &mut Fp2, b: &Fp2) {
-    fp_add_ip(&mut r.re, &b.re);
-    fp_add_ip(&mut r.im, &b.im);
-}
-
-/// `r -= b`.
-#[inline]
-pub fn fp2_sub_ip(r: &mut Fp2, b: &Fp2) {
-    fp_sub_ip(&mut r.re, &b.re);
-    fp_sub_ip(&mut r.im, &b.im);
-}
-
-/// `r = b - r`.
-#[inline]
-pub fn fp2_rsub_ip(r: &mut Fp2, b: &Fp2) {
-    let mut t = Fp::default();
-    fp_sub(&mut t, &b.re, &r.re);
-    r.re = t;
-    fp_sub(&mut t, &b.im, &r.im);
-    r.im = t;
-}
-
-/// `r = -r`.
-#[inline]
-pub fn fp2_neg_ip(r: &mut Fp2) {
-    fp_neg_ip(&mut r.re);
-    fp_neg_ip(&mut r.im);
-}
-
-/// `r = 2r`.
-#[inline]
-pub fn fp2_dbl_ip(r: &mut Fp2) {
-    fp_dbl_ip(&mut r.re);
-    fp_dbl_ip(&mut r.im);
-}
-
-pub fn fp2_inv(x: &mut Fp2) {
-    let mut t0 = Fp::default();
-    let mut t1 = Fp::default();
-
-    fp_sqr(&mut t0, &x.re);
-    fp_sqr(&mut t1, &x.im);
-    fp_add_ip(&mut t0, &t1);
-    fp_inv(&mut t0);
-    fp_mul_ip(&mut x.re, &t0);
-    fp_mul_ip(&mut x.im, &t0);
-    fp_neg_ip(&mut x.im);
-}
-
-pub fn fp2_is_square(x: &Fp2) -> u32 {
-    let mut t0 = Fp::default();
-    let mut t1 = Fp::default();
-    fp_sqr(&mut t0, &x.re);
-    fp_sqr(&mut t1, &x.im);
-    fp_add_ip(&mut t0, &t1);
-    fp_is_square(&t0)
-}
-
-/// Square root in GF(p²) following Aardal et al. (ePrint 2024/1563),
-/// canonicalized so the result has even real part (or, if re==0, even imag).
-pub fn fp2_sqrt(a: &mut Fp2) {
-    let mut x0 = Fp::default();
-    let mut x1 = Fp::default();
-    let mut t0 = Fp::default();
-    let mut t1 = Fp::default();
-
-    fp_sqr(&mut x0, &a.re);
-    fp_sqr(&mut x1, &a.im);
-    fp_add_ip(&mut x0, &x1);
-    fp_sqrt(&mut x0);
-    let s = x0;
-    fp_select(&mut x0, &s, &a.re, fp_is_zero(&a.im));
-    fp_add_ip(&mut x0, &a.re);
-    fp_add(&mut t0, &x0, &x0);
-
-    fp_exp3div4(&mut x1, &t0);
-
-    fp_mul_ip(&mut x0, &x1);
-    fp_mul_ip(&mut x1, &a.im);
-    fp_add(&mut t1, &x0, &x0);
-    fp_sqr_ip(&mut t1);
-    fp_sub_ip(&mut t0, &t1);
-    let f = fp_is_zero(&t0);
-    fp_neg(&mut t1, &x0);
-    t0 = x1;
-    let s0 = t0;
-    fp_select(&mut t0, &s0, &x0, f);
-    let s1 = t1;
-    fp_select(&mut t1, &s1, &x1, f);
-
-    let t0_is_zero = fp_is_zero(&t0);
-
-    let mut tmp = [0u8; FP_ENCODED_BYTES];
-    fp_encode(&mut tmp, &t0);
-    let t0_is_odd = ((tmp[0] & 1) as u32).wrapping_neg();
-    fp_encode(&mut tmp, &t1);
-    let t1_is_odd = ((tmp[0] & 1) as u32).wrapping_neg();
-
-    let negate = t0_is_odd | (t0_is_zero & t1_is_odd);
-    fp_neg(&mut x0, &t0);
-    fp_select(&mut a.re, &t0, &x0, negate);
-    fp_neg(&mut x0, &t1);
-    fp_select(&mut a.im, &t1, &x0, negate);
-}
-
-/// Compute sqrt(a) into a; returns 0xFFFFFFFF iff the result squares back to the input.
-pub fn fp2_sqrt_verify(a: &mut Fp2) -> u32 {
-    let t0 = *a;
-    fp2_sqrt(a);
-    let mut t1 = Fp2::default();
-    fp2_sqr(&mut t1, a);
-    fp2_is_equal(&t0, &t1)
-}
-
-#[inline]
-pub fn fp2_half(x: &mut Fp2, y: &Fp2) {
-    fp_half(&mut x.re, &y.re);
-    fp_half(&mut x.im, &y.im);
-}
+fp_ops!(Fp2);
 
 /// In-place batched inversion (Montgomery's trick).
 pub fn fp2_batched_inv(x: &mut [Fp2]) {
@@ -285,65 +276,18 @@ pub fn fp2_batched_inv(x: &mut [Fp2]) {
     if len == 0 {
         return;
     }
-    let mut t1 = vec![Fp2::default(); len];
+    let mut t1 = vec![Fp2::ZERO; len];
     t1[0] = x[0];
     for i in 1..len {
-        let prev = t1[i - 1];
-        fp2_mul(&mut t1[i], &prev, &x[i]);
+        t1[i] = t1[i - 1] * x[i];
     }
-    let mut acc = t1[len - 1];
-    fp2_inv(&mut acc);
+    let mut acc = t1[len - 1].inv();
     for i in (1..len).rev() {
-        let mut r = Fp2::default();
-        fp2_mul(&mut r, &acc, &t1[i - 1]);
-        fp2_mul_ip(&mut acc, &x[i]);
+        let r = acc * t1[i - 1];
+        acc *= x[i];
         x[i] = r;
     }
     x[0] = acc;
-}
-
-/// Variable-time square-and-multiply: out = x^exp, where exp is little-endian limbs.
-pub fn fp2_pow_vartime(out: &mut Fp2, x: &Fp2, exp: &[Digit]) {
-    let mut acc = *x;
-    *out = Fp2::ONE;
-    for &word in exp {
-        for i in 0..RADIX {
-            if (word >> i) & 1 == 1 {
-                fp2_mul_ip(out, &acc);
-            }
-            fp2_sqr_ip(&mut acc);
-        }
-    }
-}
-
-pub fn fp2_encode(dst: &mut [u8], a: &Fp2) {
-    fp_encode(&mut dst[..FP_ENCODED_BYTES], &a.re);
-    fp_encode(&mut dst[FP_ENCODED_BYTES..2 * FP_ENCODED_BYTES], &a.im);
-}
-
-pub fn fp2_decode(d: &mut Fp2, src: &[u8]) -> u32 {
-    let re = fp_decode(&mut d.re, &src[..FP_ENCODED_BYTES]);
-    let im = fp_decode(&mut d.im, &src[FP_ENCODED_BYTES..2 * FP_ENCODED_BYTES]);
-    re & im
-}
-
-#[inline]
-pub fn fp2_select(d: &mut Fp2, a0: &Fp2, a1: &Fp2, ctl: u32) {
-    fp_select(&mut d.re, &a0.re, &a1.re, ctl);
-    fp_select(&mut d.im, &a0.im, &a1.im, ctl);
-}
-
-#[inline]
-pub fn fp2_cswap(a: &mut Fp2, b: &mut Fp2, ctl: u32) {
-    fp_cswap(&mut a.re, &mut b.re, ctl);
-    fp_cswap(&mut a.im, &mut b.im, ctl);
-}
-
-/// Frobenius endomorphism: out = in^p = conj(in) in GF(p²).
-#[inline]
-pub fn fp2_frob(out: &mut Fp2, input: &Fp2) {
-    out.re = input.re;
-    fp_neg(&mut out.im, &input.im);
 }
 
 // ===========================================================================
@@ -370,28 +314,10 @@ mod tests {
             let a = fp2_random(&mut prng);
             let b = fp2_random(&mut prng);
             let c = fp2_random(&mut prng);
-            let mut d = Fp2::default();
-            let mut e = Fp2::default();
-            let mut f = Fp2::default();
-
-            fp2_add(&mut d, &a, &b);
-            fp2_add(&mut e, &d, &c);
-            fp2_add(&mut d, &b, &c);
-            fp2_add(&mut f, &d, &a);
-            assert_ne!(fp2_is_equal(&e, &f), 0);
-
-            fp2_add(&mut d, &a, &b);
-            fp2_add(&mut e, &b, &a);
-            assert_ne!(fp2_is_equal(&d, &e), 0);
-
-            fp2_neg(&mut d, &a);
-            fp2_add(&mut e, &a, &d);
-            assert_ne!(fp2_is_zero(&e), 0);
-
-            let one = Fp2::ONE;
-            fp2_add(&mut e, &a, &one);
-            fp2_add_one(&mut f, &a);
-            assert_ne!(fp2_is_equal(&e, &f), 0);
+            assert_eq!((a + b) + c, a + (b + c));
+            assert_eq!(a + b, b + a);
+            assert!((a + (-a)).is_zero());
+            assert_eq!(a + Fp2::ONE, a.add_one());
         }
     }
 
@@ -402,24 +328,9 @@ mod tests {
             let a = fp2_random(&mut prng);
             let b = fp2_random(&mut prng);
             let c = fp2_random(&mut prng);
-            let mut d = Fp2::default();
-            let mut e = Fp2::default();
-            let mut f = Fp2::default();
-
-            fp2_sub(&mut d, &a, &b);
-            fp2_sub(&mut e, &d, &c);
-            fp2_add(&mut d, &b, &c);
-            fp2_sub(&mut f, &a, &d);
-            assert_ne!(fp2_is_equal(&e, &f), 0);
-
-            fp2_sub(&mut d, &a, &b);
-            fp2_sub(&mut e, &b, &a);
-            let e2 = e;
-            fp2_neg(&mut e, &e2);
-            assert_ne!(fp2_is_equal(&d, &e), 0);
-
-            fp2_sub(&mut e, &a, &a);
-            assert_ne!(fp2_is_zero(&e), 0);
+            assert_eq!((a - b) - c, a - (b + c));
+            assert_eq!(a - b, -(b - a));
+            assert!((a - a).is_zero());
         }
     }
 
@@ -430,35 +341,11 @@ mod tests {
             let a = fp2_random(&mut prng);
             let b = fp2_random(&mut prng);
             let c = fp2_random(&mut prng);
-            let mut d = Fp2::default();
-            let mut e = Fp2::default();
-            let mut f = Fp2::default();
-
-            fp2_mul(&mut d, &a, &b);
-            fp2_mul(&mut e, &d, &c);
-            fp2_mul(&mut d, &b, &c);
-            fp2_mul(&mut f, &d, &a);
-            assert_ne!(fp2_is_equal(&e, &f), 0);
-
-            fp2_add(&mut d, &b, &c);
-            fp2_mul(&mut e, &a, &d);
-            fp2_mul(&mut d, &a, &b);
-            fp2_mul(&mut f, &a, &c);
-            let f2 = f;
-            fp2_add(&mut f, &d, &f2);
-            assert_ne!(fp2_is_equal(&e, &f), 0);
-
-            fp2_mul(&mut d, &a, &b);
-            fp2_mul(&mut e, &b, &a);
-            assert_ne!(fp2_is_equal(&d, &e), 0);
-
-            let one = Fp2::ONE;
-            fp2_mul(&mut d, &a, &one);
-            assert_ne!(fp2_is_equal(&a, &d), 0);
-
-            let zero = Fp2::ZERO;
-            fp2_mul(&mut d, &a, &zero);
-            assert_ne!(fp2_is_zero(&d), 0);
+            assert_eq!((a * b) * c, a * (b * c));
+            assert_eq!(a * (b + c), a * b + a * c);
+            assert_eq!(a * b, b * a);
+            assert_eq!(a * Fp2::ONE, a);
+            assert!((a * Fp2::ZERO).is_zero());
         }
     }
 
@@ -469,23 +356,9 @@ mod tests {
         for _ in 0..ITERS {
             let y = fp2_random(&mut prng);
             let z = fp2_random(&mut prng);
-            let mut x = Fp2::default();
-            fp2_mul(&mut x, &y, &z);
-
-            let mut ac = Fp::default();
-            let mut bd = Fp::default();
-            let mut ad = Fp::default();
-            let mut bc = Fp::default();
-            fp_mul(&mut ac, &y.re, &z.re);
-            fp_mul(&mut bd, &y.im, &z.im);
-            fp_mul(&mut ad, &y.re, &z.im);
-            fp_mul(&mut bc, &y.im, &z.re);
-            let mut re = Fp::default();
-            let mut im = Fp::default();
-            fp_sub(&mut re, &ac, &bd);
-            fp_add(&mut im, &ad, &bc);
-            assert_ne!(fp_is_equal(&x.re, &re), 0);
-            assert_ne!(fp_is_equal(&x.im, &im), 0);
+            let x = y * z;
+            assert_eq!(x.re, y.re * z.re - y.im * z.im);
+            assert_eq!(x.im, y.re * z.im + y.im * z.re);
         }
     }
 
@@ -495,57 +368,35 @@ mod tests {
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
             let val = (prng.next() as u32) & 0x7FFF_FFFF;
-            let mut b = Fp2::default();
-            fp2_mul_small(&mut b, &a, val);
-            let c = Fp2::from_small(val as Digit);
-            let mut d = Fp2::default();
-            fp2_mul(&mut d, &a, &c);
-            assert_ne!(fp2_is_equal(&b, &d), 0);
+            assert_eq!(a.mul_small(val), a * Fp2::from_small(val as Digit));
         }
     }
 
     #[test]
-    fn inplace_ops_match_three_arg() {
+    fn assign_ops_match_value_ops() {
         let mut prng = Prng(0x21);
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
             let b = fp2_random(&mut prng);
-            let mut r3 = Fp2::default();
-
             let mut r = a;
-            fp2_mul_ip(&mut r, &b);
-            fp2_mul(&mut r3, &a, &b);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
+            r *= b;
+            assert_eq!(r, a * b);
             let mut r = a;
-            fp2_sqr_ip(&mut r);
-            fp2_sqr(&mut r3, &a);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
+            r.square_ip();
+            assert_eq!(r, a.square());
             let mut r = a;
-            fp2_add_ip(&mut r, &b);
-            fp2_add(&mut r3, &a, &b);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
+            r += b;
+            assert_eq!(r, a + b);
             let mut r = a;
-            fp2_sub_ip(&mut r, &b);
-            fp2_sub(&mut r3, &a, &b);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
+            r -= b;
+            assert_eq!(r, a - b);
             let mut r = a;
-            fp2_rsub_ip(&mut r, &b);
-            fp2_sub(&mut r3, &b, &a);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
+            r.neg_ip();
+            assert_eq!(r, -a);
             let mut r = a;
-            fp2_neg_ip(&mut r);
-            fp2_neg(&mut r3, &a);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
-
-            let mut r = a;
-            fp2_dbl_ip(&mut r);
-            fp2_add(&mut r3, &a, &a);
-            assert_ne!(fp2_is_equal(&r, &r3), 0);
+            r.dbl_ip();
+            assert_eq!(r, a + a);
+            assert_eq!(r, a.dbl());
         }
     }
 
@@ -554,29 +405,18 @@ mod tests {
         let mut prng = Prng(0x15);
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
-            let mut b = Fp2::default();
-            let mut c = Fp2::default();
-            fp2_sqr(&mut b, &a);
-            fp2_mul(&mut c, &a, &a);
-            assert_ne!(fp2_is_equal(&b, &c), 0);
+            assert_eq!(a.square(), a * a);
         }
     }
 
     #[test]
     fn inversion() {
         let mut prng = Prng(0x16);
-        let one = Fp2::ONE;
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
-            let mut b = a;
-            fp2_inv(&mut b);
-            let mut c = Fp2::default();
-            fp2_mul(&mut c, &a, &b);
-            assert_ne!(fp2_is_equal(&c, &one), 0);
+            assert_eq!(a * a.inv(), Fp2::ONE);
         }
-        let mut z = Fp2::default();
-        fp2_inv(&mut z);
-        assert_ne!(fp2_is_zero(&z), 0);
+        assert!(Fp2::ZERO.inv().is_zero());
     }
 
     #[test]
@@ -584,31 +424,22 @@ mod tests {
         let mut prng = Prng(0x17);
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
-            let mut c = Fp2::default();
-            fp2_sqr(&mut c, &a);
-            assert_ne!(fp2_is_square(&c), 0);
-
-            let mut b = c;
-            assert_ne!(fp2_sqrt_verify(&mut b), 0);
-
-            fp2_sqrt(&mut c);
-            let mut d = Fp2::default();
-            fp2_neg(&mut d, &c);
-            assert!(fp2_is_equal(&a, &c) != 0 || fp2_is_equal(&a, &d) != 0);
+            let c = a.square();
+            assert!(c.is_square());
+            assert_eq!(c.sqrt_verify().map(|r| r.square()), Some(c));
+            let r = c.sqrt();
+            assert!(r == a || r == -a);
         }
     }
 
     #[test]
     fn batched_inv() {
         let mut prng = Prng(0x18);
-        let one = Fp2::ONE;
         let mut xs: Vec<Fp2> = (0..8).map(|_| fp2_random(&mut prng)).collect();
         let orig = xs.clone();
         fp2_batched_inv(&mut xs);
         for (x, o) in xs.iter().zip(orig.iter()) {
-            let mut p = Fp2::default();
-            fp2_mul(&mut p, x, o);
-            assert_ne!(fp2_is_equal(&p, &one), 0);
+            assert_eq!(*x * *o, Fp2::ONE);
         }
     }
 
@@ -617,31 +448,24 @@ mod tests {
     #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
     #[test]
     fn golden_c_vectors() {
-        let mut enc = [0u8; FP2_ENCODED_BYTES];
-        let mut x = Fp2::default();
-        x.re = Fp::from_small(3);
-        x.im = Fp::from_small(4);
-        let mut y = Fp2::default();
-        fp2_sqr(&mut y, &x);
-        fp2_encode(&mut enc, &y);
+        let x = Fp2 {
+            re: Fp::from_small(3),
+            im: Fp::from_small(4),
+        };
+        let y = x.square();
         assert_hex(
-            &enc,
+            &y.encode(),
             "f8ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04\
              1800000000000000000000000000000000000000000000000000000000000000",
         );
-
-        fp2_sqrt(&mut y);
-        fp2_encode(&mut enc, &y);
+        let s = y.sqrt();
         assert_hex(
-            &enc,
+            &s.encode(),
             "fcffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04\
              fbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff04",
         );
-
-        fp2_inv(&mut y);
-        fp2_encode(&mut enc, &y);
         assert_hex(
-            &enc,
+            &s.inv().encode(),
             "6666666666666666666666666666666666666666666666666666666666666601\
              cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc04",
         );
@@ -652,11 +476,7 @@ mod tests {
         let mut prng = Prng(0x19);
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
-            let mut buf = [0u8; FP2_ENCODED_BYTES];
-            fp2_encode(&mut buf, &a);
-            let mut b = Fp2::default();
-            assert_eq!(fp2_decode(&mut b, &buf), 0xFFFF_FFFF);
-            assert_ne!(fp2_is_equal(&a, &b), 0);
+            assert_eq!(Fp2::try_decode(&a.encode()), Some(a));
         }
     }
 }

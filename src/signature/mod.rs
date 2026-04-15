@@ -5,7 +5,7 @@
 use std::sync::OnceLock;
 
 use crate::ec::*;
-use crate::gf::fp2_is_one;
+
 #[cfg(debug_assertions)]
 use crate::gf::Fp2;
 use crate::hd::*;
@@ -167,7 +167,7 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
 
     pk.curve = sk.curve;
     pk.curve.is_a24_computed_and_normalized = false;
-    debug_assert!(fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF);
+    debug_assert!(pk.curve.c.is_one());
 
     found
 }
@@ -359,8 +359,7 @@ fn sample_response(x: &mut QuatAlgElem, lattice: &QuatLattice, lattice_content: 
     ibz_pow(&mut bound, ibz_const_two(), SQISIGN_RESPONSE_LENGTH as u32);
     let s = bound.clone();
     ibz_sub(&mut bound, &s, ibz_const_one());
-    let s = bound.clone();
-    ibz_mul(&mut bound, &s, lattice_content);
+    bound *= lattice_content;
 
     let ok = quat_lattice_sample_from_ball(x, lattice, quatalg_pinfty(), &bound);
     debug_assert!(ok != 0);
@@ -410,8 +409,7 @@ fn compute_backtracking_signature(
     let mut dummy_coord = ibz_vec_4_init();
 
     quat_alg_make_primitive(&mut dummy_coord, &mut tmp, resp_quat, maxord_o0());
-    let s = resp_quat.denom.clone();
-    ibz_mul(&mut resp_quat.denom, &s, &tmp);
+    resp_quat.denom *= &tmp;
     debug_assert!(quat_lattice_contains(None, maxord_o0(), resp_quat) != 0);
 
     let backtracking = ibz_two_adic(&tmp);
@@ -695,11 +693,9 @@ fn compute_challenge_codomain_signature(
 
     #[cfg(debug_assertions)]
     {
-        let mut j_chall = Fp2::default();
-        let mut j_codomain = Fp2::default();
-        ec_j_inv(&mut j_codomain, _e_chall_2);
-        ec_j_inv(&mut j_chall, e_chall);
-        debug_assert!(crate::gf::fp2_is_equal(&j_chall, &j_codomain) != 0);
+        let j_codomain = _e_chall_2.j_inv();
+        let j_chall = e_chall.j_inv();
+        debug_assert!(j_chall == j_codomain);
     }
 
     let mut isom = EcIsom::default();
@@ -713,7 +709,7 @@ fn compute_challenge_codomain_signature(
 }
 
 fn set_aux_curve_signature(sig: &mut Signature, e_aux: &mut EcCurve) {
-    ec_normalize_curve(e_aux);
+    e_aux.normalize();
     sig.e_aux_a = e_aux.a;
 }
 

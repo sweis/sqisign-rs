@@ -12,65 +12,47 @@ pub fn quat_alg_coord_mul(res: &mut IbzVec4, a: &IbzVec4, b: &IbzVec4, alg: &Qua
 
     // 1 component: -p(a2 b2 + a3 b3) + a0 b0 - a1 b1
     ibz_mul(&mut prod, &a[2], &b[2]);
-    let t = sum[0].clone();
-    ibz_sub(&mut sum[0], &t, &prod);
+    sum[0] -= &prod;
     ibz_mul(&mut prod, &a[3], &b[3]);
-    let t = sum[0].clone();
-    ibz_sub(&mut sum[0], &t, &prod);
-    let t = sum[0].clone();
-    ibz_mul(&mut sum[0], &t, &alg.p);
+    sum[0] -= &prod;
+    sum[0] *= &alg.p;
     ibz_mul(&mut prod, &a[0], &b[0]);
-    let t = sum[0].clone();
-    ibz_add(&mut sum[0], &t, &prod);
+    sum[0] += &prod;
     ibz_mul(&mut prod, &a[1], &b[1]);
-    let t = sum[0].clone();
-    ibz_sub(&mut sum[0], &t, &prod);
+    sum[0] -= &prod;
 
     // i component: p(a2 b3 - a3 b2) + a0 b1 + a1 b0
     ibz_mul(&mut prod, &a[2], &b[3]);
-    let t = sum[1].clone();
-    ibz_add(&mut sum[1], &t, &prod);
+    sum[1] += &prod;
     ibz_mul(&mut prod, &a[3], &b[2]);
-    let t = sum[1].clone();
-    ibz_sub(&mut sum[1], &t, &prod);
-    let t = sum[1].clone();
-    ibz_mul(&mut sum[1], &t, &alg.p);
+    sum[1] -= &prod;
+    sum[1] *= &alg.p;
     ibz_mul(&mut prod, &a[0], &b[1]);
-    let t = sum[1].clone();
-    ibz_add(&mut sum[1], &t, &prod);
+    sum[1] += &prod;
     ibz_mul(&mut prod, &a[1], &b[0]);
-    let t = sum[1].clone();
-    ibz_add(&mut sum[1], &t, &prod);
+    sum[1] += &prod;
 
     // j component: a0 b2 + a2 b0 - a1 b3 + a3 b1
     ibz_mul(&mut prod, &a[0], &b[2]);
-    let t = sum[2].clone();
-    ibz_add(&mut sum[2], &t, &prod);
+    sum[2] += &prod;
     ibz_mul(&mut prod, &a[2], &b[0]);
-    let t = sum[2].clone();
-    ibz_add(&mut sum[2], &t, &prod);
+    sum[2] += &prod;
     ibz_mul(&mut prod, &a[1], &b[3]);
-    let t = sum[2].clone();
-    ibz_sub(&mut sum[2], &t, &prod);
+    sum[2] -= &prod;
     ibz_mul(&mut prod, &a[3], &b[1]);
-    let t = sum[2].clone();
-    ibz_add(&mut sum[2], &t, &prod);
+    sum[2] += &prod;
 
     // ij component: a0 b3 + a3 b0 - a2 b1 + a1 b2
     ibz_mul(&mut prod, &a[0], &b[3]);
-    let t = sum[3].clone();
-    ibz_add(&mut sum[3], &t, &prod);
+    sum[3] += &prod;
     ibz_mul(&mut prod, &a[3], &b[0]);
-    let t = sum[3].clone();
-    ibz_add(&mut sum[3], &t, &prod);
+    sum[3] += &prod;
     ibz_mul(&mut prod, &a[2], &b[1]);
-    let t = sum[3].clone();
-    ibz_sub(&mut sum[3], &t, &prod);
+    sum[3] -= &prod;
     ibz_mul(&mut prod, &a[1], &b[2]);
-    let t = sum[3].clone();
-    ibz_add(&mut sum[3], &t, &prod);
+    sum[3] += &prod;
 
-    ibz_vec_4_copy(res, &sum);
+    (res).clone_from(&sum);
 }
 
 /// Put `a` and `b` on a common denominator.
@@ -89,18 +71,16 @@ pub fn quat_alg_equal_denom(
         ibz_mul(&mut res_a.coord[i], &a.coord[i], &res_b.denom);
         ibz_mul(&mut res_b.coord[i], &b.coord[i], &res_a.denom);
     }
-    let t = res_a.denom.clone();
-    ibz_mul(&mut res_a.denom, &t, &res_b.denom);
+    res_a.denom *= &res_b.denom;
     ibz_mul(&mut res_b.denom, &res_a.denom, &gcd);
-    let t = res_a.denom.clone();
-    ibz_mul(&mut res_a.denom, &t, &gcd);
+    res_a.denom *= &gcd;
 }
 
 pub fn quat_alg_add(res: &mut QuatAlgElem, a: &QuatAlgElem, b: &QuatAlgElem) {
     let mut ra = QuatAlgElem::default();
     let mut rb = QuatAlgElem::default();
     quat_alg_equal_denom(&mut ra, &mut rb, a, b);
-    ibz_copy(&mut res.denom, &ra.denom);
+    res.denom.clone_from(&ra.denom);
     ibz_vec_4_add(&mut res.coord, &ra.coord, &rb.coord);
 }
 
@@ -108,7 +88,7 @@ pub fn quat_alg_sub(res: &mut QuatAlgElem, a: &QuatAlgElem, b: &QuatAlgElem) {
     let mut ra = QuatAlgElem::default();
     let mut rb = QuatAlgElem::default();
     quat_alg_equal_denom(&mut ra, &mut rb, a, b);
-    ibz_copy(&mut res.denom, &ra.denom);
+    res.denom.clone_from(&ra.denom);
     ibz_vec_4_sub(&mut res.coord, &ra.coord, &rb.coord);
 }
 
@@ -118,8 +98,8 @@ pub fn quat_alg_mul(res: &mut QuatAlgElem, a: &QuatAlgElem, b: &QuatAlgElem, alg
 }
 
 pub fn quat_alg_conj(conj: &mut QuatAlgElem, x: &QuatAlgElem) {
-    ibz_copy(&mut conj.denom, &x.denom);
-    ibz_copy(&mut conj.coord[0], &x.coord[0]);
+    conj.denom.clone_from(&x.denom);
+    conj.coord[0].clone_from(&x.coord[0]);
     ibz_neg(&mut conj.coord[1], &x.coord[1]);
     ibz_neg(&mut conj.coord[2], &x.coord[2]);
     ibz_neg(&mut conj.coord[3], &x.coord[3]);
@@ -144,8 +124,8 @@ pub fn quat_alg_norm(res_num: &mut Ibz, res_denom: &mut Ibz, a: &QuatAlgElem, al
 }
 
 pub fn quat_alg_scalar(elem: &mut QuatAlgElem, num: &Ibz, denom: &Ibz) {
-    ibz_copy(&mut elem.denom, denom);
-    ibz_copy(&mut elem.coord[0], num);
+    elem.denom.clone_from(denom);
+    elem.coord[0].clone_from(num);
     ibz_set(&mut elem.coord[1], 0);
     ibz_set(&mut elem.coord[2], 0);
     ibz_set(&mut elem.coord[3], 0);
@@ -165,8 +145,7 @@ pub fn quat_alg_normalize(x: &mut QuatAlgElem) {
     let sign = Ibz::from(2 * (ibz_cmp(ibz_const_zero(), &x.denom) < 0) as i32 - 1);
     let c = x.coord.clone();
     ibz_vec_4_scalar_mul(&mut x.coord, &sign, &c);
-    let d = x.denom.clone();
-    ibz_mul(&mut x.denom, &sign, &d);
+    x.denom *= &sign;
 }
 
 pub fn quat_alg_elem_is_zero(x: &QuatAlgElem) -> i32 {
@@ -186,13 +165,39 @@ impl PartialEq for QuatAlgElem {
 }
 impl Eq for QuatAlgElem {}
 
+impl core::ops::Add<&QuatAlgElem> for &QuatAlgElem {
+    type Output = QuatAlgElem;
+    fn add(self, rhs: &QuatAlgElem) -> QuatAlgElem {
+        let mut r = QuatAlgElem::default();
+        quat_alg_add(&mut r, self, rhs);
+        r
+    }
+}
+impl core::ops::Sub<&QuatAlgElem> for &QuatAlgElem {
+    type Output = QuatAlgElem;
+    fn sub(self, rhs: &QuatAlgElem) -> QuatAlgElem {
+        let mut r = QuatAlgElem::default();
+        quat_alg_sub(&mut r, self, rhs);
+        r
+    }
+}
+
+impl QuatAlgElem {
+    /// Quaternion conjugate `ā` (negate i, j, k components).
+    #[must_use]
+    pub fn conj(&self) -> Self {
+        let mut r = Self::default();
+        quat_alg_conj(&mut r, self);
+        r
+    }
+    pub fn is_zero(&self) -> bool {
+        ibz_vec_4_is_zero(&self.coord) != 0
+    }
+}
+
 pub fn quat_alg_elem_set(elem: &mut QuatAlgElem, denom: i32, c0: i32, c1: i32, c2: i32, c3: i32) {
     ibz_vec_4_set(&mut elem.coord, c0, c1, c2, c3);
     ibz_set(&mut elem.denom, denom);
-}
-
-pub fn quat_alg_elem_copy(dst: &mut QuatAlgElem, src: &QuatAlgElem) {
-    dst.clone_from(src);
 }
 
 pub fn quat_alg_elem_copy_ibz(
@@ -204,14 +209,14 @@ pub fn quat_alg_elem_copy_ibz(
     c3: &Ibz,
 ) {
     ibz_vec_4_copy_ibz(&mut elem.coord, c0, c1, c2, c3);
-    ibz_copy(&mut elem.denom, denom);
+    elem.denom.clone_from(denom);
 }
 
 pub fn quat_alg_elem_mul_by_scalar(res: &mut QuatAlgElem, scalar: &Ibz, elem: &QuatAlgElem) {
     for i in 0..4 {
         ibz_mul(&mut res.coord[i], &elem.coord[i], scalar);
     }
-    ibz_copy(&mut res.denom, &elem.denom);
+    res.denom.clone_from(&elem.denom);
 }
 
 // `quat_alg_make_primitive` depends on `quat_lattice_contains` (lattice.c).

@@ -3,7 +3,7 @@
 
 use crate::ec::biextension::weil;
 use crate::ec::*;
-use crate::gf::{fp2_is_equal, fp2_pow_vartime, Fp2};
+use crate::gf::Fp2;
 use crate::hd::*;
 use crate::mp::Digit;
 use crate::precomp::{
@@ -37,7 +37,7 @@ fn fixed_degree_isogeny_impl(
     let mut theta = QuatAlgElem::default();
 
     let mut e0 = curves_with_endomorphisms()[index_alternate_order].curve;
-    ec_curve_normalize_a24(&mut e0);
+    e0.normalize_a24();
 
     let u_bitsize = ibz_bitsize(u);
 
@@ -53,15 +53,14 @@ fn fixed_degree_isogeny_impl(
     debug_assert!(length > 0);
 
     ibz_pow(&mut two_pow, ibz_const_two(), length);
-    ibz_copy(&mut tmp, u);
+    tmp.clone_from(u);
     debug_assert!(ibz_cmp(&two_pow, &tmp) > 0);
     debug_assert!(!ibz_is_even(&tmp));
 
     // theta has norm u·(2^length − u).
     let t = tmp.clone();
     ibz_sub(&mut tmp, &two_pow, &t);
-    let t = tmp.clone();
-    ibz_mul(&mut tmp, &t, u);
+    tmp *= u;
     debug_assert!(!ibz_is_even(&tmp));
 
     let ri_params = QuatRepresentIntegerParams {
@@ -139,13 +138,12 @@ fn fixed_degree_isogeny_impl(
     ibz_mul(&mut two_pow, &tp, ibz_const_two());
     let tp = two_pow.clone();
     ibz_mul(&mut two_pow, &tp, ibz_const_two());
-    ibz_copy(&mut tmp, u);
+    tmp.clone_from(u);
     let t = tmp.clone();
     ibz_invmod(&mut tmp, &t, &two_pow);
     debug_assert!(!ibz_is_even(&tmp));
     for i in 0..4 {
-        let c = theta.coord[i].clone();
-        ibz_mul(&mut theta.coord[i], &c, &tmp);
+        theta.coord[i] *= &tmp;
     }
 
     let mut b0_two_theta = b0_two;
@@ -324,7 +322,7 @@ fn enumerate_hypercube(
                             ibz_set(&mut vecs[count][1], y);
                             ibz_set(&mut vecs[count][2], z);
                             ibz_set(&mut vecs[count][3], w);
-                            ibz_copy(&mut norms[count], &norm);
+                            norms[count].clone_from(&norm);
                             count += 1;
                         }
                     }
@@ -358,7 +356,7 @@ fn find_uv_from_lists(
     let mut remain = Ibz::default();
     let mut adjusted_norm = Ibz::default();
     let mut found = 0;
-    ibz_copy(&mut n, target);
+    n.clone_from(target);
 
     'outer: for i1 in 0..index1 {
         ibz_mod(&mut adjusted_norm, &n, &small_norms1[i1]);
@@ -379,7 +377,7 @@ fn find_uv_from_lists(
                 }
                 if found != 0 {
                     ibz_mul(&mut remain, v, &small_norms2[i2]);
-                    ibz_copy(au, &n);
+                    (au).clone_from(&n);
                     let au_v = au.clone();
                     ibz_sub(u, &au_v, &remain);
                     debug_assert!(ibz_cmp(u, ibz_const_zero()) > 0);
@@ -430,7 +428,7 @@ pub fn find_uv(
     let mut bv = Ibz::default();
     let mut n = Ibz::default();
     let mut remain = Ibz::default();
-    ibz_copy(&mut n, target);
+    n.clone_from(target);
 
     let no = num_alternate_order + 1;
     let mut adjusted_norm: Vec<Ibz> = (0..no).map(|_| Ibz::default()).collect();
@@ -438,17 +436,15 @@ pub fn find_uv(
     let mut reduced: Vec<IbzMat4x4> = (0..no).map(|_| ibz_mat_4x4_init()).collect();
     let mut ideal: Vec<QuatLeftIdeal> = (0..no).map(|_| QuatLeftIdeal::default()).collect();
 
-    quat_lideal_copy(&mut ideal[0], lideal);
+    ideal[0].clone_from(lideal);
     {
         let id0 = ideal[0].clone();
         quat_lideal_reduce_basis(&mut reduced[0], &mut gram[0], &id0, bpoo);
     }
-    ibz_mat_4x4_copy(&mut ideal[0].lattice.basis, &reduced[0].clone());
+    ideal[0].lattice.basis.clone_from(&reduced[0].clone());
     ibz_set(&mut adjusted_norm[0], 1);
-    let an = adjusted_norm[0].clone();
-    ibz_mul(&mut adjusted_norm[0], &an, &ideal[0].lattice.denom);
-    let an = adjusted_norm[0].clone();
-    ibz_mul(&mut adjusted_norm[0], &an, &ideal[0].lattice.denom);
+    adjusted_norm[0] *= &ideal[0].lattice.denom;
+    adjusted_norm[0] *= &ideal[0].lattice.denom;
     {
         let norm0 = ideal[0].norm.clone();
         post_lll_basis_treatment(&mut gram[0], &mut reduced[0], &norm0, true);
@@ -460,18 +456,17 @@ pub fn find_uv(
     ibz_set(&mut delta.coord[1], 0);
     ibz_set(&mut delta.coord[2], 0);
     ibz_set(&mut delta.coord[3], 0);
-    ibz_copy(&mut delta.denom, &reduced_id.lattice.denom);
+    delta.denom.clone_from(&reduced_id.lattice.denom);
     let dc = delta.coord.clone();
     ibz_mat_4x4_eval(&mut delta.coord, &reduced[0], &dc);
     debug_assert!(quat_lattice_contains(None, &reduced_id.lattice, &delta) != 0);
 
     let dd = delta.clone();
     quat_alg_conj(&mut delta, &dd);
-    let denom = delta.denom.clone();
-    ibz_mul(&mut delta.denom, &denom, &ideal[0].norm);
+    delta.denom *= &ideal[0].norm;
     let lat = reduced_id.lattice.clone();
     quat_lattice_alg_elem_mul(&mut reduced_id.lattice, &lat, &delta, bpoo);
-    ibz_copy(&mut reduced_id.norm, &gram[0][0][0]);
+    reduced_id.norm.clone_from(&gram[0][0][0]);
     let rn = reduced_id.norm.clone();
     ibz_div(&mut reduced_id.norm, &mut remain, &rn, &adjusted_norm[0]);
     debug_assert!(ibz_cmp(&remain, ibz_const_zero()) == 0);
@@ -491,12 +486,10 @@ pub fn find_uv(
             bpoo,
         );
         let basis_i = ideal[i].lattice.basis.clone();
-        ibz_mat_4x4_copy(&mut reduced[i], &basis_i);
+        reduced[i].clone_from(&basis_i);
         ibz_set(&mut adjusted_norm[i], 1);
-        let an = adjusted_norm[i].clone();
-        ibz_mul(&mut adjusted_norm[i], &an, &ideal[i].lattice.denom);
-        let an = adjusted_norm[i].clone();
-        ibz_mul(&mut adjusted_norm[i], &an, &ideal[i].lattice.denom);
+        adjusted_norm[i] *= &ideal[i].lattice.denom;
+        adjusted_norm[i] *= &ideal[i].lattice.denom;
         let norm_i = ideal[i].norm.clone();
         post_lll_basis_treatment(&mut gram[i], &mut reduced[i], &norm_i, false);
     }
@@ -587,10 +580,10 @@ pub fn find_uv(
                 0,
             );
             if found != 0 {
-                ibz_copy(&mut beta1.denom, &ideal[j1].lattice.denom);
-                ibz_copy(&mut beta2.denom, &ideal[j2].lattice.denom);
-                ibz_copy(d1, &small_norms[j1][i1]);
-                ibz_copy(d2, &small_norms[j2][i2]);
+                beta1.denom.clone_from(&ideal[j1].lattice.denom);
+                beta2.denom.clone_from(&ideal[j2].lattice.denom);
+                (d1).clone_from(&small_norms[j1][i1]);
+                (d2).clone_from(&small_norms[j2][i2]);
                 ibz_mat_4x4_eval(&mut beta1.coord, &reduced[j1], &small_vecs[j1][i1]);
                 ibz_mat_4x4_eval(&mut beta2.coord, &reduced[j2], &small_vecs[j2][i2]);
                 debug_assert!(quat_lattice_contains(None, &ideal[j1].lattice, beta1) != 0);
@@ -600,8 +593,7 @@ pub fn find_uv(
                     let dd = delta.denom.clone();
                     ibz_div(&mut delta.denom, &mut remain, &dd, &lideal.norm);
                     debug_assert!(ibz_cmp(&remain, ibz_const_zero()) == 0);
-                    let dd = delta.denom.clone();
-                    ibz_mul(&mut delta.denom, &dd, &conj_ideal.norm);
+                    delta.denom *= &conj_ideal.norm;
                 }
                 if j1 != 0 {
                     let b = beta1.clone();
@@ -716,11 +708,9 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
         let mut tmp_check = Ibz::default();
         ibz_pow(&mut pow_check, ibz_const_two(), exp as u32);
         ibz_mul(&mut tmp_check, d1, u);
-        let p = pow_check.clone();
-        ibz_sub(&mut pow_check, &p, &tmp_check);
+        pow_check -= &tmp_check;
         ibz_mul(&mut tmp_check, v, d2);
-        let p = pow_check.clone();
-        ibz_sub(&mut pow_check, &p, &tmp_check);
+        pow_check -= &tmp_check;
         debug_assert!(ibz_cmp(&pow_check, ibz_const_zero()) == 0);
     }
 
@@ -738,8 +728,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     quat_alg_conj(&mut theta, &b1);
     let th = theta.clone();
     quat_alg_mul(&mut theta, beta2, &th, quatalg_pinfty());
-    let td = theta.denom.clone();
-    ibz_mul(&mut theta.denom, &td, &lideal.norm);
+    theta.denom *= &lideal.norm;
 
     let mut idealu = QuatLeftIdeal::default();
     let mut idealv = QuatLeftIdeal::default();
@@ -838,7 +827,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
 
     // theta ← theta / (d₁ · n(connecting_ideal[index_order2])) mod 2^TORSION_EVEN_POWER
     ibz_pow(&mut two_pow, ibz_const_two(), TORSION_EVEN_POWER as u32);
-    ibz_copy(&mut tmp, d1);
+    tmp.clone_from(d1);
     if index_order2 > 0 {
         let t = tmp.clone();
         ibz_mul(
@@ -850,8 +839,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     let t = tmp.clone();
     ibz_invmod(&mut tmp, &t, &two_pow);
     for i in 0..4 {
-        let c = theta.coord[i].clone();
-        ibz_mul(&mut theta.coord[i], &c, &tmp);
+        theta.coord[i] *= &tmp;
     }
 
     endomorphism_application_even_basis(
@@ -955,15 +943,13 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
 
     let mut digit_d = [0 as Digit; NWORDS_ORDER];
     ibz_mul(&mut tmp, d1, u);
-    let t = tmp.clone();
-    ibz_mul(&mut tmp, &t, u);
+    tmp *= &*u;
     let t = tmp.clone();
     ibz_mod(&mut tmp, &t, torsion_plus_2power());
     ibz_to_digits(&mut digit_d, &tmp);
-    let mut test_pow = Fp2::default();
-    fp2_pow_vartime(&mut test_pow, &w0, &digit_d);
+    let mut test_pow = w0.pow_vartime(&digit_d);
 
-    if fp2_is_equal(&w1, &test_pow) == 0 {
+    if w1 != test_pow {
         basis.p = t1.p2;
         basis.q = t2.p2;
         basis.pmq = t1m2.p2;
@@ -979,8 +965,8 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
                 &basis.pmq,
                 &mut codomain_tmp2,
             );
-            fp2_pow_vartime(&mut test_pow, &w0, &digit_d);
-            debug_assert!(fp2_is_equal(&test_pow, &w1) != 0);
+            test_pow = w0.pow_vartime(&digit_d);
+            debug_assert!(test_pow == w1);
         }
     }
 
@@ -993,8 +979,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     let t = tmp.clone();
     ibz_invmod(&mut tmp, &t, torsion_plus_2power());
     for i in 0..4 {
-        let c = beta1.coord[i].clone();
-        ibz_mul(&mut beta1.coord[i], &c, &tmp);
+        beta1.coord[i] *= &tmp;
     }
     endomorphism_application_even_basis(basis, 0, codomain, beta1, TORSION_EVEN_POWER as i32);
 
