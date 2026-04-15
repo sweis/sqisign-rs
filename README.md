@@ -1,5 +1,7 @@
 # sqisign-rs
 
+[![CI](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml)
+
 A Rust implementation of [SQIsign](https://sqisign.org/), a post-quantum
 digital signature scheme based on isogenies of supersingular elliptic curves.
 
@@ -16,7 +18,13 @@ for C-vs-spec discrepancies found during the port, security hardening notes, and
 
 ## Building
 
-Requires Rust 1.75+ (stable). The signing path uses arbitrary-precision
+Requires Rust 1.75+ (stable). Enable the pre-commit hook (rustfmt + clippy):
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The signing path uses arbitrary-precision
 integers; the default backend is [`malachite`](https://crates.io/crates/malachite-nz)
 (pure Rust, no C dependency).
 
