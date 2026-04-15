@@ -18,6 +18,9 @@ cryptobigint = ["sign", "dep:crypto-bigint"]
 # Opt-in GF(p)/GF(p^2) backend via the `fp2` crate (saturated 4-limb
 # Montgomery; lvl1 only). Replaces the modarith backend.
 gf-fp2crate = ["dep:fp2", "dep:hex-literal", "dep:rand_core"]
+# Opt-in vendored GF5_248 backend with hand-written x86_64 BMI2/ADX asm
+# (incl. fp_sqr). lvl1 only; needs RUSTFLAGS="-C target-cpu=native".
+gf-fast = ["dep:hex-literal"]
 # Exposes DRBG snapshot/restore for deterministic benchmark replays.
 # Do not enable in production — leaks DRBG state.
 bench-internals = []
@@ -35,8 +38,11 @@ fp2 = { version = "0.4.2", optional = true, default-features = false }
 hex-literal = { version = "0.4", optional = true }
 rand_core = { version = "0.9", optional = true }
 
+[build-dependencies]
+cc = "1"
+
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)', 'cfg(ibz_audit)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)', 'cfg(ibz_audit)', 'cfg(gf5_248_asm)'] }
 unsafe_code = "warn"
 missing_debug_implementations = "warn"
 
@@ -93,6 +99,11 @@ required-features = ["sign"]
 name = "bench"
 harness = false
 required-features = ["bench-internals"]
+
+[[bench]]
+name = "bench_fp_asm"
+harness = false
+required-features = ["gf-fast"]
 
 [profile.release]
 lto = true

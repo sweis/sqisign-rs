@@ -8,6 +8,7 @@
 
 #[cfg(all(
     not(feature = "gf-fp2crate"),
+    not(feature = "gf-fast"),
     feature = "lvl1",
     not(feature = "lvl3"),
     not(feature = "lvl5")
@@ -23,10 +24,13 @@ mod backend;
 #[path = "fp_p27500.rs"]
 mod backend;
 
-#[cfg(not(feature = "gf-fp2crate"))]
+#[cfg(not(any(feature = "gf-fp2crate", feature = "gf-fast")))]
 pub mod fp;
-#[cfg(feature = "gf-fp2crate")]
+#[cfg(all(feature = "gf-fp2crate", not(feature = "gf-fast")))]
 #[path = "fp_via_fp2crate.rs"]
+pub mod fp;
+#[cfg(feature = "gf-fast")]
+#[path = "fp_via_gf5248.rs"]
 pub mod fp;
 
 pub mod fp2;

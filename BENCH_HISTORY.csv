@@ -27,3 +27,23 @@ cb37e19+dirty,2026-04-14T20:59:14Z,verify=3.158ms,keygen=23.733ms,sign=55.546ms,
 d16d110+dirty,2026-04-15T17:24:31Z,verify=3.181ms,keygen=23.910ms,sign=55.838ms,idioms-stage1
 82cfff3+dirty,2026-04-15T17:59:02Z,verify=3.153ms,keygen=22.797ms,sign=53.455ms,idioms-stage2
 a63dca6+dirty,2026-04-15T19:31:57Z,verify=2.045ms,keygen=-,sign=-,gf-fp2crate (verify-only; perf-stat: 6987M instr / 1603M cyc per 200 vfy; vs modarith 11018M / 2462M = 0.63x instr / 0.65x cyc; vs C-ref 49.3M-instr/vfy this is 34.9M = 0.71x)
+# === AVX2 investigation (KAT-0 verify, perf-stat) ===
+# C "broadwell" build is NOT AVX2 — it is scalar BMI2/ADX (MULX/ADCX/ADOX) with
+# fused fp2_mul_c0/c1 + fp2_sq_c0/c1 asm sharing Montgomery reduction across the
+# two Fp products. Zero SIMD; fp_sqr is `jmp fp_mul`. Per-verify on KAT-0:
+C-broadwell,2026-04-15T21:35:00Z,verify=19.72M-instr/5.28M-cyc,keygen=-,sign=-,hand-asm fused fp2_mul (BMI2/ADX scalar)
+48dd3d2,2026-04-15T21:35:00Z,verify=34.77M-instr/7.87M-cyc,keygen=-,sign=-,gf-fp2crate (no target-cpu; objdump: 14 mulx/adcx/adox)
+48dd3d2+native,2026-04-15T21:35:00Z,verify=27.15M-instr/7.39M-cyc,keygen=-,sign=-,gf-fp2crate (RUSTFLAGS=-Ctarget-cpu=native; objdump: 598 mulx/adcx/adox; -22% instr/-6% cyc)
+# Rust/C-broadwell ratio = 1.40x cycles. Gap is the fused fp2_mul/sqr asm (sibling
+# fork's fp_lvl1_fast/ work). Perf profile of fp2crate-native: 50.4% Fp2::mul,
+# 24.9% Fp2::square, 4.7% keccak, 4.2% xdbl_a24, 3.2% hadamard. True AVX2 is not
+# profitable: 75% of cycles need 64x64->128 (no AVX2 instr); next target hadamard
+# (3.2%) needs cross-lane carry (also absent). Unsaturated radix-2^29 with vpmuludq
+# loses to scalar MULX at 256-bit field size.
+48dd3d2+dirty,2026-04-15T22:30:00Z,verify=24.39M-instr/7.14M-cyc,keygen=-,sign=-,gf-fast (vendored GF5_248 + new fp_sqr; inline-asm mul/sqr + portable add/sub)
+# gf-fast vs gf-fp2crate (both -Ctarget-cpu=native, kat_verify 100v):
+#   gf-fp2crate: 2726M instr / 742M cyc; gf-fast: 2439M instr / 714M cyc
+#   = -10.5% instr, -3.8% cyc. KAT-0 verify: 1.89ms vs 2.05ms = -7.8%.
+# fp_sqr microbench: 8.28ns vs fp_mul(x,x) 9.14ns = 0.906x (14 vs 20 MULX).
+# Finding: extern-C .S asm is *slower* in-context than inline asm! / intrinsics
+# (call overhead defeats LLVM scheduling); .S kept as reference + test oracle.
