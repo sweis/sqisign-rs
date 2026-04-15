@@ -23,3 +23,4 @@ C-ref-sysGMP,2026-04-14T19:05:00Z,verify=49.34M-instr,keygen=682.1M-instr,sign=1
 2a443e4,2026-04-14T19:22:57Z,verify=2.995ms,keygen=22.790ms,sign=53.178ms,post-hardening-quiet-system
 cb37e19+dirty,2026-04-14T20:59:14Z,verify=3.158ms,keygen=23.733ms,sign=55.546ms,malachite-backend
 149642c+dirty,2026-04-14T21:28:03Z,verify=3.173ms,keygen=23.823ms,sign=55.546ms,cryptobigint-backend-added (default malachite)
+22043aa,2026-04-15T00:42:46Z,verify=3.160ms,keygen=23.817ms,sign=55.548ms,post-quality-pass
