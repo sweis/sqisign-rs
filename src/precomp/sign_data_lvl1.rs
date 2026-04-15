@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Precomputed signing-path constants (lvl1).
 //! Auto-generated from the C reference by `tools/gen_precomp_sign.py`.
 #![allow(clippy::all)]

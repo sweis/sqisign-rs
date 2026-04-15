@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Vélu-style 2- and 4-isogeny construction and evaluation.
 //! Port of `ec/ref/lvlx/{xisog.c, xeval.c}`.
 

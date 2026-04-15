@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! NIST PQC API surface for SQIsign.
 
 use crate::params::*;

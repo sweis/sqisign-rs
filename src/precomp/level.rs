@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Per-level precomputed constants. The active set is selected via cargo
 //! feature; values are taken from `src/precomp/ref/lvl{1,3,5}/` in the
 //! C reference (RADIX=64, non-broadwell GF impl).

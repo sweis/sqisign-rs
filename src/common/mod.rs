@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Common primitives: hashing and the deterministic KAT RNG.
 //!
 //! Ports `src/common/` from the C reference. Timing/benchmark helpers

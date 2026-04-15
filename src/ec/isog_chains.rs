@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! 2ⁿ-isogeny chain evaluation and curve isomorphisms.
 //! Port of `ec/ref/lvlx/isog_chains.c`.
 

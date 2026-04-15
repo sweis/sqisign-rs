@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Full-rank dimension-4 lattices, ported from `lattice.c`.
 
 use super::algebra::*;

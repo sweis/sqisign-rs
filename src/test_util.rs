@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Test-only helpers shared across modules.
 
 use crate::gf::{fp_decode_reduce, Fp, Fp2, FP_ENCODED_BYTES};

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Norm-equation solving and special extremal orders, ported from `normeq.c`.
 
 use super::algebra::*;

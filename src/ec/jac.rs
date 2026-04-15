@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Jacobian-coordinate point arithmetic on Montgomery curves.
 //! Port of `ec/ref/lvlx/ec_jac.c`.
 

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! (2ⁿ, 2ⁿ)-isogeny chain in the theta model: gluing, generic steps, splitting.
 //!
 //! Ported from `src/hd/ref/lvlx/theta_isogenies.c`.

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! `crypto-bigint` backend for `Ibz`. Selected with `feature = "cryptobigint"`.
 //!
 //! Unlike the malachite/rug backends this is *fixed-precision*: every `Ibz`

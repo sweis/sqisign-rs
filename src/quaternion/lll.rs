@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! L²-LLL reduction (Nguyen–Stehlé) on 4-dimensional lattices.
 //! Ported from `lll/{l2.c, lll_applications.c, lll_verification.c}`.
 

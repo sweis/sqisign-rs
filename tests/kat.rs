@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Known Answer Tests against NIST KAT response files.
 
 use std::fs;

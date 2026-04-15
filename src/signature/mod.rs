@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! SQIsign key generation and signing.
 //! Ported from `src/signature/ref/lvlx/{keygen,sign,encode_signature}.c` and
 //! the top-level wrappers in `src/sqisign.c`.

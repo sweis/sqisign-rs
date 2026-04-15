@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Saturated-limb fixed-precision multiprecision arithmetic.
 //!
 //! Direct port of `src/mp/ref/generic/{mp.c, include/mp.h}` from the C

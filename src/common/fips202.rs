@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! SHAKE256 wrappers matching the C `fips202.h` incremental API.
 //!
 //! The C code only uses SHAKE256 (one-shot and `shake256_inc_*`), so only

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! NIST AES-256 CTR-DRBG used for deterministic KAT generation.
 //!
 //! Faithful port of `randombytes_ctrdrbg.c` from the NIST PQC submission

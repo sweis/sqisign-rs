@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Quaternion algebra arithmetic over big integers (`rug`-backed).
 //!
 //! Ported from `the-sqisign/src/quaternion/ref/generic/`. The function-level

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Big-integer wrapper, ported from `intbig.c`.
 //!
 //! All `ibz_*` functions mirror the C signatures (out-params first) so the rest

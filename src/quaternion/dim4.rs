@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! 4-vector and 4×4 matrix operations over `Ibz`, ported from `dim4.c`.
 
 use super::dim2::ibz_mat_2x2_det_from_ibz;

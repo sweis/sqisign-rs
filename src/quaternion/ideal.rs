@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Left ideals of maximal orders, ported from `ideal.c` and the
 //! ideal-related functions in `lll/lll_applications.c`.
 

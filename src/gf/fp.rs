@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! GF(p) arithmetic for the active SQIsign prime.
 //!
 //! This file is the level-agnostic layer. The unrolled multiply/square,

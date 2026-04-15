@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Rust implementation of SQIsign, a post-quantum digital signature scheme
 //! based on isogenies of supersingular elliptic curves.
 //!

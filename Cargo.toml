@@ -2,7 +2,6 @@
 name = "sqisign-rs"
 version = "0.1.0"
 edition = "2021"
-license = "Apache-2.0"
 description = "Rust implementation of the SQIsign post-quantum signature scheme"
 
 [features]

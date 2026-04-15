@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Pairings via cubical/biextension arithmetic, plus 2-adic Fp² discrete log.
 //! Ported from `src/ec/ref/lvlx/biextension.c`.
 //!

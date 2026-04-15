@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! (2,2)-isogenies between products of elliptic curves via the theta model.
 //!
 //! Ported from `src/hd/ref/` in the C reference implementation.

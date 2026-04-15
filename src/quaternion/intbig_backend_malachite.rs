@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Malachite backend for `Ibz` (the default, pure-Rust bigint).
 //!
 //! Exposes the same `ibz_*` surface as the rug backend. The only nontrivial

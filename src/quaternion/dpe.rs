@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Double-plus-exponent: an `f64` mantissa with a separate `i64` exponent,
 //! allowing values far outside the normal `f64` range.
 //!

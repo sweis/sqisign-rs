@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Number-theoretic helpers, ported from `integers.c`.
 
 use super::intbig::*;

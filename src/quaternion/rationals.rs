@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Hand-rolled rationals `Ibq = [Ibz; 2]` (num/denom), ported from `lll/rationals.c`.
 
 use super::intbig::*;

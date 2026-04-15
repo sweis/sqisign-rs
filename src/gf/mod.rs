@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Finite-field arithmetic: GF(p) and GF(p²) for the active SQIsign prime.
 
 #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Elliptic-curve arithmetic on Montgomery curves over GF(p²).
 //!
 //! Ported from `src/ec/ref/{include/ec.h, lvlx/*.c}` in the C reference.

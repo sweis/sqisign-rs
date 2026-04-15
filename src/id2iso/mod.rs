@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Ideal ↔ isogeny correspondence (Deuring correspondence helpers).
 //! Ported from `src/id2iso/ref/lvlx/{id2iso.c,dim2id2iso.c}`.
 

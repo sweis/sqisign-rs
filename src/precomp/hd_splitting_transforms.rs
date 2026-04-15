@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Precomputed splitting/normalisation transforms for the (2,2)-isogeny
 //! theta-model code (`hd_splitting_transforms.c`, lvl1).
 

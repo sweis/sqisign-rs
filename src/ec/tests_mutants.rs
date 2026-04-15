@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Targeted unit tests added to kill `cargo-mutants` survivors.
 //! These exercise predicate negative cases, special-case branches, and
 //! parameter-shape variation that the original tests didn't cover.

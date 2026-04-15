@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! GMP backend for `Ibz`, via the `rug` crate. Selected with `feature = "gmp"`.
 
 use crate::mp::Digit;

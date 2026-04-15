@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Compile-time parameter selection for SQIsign security levels.
 
 #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]

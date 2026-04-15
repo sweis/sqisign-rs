@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! GF(p²) arithmetic, modulo X² + 1. Port of `lvlx/fp2.c`.
 
 use super::fp::*;

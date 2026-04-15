@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Dimension-2 ideal-to-isogeny conversion (CLAPOTIS).
 //! Ported from `src/id2iso/ref/lvlx/dim2id2iso.c`.
 

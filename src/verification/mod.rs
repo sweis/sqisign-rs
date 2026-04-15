@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! SQIsign signature verification.
 //! Ported from `src/verification/ref/lvlx/{common,encode_verification,verify}.c`.
 

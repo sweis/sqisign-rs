@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! GF(p) backend for the lvl3 prime p = 65·2³⁷⁶ − 1.
 //! Ported from `fp_p65376_64.c` (modarith / Montgomery, unsaturated radix-2⁵⁵).
 

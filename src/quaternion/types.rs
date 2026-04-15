@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Core quaternion-algebra types, ported from `quaternion.h` / `finit.c`.
 
 use super::intbig::*;

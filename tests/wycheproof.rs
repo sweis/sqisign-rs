@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Wycheproof-style edge-case tests for SQIsign verification.
 //!
 //! These tests probe the attacker-facing surface (`crypto_sign_open`) with

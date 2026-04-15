@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Quaternion algebra element arithmetic, ported from `algebra.c`.
 
 use super::dim4::*;

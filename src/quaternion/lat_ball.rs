@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Rejection sampling of short lattice vectors, ported from `lat_ball.c`.
 
 use super::algebra::*;

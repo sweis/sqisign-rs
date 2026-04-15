@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Modular Hermite Normal Form for 4×n matrices.
 //! Ported from `hnf/{ibz_division.c, hnf_internal.c, hnf.c}`.
 

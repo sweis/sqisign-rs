@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Deterministic 2ᶠ-torsion basis generation (entangled bases).
 //! Port of `ec/ref/lvlx/basis.c`.
 

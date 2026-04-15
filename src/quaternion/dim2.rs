@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! 2-vector and 2×2 matrix operations over `Ibz`, ported from `dim2.c`.
 
 use super::intbig::*;

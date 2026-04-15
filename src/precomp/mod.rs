@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Precomputed constants for SQIsign.
 //!
 //! Ported from `src/precomp/ref/lvl{1,3,5}/` in the C reference implementation.

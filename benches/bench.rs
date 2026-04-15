@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
 //! Wall-clock benchmarks for keygen/sign/verify on KAT vector 0.
 //! Reports the minimum of N independent timings to reduce noise from
 //! concurrent system load.

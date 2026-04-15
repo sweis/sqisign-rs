@@ -243,7 +243,6 @@ def take_curve_with_endo(s, ibzs):
 # Step 4: drivers per file.
 
 HEADER = """\
-// SPDX-License-Identifier: Apache-2.0
 //! Precomputed signing-path constants (""" + LEVEL + """).
 //! Auto-generated from the C reference by `tools/gen_precomp_sign.py`.
 #![allow(clippy::all)]
