@@ -1,5 +1,0 @@
-ignore = [
-    "src/precomp/sign_data_lvl1.rs",
-    "src/precomp/sign_data_lvl3.rs",
-    "src/precomp/sign_data_lvl5.rs",
-]

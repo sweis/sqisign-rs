@@ -247,6 +247,7 @@ HEADER = """\
 //! Precomputed signing-path constants (""" + LEVEL + """).
 //! Auto-generated from the C reference by `tools/gen_precomp_sign.py`.
 #![allow(clippy::all)]
+#![cfg_attr(rustfmt, rustfmt::skip)]
 
 use std::sync::OnceLock;
 use crate::quaternion::{

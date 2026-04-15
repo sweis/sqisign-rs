@@ -17,10 +17,11 @@ use crate::precomp::{NWORDS_ORDER, P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
 use super::jac::{jac_add, jac_neg, jac_to_xz};
 use super::{
-    copy_point, ec_biscalar_mul, ec_curve_normalize_a24, ec_dbl_iter, ec_is_equal, ec_is_zero,
-    lift_basis_normalized, test_basis_order_twof, test_point_order_twof, EcBasis, EcCurve, EcPoint,
-    JacPoint,
+    copy_point, ec_curve_normalize_a24, ec_is_equal, ec_is_zero, lift_basis_normalized,
+    test_basis_order_twof, test_point_order_twof, EcBasis, EcCurve, EcPoint, JacPoint,
 };
+#[cfg(any(debug_assertions, test))]
+use super::{ec_biscalar_mul, ec_dbl_iter};
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct PairingParams {

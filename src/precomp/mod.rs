@@ -18,12 +18,15 @@ pub use level::*;
     not(feature = "lvl3"),
     not(feature = "lvl5")
 ))]
+#[rustfmt::skip]
 #[path = "sign_data_lvl1.rs"]
 pub mod sign_data;
 #[cfg(all(feature = "sign", feature = "lvl3", not(feature = "lvl5")))]
+#[rustfmt::skip]
 #[path = "sign_data_lvl3.rs"]
 pub mod sign_data;
 #[cfg(all(feature = "sign", feature = "lvl5"))]
+#[rustfmt::skip]
 #[path = "sign_data_lvl5.rs"]
 pub mod sign_data;
 #[cfg(feature = "sign")]

@@ -6,7 +6,9 @@
 use std::sync::OnceLock;
 
 use crate::ec::*;
-use crate::gf::{fp2_copy, fp2_is_one, Fp2};
+#[cfg(debug_assertions)]
+use crate::gf::Fp2;
+use crate::gf::{fp2_copy, fp2_is_one};
 use crate::hd::*;
 use crate::id2iso::*;
 use crate::mp::Digit;
