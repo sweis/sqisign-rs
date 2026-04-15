@@ -48,3 +48,4 @@ C-broadwell,2026-04-15T21:35:00Z,verify=19.72M-instr/5.28M-cyc,keygen=-,sign=-,h
 # Finding: extern-C .S asm is *slower* in-context than inline asm! / intrinsics
 # (call overhead defeats LLVM scheduling); .S kept as reference + test oracle.
 636a88e+dirty,2026-04-15T22:11:59Z,verify=1.833ms,keygen=17.929ms,sign=43.260ms,gf-fast-default
+91da3a9+dirty,2026-04-15T22:40:10Z,verify=1.617ms,keygen=16.733ms,sign=41.114ms,inline-asm-fp_sumprod+noreduce-add/sub

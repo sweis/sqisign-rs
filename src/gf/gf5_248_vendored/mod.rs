@@ -829,9 +829,62 @@ impl GF5_248 {
         (lo, hi, tt)
     }
 
+    /// `a + b` as raw limbs (no conditional reduction). For inputs < 2²⁵¹,
+    /// result < 2²⁵²; safe as a `set_mul`/`fp_mul` operand.
+    #[inline(always)]
+    pub fn add_noreduce(a: &Self, b: &Self) -> Self {
+        let (d0, cc) = addcarry_u64(a.0[0], b.0[0], 0);
+        let (d1, cc) = addcarry_u64(a.0[1], b.0[1], cc);
+        let (d2, cc) = addcarry_u64(a.0[2], b.0[2], cc);
+        let (d3, _) = addcarry_u64(a.0[3], b.0[3], cc);
+        Self([d0, d1, d2, d3])
+    }
+
+    /// `a − b + 2p` as raw limbs (no conditional reduction). For inputs
+    /// < 2²⁵¹, result is in (0, 2²⁵²+2²⁵¹); safe as a `set_mul` operand.
+    #[inline(always)]
+    pub fn sub_2p_noreduce(a: &Self, b: &Self) -> Self {
+        let (d0, cc) = subborrow_u64(a.0[0], b.0[0], 0);
+        let (d1, cc) = subborrow_u64(a.0[1], b.0[1], cc);
+        let (d2, cc) = subborrow_u64(a.0[2], b.0[2], cc);
+        let (d3, _) = subborrow_u64(a.0[3], b.0[3], cc);
+        let (d0, cc) = addcarry_u64(d0, Self::MOD_X2[0], 0);
+        let (d1, cc) = addcarry_u64(d1, Self::MOD_X2[1], cc);
+        let (d2, cc) = addcarry_u64(d2, Self::MOD_X2[2], cc);
+        let (d3, _) = addcarry_u64(d3, Self::MOD_X2[3], cc);
+        Self([d0, d1, d2, d3])
+    }
+
+    /// 2p − x as raw limbs (no reduction). For x < 2²⁵¹, result < 2²⁵².
+    #[inline(always)]
+    fn raw_2p_minus(x: &[u64; 4]) -> [u64; 4] {
+        let (d0, cc) = subborrow_u64(Self::MOD_X2[0], x[0], 0);
+        let (d1, cc) = subborrow_u64(Self::MOD_X2[1], x[1], cc);
+        let (d2, cc) = subborrow_u64(Self::MOD_X2[2], x[2], cc);
+        let (d3, _) = subborrow_u64(Self::MOD_X2[3], x[3], cc);
+        [d0, d1, d2, d3]
+    }
+
+    /// `[a₀,a₁,a₂,a₃, b₀,b₁,b₂,b₃]` for the contiguous-pair asm kernels.
+    #[inline(always)]
+    fn pair(a: &Self, b: &[u64; 4]) -> [u64; 8] {
+        [a.0[0], a.0[1], a.0[2], a.0[3], b[0], b[1], b[2], b[3]]
+    }
+
     #[cfg(gf5_248_asm)]
     #[inline(always)]
     pub fn sum_of_products(a1: &Self, b1: &Self, a2: &Self, b2: &Self) -> Self {
+        // inline kernel computes a[0..4]·b[4..8] + a[4..8]·b[0..4]
+        let aa = Self::pair(a1, &a2.0);
+        let bb = Self::pair(b2, &b1.0);
+        let mut r = [0u64; 4];
+        inline_asm::fp_sumprod(&mut r, &aa, &bb);
+        Self(r)
+    }
+
+    /// Extern-C `.S` `fp_sop_asm` — test oracle for the inline `fp_sumprod`.
+    #[cfg(gf5_248_asm)]
+    pub fn sum_of_products_via_extern(a1: &Self, b1: &Self, a2: &Self, b2: &Self) -> Self {
         let mut u = Self::ZERO;
         let a = [*a2, *a1];
         let b = [*b1, *b2];
@@ -953,6 +1006,17 @@ impl GF5_248 {
     #[cfg(gf5_248_asm)]
     #[inline(always)]
     pub fn difference_of_products(a1: &Self, b1: &Self, a2: &Self, b2: &Self) -> Self {
+        // a1·b1 + a2·(2p − b2)
+        let aa = Self::pair(a1, &a2.0);
+        let bb = Self::pair(&Self(Self::raw_2p_minus(&b2.0)), &b1.0);
+        let mut r = [0u64; 4];
+        inline_asm::fp_sumprod(&mut r, &aa, &bb);
+        Self(r)
+    }
+
+    /// Extern-C `.S` `fp_dop_asm` — test oracle.
+    #[cfg(gf5_248_asm)]
+    pub fn difference_of_products_via_extern(a1: &Self, b1: &Self, a2: &Self, b2: &Self) -> Self {
         let mut u = Self::ZERO;
         let a = [*a1, *a2];
         let b = [*b1, *b2];
@@ -970,10 +1034,11 @@ impl GF5_248 {
     #[cfg(gf5_248_asm)]
     #[inline(always)]
     pub fn fp2_sq_re(x0: &Self, x1: &Self) -> Self {
-        let mut u = Self::ZERO;
+        // .S writes scratch at [rdi+32..63]; needs 8-limb dst.
+        let mut u = [Self::ZERO; 2];
         let a = [*x0, *x1];
-        unsafe { fp2_sqr_re_asm(&mut u, a.as_ptr()) }
-        u
+        unsafe { fp2_sqr_re_asm(u.as_mut_ptr(), a.as_ptr()) }
+        u[0]
     }
 
     #[cfg(not(gf5_248_asm))]

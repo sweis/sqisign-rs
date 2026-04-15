@@ -41,15 +41,26 @@ impl Fp2 {
 
     // ---- arithmetic ----
 
-    /// Self². Karatsuba: re = (a+b)(a-b), im = 2ab.
+    /// Self²: re = (a+b)(a−b), im = 2ab. When the backend supports it,
+    /// the sum/diff/dbl skip conditional reduction (safe as mul operands).
     #[inline]
     #[must_use]
     pub fn square(self) -> Self {
-        let sum = self.re + self.im;
-        let diff = self.re - self.im;
-        Self {
-            re: sum * diff,
-            im: (self.re * self.im).dbl(),
+        if Fp::HAS_FUSED_SUMPROD {
+            let sum = Fp::add_noreduce(&self.re, &self.im);
+            let diff = Fp::sub_2p_noreduce(&self.re, &self.im);
+            let two_re = Fp::add_noreduce(&self.re, &self.re);
+            Self {
+                re: sum * diff,
+                im: two_re * self.im,
+            }
+        } else {
+            let sum = self.re + self.im;
+            let diff = self.re - self.im;
+            Self {
+                re: sum * diff,
+                im: (self.re * self.im).dbl(),
+            }
         }
     }
     #[inline]
@@ -256,15 +267,23 @@ impl SubAssign<&Fp2> for Fp2 {
         self.im -= &rhs.im;
     }
 }
-/// (a + bi)(c + di), via Karatsuba.
+/// (a + bi)(c + di) = (ac − bd) + (ad + bc)i.
+/// Fused sum/diff-of-products when the Fp backend supports it (one Montgomery
+/// reduction per output limb); otherwise 3-mul Karatsuba.
 impl MulAssign<&Fp2> for Fp2 {
     #[inline]
     fn mul_assign(&mut self, rhs: &Fp2) {
-        let t0 = (self.re + self.im) * (rhs.re + rhs.im);
-        let t1 = self.im * rhs.im;
-        self.re *= &rhs.re;
-        self.im = t0 - t1 - self.re;
-        self.re -= t1;
+        if Fp::HAS_FUSED_SUMPROD {
+            let re = Fp::mul_sub(&self.re, &rhs.re, &self.im, &rhs.im);
+            self.im = Fp::mul_add(&self.re, &rhs.im, &self.im, &rhs.re);
+            self.re = re;
+        } else {
+            let t0 = (self.re + self.im) * (rhs.re + rhs.im);
+            let t1 = self.im * rhs.im;
+            self.re *= &rhs.re;
+            self.im = t0 - t1 - self.re;
+            self.re -= t1;
+        }
     }
 }
 fp_ops!(Fp2);

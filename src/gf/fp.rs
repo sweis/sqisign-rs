@@ -129,6 +129,27 @@ impl Fp {
     pub const ZERO: Self = ZERO;
     pub const ONE: Self = ONE;
     pub const MINUS_ONE: Self = MINUS_ONE;
+    /// No fused `a·b ± c·d` here; `Fp2::mul` uses 3-mul Karatsuba instead.
+    pub const HAS_FUSED_SUMPROD: bool = false;
+
+    /// `a·b + c·d`. (No fused path on this backend.)
+    #[inline]
+    pub fn mul_add(a: &Self, b: &Self, c: &Self, d: &Self) -> Self {
+        *a * b + *c * d
+    }
+    /// `a·b − c·d`. (No fused path on this backend.)
+    #[inline]
+    pub fn mul_sub(a: &Self, b: &Self, c: &Self, d: &Self) -> Self {
+        *a * b - *c * d
+    }
+    #[inline]
+    pub fn add_noreduce(a: &Self, b: &Self) -> Self {
+        *a + b
+    }
+    #[inline]
+    pub fn sub_2p_noreduce(a: &Self, b: &Self) -> Self {
+        *a - b
+    }
 
     #[inline]
     pub fn from_small(val: Digit) -> Self {

@@ -149,6 +149,30 @@ impl Fp {
     pub const ZERO: Self = ZERO;
     pub const ONE: Self = ONE;
     pub const MINUS_ONE: Self = MINUS_ONE;
+    /// This backend has a fused `a·b ± c·d` (one Montgomery reduction).
+    pub const HAS_FUSED_SUMPROD: bool = true;
+
+    /// `a·b + c·d` with one Montgomery reduction.
+    #[inline]
+    pub fn mul_add(a: &Self, b: &Self, c: &Self, d: &Self) -> Self {
+        Fp(FpInner::sum_of_products(&a.0, &b.0, &c.0, &d.0))
+    }
+    /// `a·b − c·d` with one Montgomery reduction.
+    #[inline]
+    pub fn mul_sub(a: &Self, b: &Self, c: &Self, d: &Self) -> Self {
+        Fp(FpInner::difference_of_products(&a.0, &b.0, &c.0, &d.0))
+    }
+    /// `a + b` without conditional reduction; result may exceed 2²⁵¹ but is a
+    /// valid `Mul`/`mul_add`/`mul_sub` operand. Used by `Fp2::square`.
+    #[inline]
+    pub fn add_noreduce(a: &Self, b: &Self) -> Self {
+        Fp(FpInner::add_noreduce(&a.0, &b.0))
+    }
+    /// `a − b + 2p` without conditional reduction. Used by `Fp2::square`.
+    #[inline]
+    pub fn sub_2p_noreduce(a: &Self, b: &Self) -> Self {
+        Fp(FpInner::sub_2p_noreduce(&a.0, &b.0))
+    }
 
     /// Construct from canonical little-endian bytes (no range check).
     pub const fn from_le_bytes_unchecked(buf: &[u8; FP_ENCODED_BYTES]) -> Self {
@@ -323,6 +347,43 @@ mod tests {
             let mut m = x.0;
             m.set_square_via_mul();
             assert_eq!(s.encode(), m.encode());
+        }
+    }
+
+    /// `mul_add`/`mul_sub` (inline asm) must equal `a*b ± c*d` via separate
+    /// muls, and equal the extern-C `.S` `fp_sop_asm`/`fp_dop_asm`.
+    #[test]
+    fn sumprod_matches_separate() {
+        let mut prng = Prng(0x50_50_50_50);
+        for _ in 0..100_000 {
+            let (a, b, c, d) = (prng.fp(), prng.fp(), prng.fp(), prng.fp());
+            let add_ref = (a * b + c * d).encode();
+            let sub_ref = (a * b - c * d).encode();
+            assert_eq!(Fp::mul_add(&a, &b, &c, &d).encode(), add_ref);
+            assert_eq!(Fp::mul_sub(&a, &b, &c, &d).encode(), sub_ref);
+            let se = FpInner::sum_of_products_via_extern(&a.0, &b.0, &c.0, &d.0);
+            let de = FpInner::difference_of_products_via_extern(&a.0, &b.0, &c.0, &d.0);
+            assert_eq!(se.encode(), add_ref);
+            assert_eq!(de.encode(), sub_ref);
+        }
+        // Edge cases including max-magnitude inputs.
+        let m = Fp::MINUS_ONE; // largest canonical value
+        for &(a, b, c, d) in &[
+            (Fp::ZERO, Fp::ZERO, Fp::ZERO, Fp::ZERO),
+            (Fp::ONE, Fp::ONE, Fp::ONE, Fp::ONE),
+            (m, m, m, m),
+            (m, m, Fp::ZERO, Fp::ZERO),
+            (Fp::ZERO, Fp::ZERO, m, m),
+            (m, Fp::ONE, Fp::ONE, m),
+        ] {
+            assert_eq!(
+                Fp::mul_add(&a, &b, &c, &d).encode(),
+                (a * b + c * d).encode()
+            );
+            assert_eq!(
+                Fp::mul_sub(&a, &b, &c, &d).encode(),
+                (a * b - c * d).encode()
+            );
         }
     }
 

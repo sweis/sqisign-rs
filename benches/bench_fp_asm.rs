@@ -35,22 +35,52 @@ fn time_n<F: FnMut()>(label: &str, n: u64, mut f: F) -> f64 {
 
 #[cfg(not(feature = "gf-portable"))]
 fn main() {
+    use sqisign_rs::gf::Fp2;
     let x = FpInner::from(0x1234_5678_9ABC_DEF0u64) * FpInner::from(0xCAFE_BABE_DEAD_BEEFu64);
 
     #[cfg(gf5_248_asm)]
     {
         println!("== fp microbench (asm) ==");
         let mut acc = x;
-        let t_sqr = time_n("fp_sqr_asm", 10_000_000, || {
+        let t_sqr = time_n("fp_sqr", 10_000_000, || {
             acc.set_square();
             black_box(&acc);
         });
         let mut acc = x;
-        let t_mul = time_n("fp_mul_asm(x,x)", 10_000_000, || {
+        let t_mul = time_n("fp_mul(x,x)", 10_000_000, || {
             acc.set_square_via_mul();
             black_box(&acc);
         });
         println!("  ratio sqr/mul = {:.3}", t_sqr / t_mul);
+
+        let y = x * FpInner::from(7u64);
+        let mut acc = x;
+        let t_sop = time_n("fp_sumprod (inline)", 10_000_000, || {
+            acc = FpInner::sum_of_products(&acc, &y, &y, &acc);
+            black_box(&acc);
+        });
+        let mut acc = x;
+        let t_2m1a = time_n("2*fp_mul + fp_add", 10_000_000, || {
+            acc = acc * y + y * acc;
+            black_box(&acc);
+        });
+        println!("  ratio sop/(2m+a) = {:.3}", t_sop / t_2m1a);
+
+        let z = Fp2 {
+            re: sqisign_rs::gf::Fp(x),
+            im: sqisign_rs::gf::Fp(y),
+        };
+        let mut acc = z;
+        let t_f2m = time_n("fp2_mul", 10_000_000, || {
+            acc *= &z;
+            black_box(&acc);
+        });
+        let mut acc = z;
+        let t_f2s = time_n("fp2_sqr", 10_000_000, || {
+            acc.square_ip();
+            black_box(&acc);
+        });
+        println!("  ratio fp2: sqr/mul = {:.3}", t_f2s / t_f2m);
     }
 
     #[cfg(not(gf5_248_asm))]
