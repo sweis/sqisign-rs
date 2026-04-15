@@ -334,7 +334,7 @@ impl core::ops::MulAssign<&Fp> for Fp {
 fp_ops!(Fp);
 
 #[inline]
-pub(super) fn decode_masked(d: &mut Fp, src: &[u8]) -> u32 {
+fn decode_masked(d: &mut Fp, src: &[u8]) -> u32 {
     debug_assert!(src.len() >= FP_ENCODED_BYTES);
     d.0 = [0u64; NLIMBS];
     for i in (0..NBYTES).rev() {

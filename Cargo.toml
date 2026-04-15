@@ -15,6 +15,9 @@ sign = ["dep:malachite-nz", "dep:malachite-base"]
 gmp = ["sign", "dep:rug", "dep:gmp-mpfr-sys"]
 # Opt-in fixed-precision crypto-bigint backend (pure Rust, audited width).
 cryptobigint = ["sign", "dep:crypto-bigint"]
+# Opt-in GF(p)/GF(p^2) backend via the `fp2` crate (saturated 4-limb
+# Montgomery; lvl1 only). Replaces the modarith backend.
+gf-fp2crate = ["dep:fp2", "dep:hex-literal", "dep:rand_core"]
 # Exposes DRBG snapshot/restore for deterministic benchmark replays.
 # Do not enable in production — leaks DRBG state.
 bench-internals = []
@@ -28,6 +31,9 @@ malachite-base = { version = "0.9", optional = true, default-features = false }
 rug = { version = "1.24", optional = true, features = ["integer", "rational"] }
 gmp-mpfr-sys = { version = "1.6", optional = true, default-features = false }
 crypto-bigint = { version = "0.7.3", features = ["alloc", "zeroize"], optional = true }
+fp2 = { version = "0.4.2", optional = true, default-features = false }
+hex-literal = { version = "0.4", optional = true }
+rand_core = { version = "0.9", optional = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(quaternion_isolation)', 'cfg(ibz_audit)'] }

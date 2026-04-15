@@ -41,7 +41,8 @@ mod sel {
     pub const SEC_DEGREE: &[u64] = &[0x4b, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1];
     pub const COM_DEGREE: &[u64] = &[0x4b, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1];
 
-    // e0_basis.c
+    // e0_basis.c (encoding depends on the active GF backend's internal repr)
+    #[cfg(not(feature = "gf-fp2crate"))]
     pub const BASIS_E0_PX: Fp2 = Fp2 {
         re: Fp([
             0x5bcab12000c08,
@@ -58,6 +59,7 @@ mod sel {
             0x1377c5431166,
         ]),
     };
+    #[cfg(not(feature = "gf-fp2crate"))]
     pub const BASIS_E0_QX: Fp2 = Fp2 {
         re: Fp([
             0x21dd55b97832f,
@@ -73,6 +75,24 @@ mod sel {
             0x7d0384872f5ec,
             0x4fbb0fcb5a52,
         ]),
+    };
+    #[cfg(feature = "gf-fp2crate")]
+    pub const BASIS_E0_PX: Fp2 = Fp2 {
+        re: Fp::from_le_bytes_unchecked(&hex_literal::hex!(
+            "7800b4ae5ed919218ba7bf591a99be44c41662a6c304cc8324b182ca7f879b01"
+        )),
+        im: Fp::from_le_bytes_unchecked(&hex_literal::hex!(
+            "75d2f9c33d13048e74924251aeddcfb22fe96798aa0a155242e0ea49db2a4404"
+        )),
+    };
+    #[cfg(feature = "gf-fp2crate")]
+    pub const BASIS_E0_QX: Fp2 = Fp2 {
+        re: Fp::from_le_bytes_unchecked(&hex_literal::hex!(
+            "1feb93552a25167cf3e14ba5f77886871d040d051727df9f710b5c7d47fd5f04"
+        )),
+        im: Fp::from_le_bytes_unchecked(&hex_literal::hex!(
+            "eeaacda0b728e2fdaea58e6f4b05ff399ab37636fba86544dc7318dfe9d48704"
+        )),
     };
 }
 

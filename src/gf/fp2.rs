@@ -1,6 +1,6 @@
 //! GF(p²) arithmetic, modulo X² + 1. Port of `lvlx/fp2.c`.
 
-use super::fp::{decode_masked, fp_binop, fp_ops, Digit, Fp, FP_ENCODED_BYTES, RADIX};
+use super::fp::{fp_binop, fp_ops, Digit, Fp, FP_ENCODED_BYTES, RADIX};
 use core::fmt;
 use core::ops::{AddAssign, MulAssign, SubAssign};
 
@@ -236,10 +236,9 @@ impl Fp2 {
     /// Decode canonical little-endian bytes; returns `None` if either half ≥ p.
     #[inline]
     pub fn try_decode(src: &[u8]) -> Option<Self> {
-        let mut x = Self::ZERO;
-        let re = decode_masked(&mut x.re, &src[..FP_ENCODED_BYTES]);
-        let im = decode_masked(&mut x.im, &src[FP_ENCODED_BYTES..2 * FP_ENCODED_BYTES]);
-        ((re & im) == 0xFFFF_FFFF).then_some(x)
+        let re = Fp::try_decode(&src[..FP_ENCODED_BYTES])?;
+        let im = Fp::try_decode(&src[FP_ENCODED_BYTES..2 * FP_ENCODED_BYTES])?;
+        Some(Self { re, im })
     }
 }
 

@@ -26,3 +26,4 @@ cb37e19+dirty,2026-04-14T20:59:14Z,verify=3.158ms,keygen=23.733ms,sign=55.546ms,
 22043aa,2026-04-15T00:42:46Z,verify=3.160ms,keygen=23.817ms,sign=55.548ms,post-quality-pass
 d16d110+dirty,2026-04-15T17:24:31Z,verify=3.181ms,keygen=23.910ms,sign=55.838ms,idioms-stage1
 82cfff3+dirty,2026-04-15T17:59:02Z,verify=3.153ms,keygen=22.797ms,sign=53.455ms,idioms-stage2
+a63dca6+dirty,2026-04-15T19:31:57Z,verify=2.045ms,keygen=-,sign=-,gf-fp2crate (verify-only; perf-stat: 6987M instr / 1603M cyc per 200 vfy; vs modarith 11018M / 2462M = 0.63x instr / 0.65x cyc; vs C-ref 49.3M-instr/vfy this is 34.9M = 0.71x)

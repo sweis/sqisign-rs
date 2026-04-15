@@ -102,6 +102,9 @@ cargo run --release --features lvl1,sign --example sign_verify
   as a fixed-precision bigint backend. Much slower (~400× on sign) since every
   integer is sized to the worst-case HNF intermediate; provided for users who
   want a minimal, audited dependency set.
+- `gf-fp2crate` — use the [`fp2`](https://crates.io/crates/fp2) crate
+  (saturated 4-limb Montgomery) for GF(p)/GF(p²) instead of the in-tree
+  modarith backend. ~35% faster verify; lvl1 verify-only for now.
 - `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
   replays. Do not enable in production.
 
