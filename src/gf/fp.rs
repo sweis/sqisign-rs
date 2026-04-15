@@ -150,17 +150,6 @@ impl Fp {
     pub fn sub_2p_noreduce(a: &Self, b: &Self) -> Self {
         *a - b
     }
-    /// `(a+b, a−b)`. The asm backend fuses loads/reductions; here it's just
-    /// two ops.
-    #[inline]
-    pub fn butterfly(a: &Self, b: &Self) -> (Self, Self) {
-        (*a + b, *a - b)
-    }
-    /// `(a+b, a−b)` with relaxed output bound; identical to `butterfly` here.
-    #[inline]
-    pub fn butterfly_lazy(a: &Self, b: &Self) -> (Self, Self) {
-        Self::butterfly(a, b)
-    }
 
     #[inline]
     pub fn from_small(val: Digit) -> Self {

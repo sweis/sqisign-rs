@@ -49,3 +49,16 @@ C-broadwell,2026-04-15T21:35:00Z,verify=19.72M-instr/5.28M-cyc,keygen=-,sign=-,h
 # (call overhead defeats LLVM scheduling); .S kept as reference + test oracle.
 636a88e+dirty,2026-04-15T22:11:59Z,verify=1.833ms,keygen=17.929ms,sign=43.260ms,gf-fast-default
 91da3a9+dirty,2026-04-15T22:40:10Z,verify=1.617ms,keygen=16.733ms,sign=41.114ms,inline-asm-fp_sumprod+noreduce-add/sub
+# === asm-hotspots: I-cache pressure was the dominant remaining gap ===
+# Baseline (72822b1, target-cpu=native): 4237M instr / 1250M cyc / 45M L1i-miss per 200 vfy.
+# C-broadwell controlled (same KAT-0×200): 3944M instr / 1052M cyc / 0.4M L1i-miss.
+# Finding: full inlining replicates fp_sumprod (~130 instr, 36 MULX) at every call site
+# → 22.5K MULX in binary, 1.0MB text, 45M L1i misses dominate the cycle gap.
+# Tried inline-asm fp_addsub butterfly: REGRESSED (11-reg clobber forces spills around
+# a 30-instr body; LLVM already emits good ADC/SBB for the portable code).
+# Wins kept: (1) zero-copy Fp2::mul — pass &Fp2 layout directly to fp_sumprod via
+# repr-guaranteed [u64;8] cast, dropping 4× pair() stack copies (-212M instr);
+# (2) outline Fp2::mul_assign on asm backend (one 328-instr body, I-cache 45M→3M misses);
+# (3) outline GF5_248::set_n_square (loop, not 1988-MULX unroll in exp_3div4).
+# Result: 4054M instr / 1196M cyc / 1.6M L1i-miss. Gap to C-bw: 1.19× → 1.14× cycles.
+144f8b0+dirty+native,2026-04-15T23:40:00Z,verify=1.570ms,keygen=16.641ms,sign=40.853ms,asm-hotspots (RUSTFLAGS=-Ctarget-cpu=native)

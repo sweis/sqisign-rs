@@ -88,22 +88,6 @@ impl Fp2 {
         self.im.neg_ip();
     }
 
-    /// `(a+b, a−b)`, both fully reduced.
-    #[inline]
-    pub fn butterfly(a: &Self, b: &Self) -> (Self, Self) {
-        let (sr, dr) = Fp::butterfly(&a.re, &b.re);
-        let (si, di) = Fp::butterfly(&a.im, &b.im);
-        (Self { re: sr, im: si }, Self { re: dr, im: di })
-    }
-
-    /// `(a+b, a−b)` with relaxed bound; safe only as `Mul`/`square` operands.
-    #[inline]
-    pub fn butterfly_lazy(a: &Self, b: &Self) -> (Self, Self) {
-        let (sr, dr) = Fp::butterfly_lazy(&a.re, &b.re);
-        let (si, di) = Fp::butterfly_lazy(&a.im, &b.im);
-        (Self { re: sr, im: si }, Self { re: dr, im: di })
-    }
-
     #[inline]
     #[must_use]
     pub fn half(self) -> Self {
@@ -283,12 +267,38 @@ impl SubAssign<&Fp2> for Fp2 {
         self.im -= &rhs.im;
     }
 }
+#[cfg(gf5_248_asm)]
+impl Fp2 {
+    /// Reinterpret as 8 contiguous `u64` limbs (`[re.limbs, im.limbs]`).
+    /// Layout is guaranteed by `#[repr(C)]` on `Fp2` and on `[u64; 4]`.
+    #[inline(always)]
+    fn as_limbs8(&self) -> &[u64; 8] {
+        const _: () = assert!(core::mem::size_of::<Fp2>() == 64);
+        const _: () = assert!(core::mem::align_of::<Fp2>() >= core::mem::align_of::<[u64; 8]>());
+        // SAFETY: `Fp2` is `repr(C)` over two `Fp` (each `repr(transparent)`
+        // over a `repr(C)` `[u64; 4]`), so it is exactly 8 `u64`s with the
+        // same alignment.
+        #[allow(unsafe_code)]
+        unsafe {
+            &*core::ptr::from_ref(self).cast::<[u64; 8]>()
+        }
+    }
+}
+
 /// (a + bi)(c + di) = (ac − bd) + (ad + bc)i.
 /// Fused sum/diff-of-products when the Fp backend supports it (one Montgomery
 /// reduction per output limb); otherwise 3-mul Karatsuba.
 impl MulAssign<&Fp2> for Fp2 {
-    #[inline]
+    #[cfg_attr(gf5_248_asm, inline(never))]
+    #[cfg_attr(not(gf5_248_asm), inline)]
     fn mul_assign(&mut self, rhs: &Fp2) {
+        #[cfg(gf5_248_asm)]
+        {
+            let (re, im) = Fp::fp2_mul_kernel(self.as_limbs8(), rhs.as_limbs8());
+            self.re = re;
+            self.im = im;
+        }
+        #[cfg(not(gf5_248_asm))]
         if Fp::HAS_FUSED_SUMPROD {
             let re = Fp::mul_sub(&self.re, &rhs.re, &self.im, &rhs.im);
             self.im = Fp::mul_add(&self.re, &rhs.im, &self.im, &rhs.re);
