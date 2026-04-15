@@ -3,8 +3,13 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(ibz_audit)");
     println!("cargo::rustc-check-cfg=cfg(quaternion_isolation)");
 
-    let gf_fast = std::env::var("CARGO_FEATURE_GF_FAST").is_ok();
-    if !gf_fast {
+    // The vendored asm GF backend is the default at lvl1. lvl3/lvl5 and the
+    // gf-portable opt-out use modarith (no asm).
+    let lvl1 = std::env::var("CARGO_FEATURE_LVL1").is_ok();
+    let lvl3 = std::env::var("CARGO_FEATURE_LVL3").is_ok();
+    let lvl5 = std::env::var("CARGO_FEATURE_LVL5").is_ok();
+    let portable = std::env::var("CARGO_FEATURE_GF_PORTABLE").is_ok();
+    if !lvl1 || lvl3 || lvl5 || portable {
         return;
     }
 
@@ -20,7 +25,7 @@ fn main() {
         println!("cargo::rustc-cfg=gf5_248_asm");
     } else {
         println!(
-            "cargo::warning=gf-fast: target lacks adx+bmi2; using portable backend (set RUSTFLAGS=\"-C target-cpu=native\")"
+            "cargo::warning=lvl1 GF: target lacks adx+bmi2; using portable fallback (set RUSTFLAGS=\"-C target-cpu=native\" for asm)"
         );
     }
 }

@@ -1,8 +1,15 @@
 //! Microbenchmark: `fp_sqr_asm` vs `fp_mul_asm(x,x)` and full verify under
-//! the gf-fast backend.
+//! the default vendored asm GF backend.
 //! Run: RUSTFLAGS="-C target-cpu=native" cargo bench --no-default-features \
-//!        --features lvl1,gf-fast,bench-internals --bench bench_fp_asm
+//!        --features lvl1 --bench bench_fp_asm
+#![allow(unused)]
 
+#[cfg(feature = "gf-portable")]
+fn main() {
+    println!("(gf-portable: vendored asm backend disabled)");
+}
+
+#[cfg(not(feature = "gf-portable"))]
 use sqisign_rs::gf::fp::FpInner;
 use sqisign_rs::nistapi::crypto_sign_open;
 use std::hint::black_box;
@@ -26,8 +33,8 @@ fn time_n<F: FnMut()>(label: &str, n: u64, mut f: F) -> f64 {
     best
 }
 
+#[cfg(not(feature = "gf-portable"))]
 fn main() {
-    // Warm a non-trivial element.
     let x = FpInner::from(0x1234_5678_9ABC_DEF0u64) * FpInner::from(0xCAFE_BABE_DEAD_BEEFu64);
 
     #[cfg(gf5_248_asm)]

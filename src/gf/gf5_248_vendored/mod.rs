@@ -36,8 +36,10 @@ unsafe extern "C" {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct GF5_248([u64; 4]);
+
+impl zeroize::DefaultIsZeroes for GF5_248 {}
 
 impl GF5_248 {
     // IMPLEMENTATION NOTES

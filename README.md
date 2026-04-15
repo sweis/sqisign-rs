@@ -28,9 +28,13 @@ The signing path uses arbitrary-precision
 integers; the default backend is [`malachite`](https://crates.io/crates/malachite-nz)
 (pure Rust, no C dependency).
 
+At lvl1 the default GF(p) backend is a vendored saturated 4-limb Montgomery
+implementation with hand-written x86_64 BMI2/ADX inline asm for `mul`/`sqr`;
+build with `RUSTFLAGS="-C target-cpu=native"` to enable the asm path.
+
 ```sh
-# Full build (keygen + sign + verify) — pure Rust
-cargo build --release --features lvl1,sign
+# Full build (keygen + sign + verify)
+RUSTFLAGS="-C target-cpu=native" cargo build --release --features lvl1,sign
 
 # Opt-in GMP backend via rug (requires libgmp)
 cargo build --release --features lvl1,gmp
@@ -102,9 +106,9 @@ cargo run --release --features lvl1,sign --example sign_verify
   as a fixed-precision bigint backend. Much slower (~400× on sign) since every
   integer is sized to the worst-case HNF intermediate; provided for users who
   want a minimal, audited dependency set.
-- `gf-fp2crate` — use the [`fp2`](https://crates.io/crates/fp2) crate
-  (saturated 4-limb Montgomery) for GF(p)/GF(p²) instead of the in-tree
-  modarith backend. ~35% faster verify; lvl1 verify-only for now.
+- `gf-portable` — opt out of the vendored 4-limb Montgomery GF backend at lvl1
+  and use the in-tree unsaturated modarith reference instead. lvl3/lvl5 always
+  use modarith.
 - `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
   replays. Do not enable in production.
 

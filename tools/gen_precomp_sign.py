@@ -99,17 +99,31 @@ def emit_ibz(ibzs, tok):
 def take_ibz(s, ibzs):
     return emit_ibz(ibzs, s.next())
 
+# Per-level modarith params: (NLIMBS, LIMB_BITS, prime, encoded_bytes).
+# The C ref tables store Fp values in modarith nres form (radix-2^LIMB_BITS,
+# Montgomery R = 2^(NLIMBS*LIMB_BITS)). We decode to canonical bytes so the
+# emitted Rust is GF-backend-agnostic.
+MODARITH_PARAMS = {
+    "lvl1": (5, 51,  5 * (1 << 248) - 1, 32),
+    "lvl3": (7, 55, 65 * (1 << 376) - 1, 48),
+    "lvl5": (9, 57, 27 * (1 << 500) - 1, 64),
+}
+NLIMBS, LIMB_BITS, FP_P, FP_ENC = MODARITH_PARAMS[LEVEL]
+FP_R_INV = pow(1 << (NLIMBS * LIMB_BITS), -1, FP_P)
+
 def take_fp(s):
-    # { 0x.., 0x.., 0x.., 0x.., 0x.. }
     s.expect("{")
     limbs = []
     while s.peek() != "}":
         limbs.append(s.next())
         if s.peek() == ",": s.next()
     s.expect("}")
-    nw = {"lvl1": 5, "lvl3": 7, "lvl5": 9}[LEVEL]
-    assert len(limbs) == nw, f"expected {nw} fp limbs, got {len(limbs)}"
-    return f"Fp([{','.join(limbs)}])"
+    assert len(limbs) == NLIMBS, f"expected {NLIMBS} fp limbs, got {len(limbs)}"
+    nres = sum(int(l, 0) << (LIMB_BITS * i) for i, l in enumerate(limbs))
+    canon = (nres * FP_R_INV) % FP_P
+    if canon == 0:
+        return "Fp::ZERO"
+    return f'fp_lit!("{canon.to_bytes(FP_ENC, "little").hex()}")'
 
 def take_fp2(s):
     # { fp_re , fp_im }
@@ -256,6 +270,7 @@ use crate::quaternion::{
 use crate::quaternion::intbig::{ibz_copy_digits, ibz_neg};
 use crate::ec::{EcCurve, EcBasis, EcPoint};
 use crate::gf::{Fp, Fp2};
+use hex_literal::hex;
 
 #[inline]
 fn ibz_lit(neg: bool, limbs: &[u64]) -> Ibz {
@@ -266,6 +281,10 @@ fn ibz_lit(neg: bool, limbs: &[u64]) -> Ibz {
         ibz_neg(&mut z, &t);
     }
     z
+}
+
+macro_rules! fp_lit {
+    ($s:literal) => { Fp::decode_reduce(&hex!($s)) };
 }
 
 """
@@ -455,8 +474,7 @@ mod tests {
         assert!(e0.is_a24_computed_and_normalized);
         assert!(e0.a.is_zero());
         let p = &curves_with_endomorphisms()[0].basis_even.p;
-        assert_eq!(p.x.re.0, crate::precomp::BASIS_E0_PX.re.0);
-        assert_eq!(p.x.im.0, crate::precomp::BASIS_E0_PX.im.0);
+        assert_eq!(p.x, crate::precomp::BASIS_E0_PX);
     }
 
     #[test]
@@ -523,8 +541,8 @@ mod tests_lvl1 {
             "391943321623591284286034922686343541417807403958897095695530545493876076147"
         );
         assert_eq!(
-            curves_with_endomorphisms()[0].basis_even.q.x.re.0[0],
-            0x21dd55b97832f
+            curves_with_endomorphisms()[0].basis_even.q.x,
+            crate::precomp::BASIS_E0_QX
         );
     }
 }

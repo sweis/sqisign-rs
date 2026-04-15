@@ -15,12 +15,9 @@ sign = ["dep:malachite-nz", "dep:malachite-base"]
 gmp = ["sign", "dep:rug", "dep:gmp-mpfr-sys"]
 # Opt-in fixed-precision crypto-bigint backend (pure Rust, audited width).
 cryptobigint = ["sign", "dep:crypto-bigint"]
-# Opt-in GF(p)/GF(p^2) backend via the `fp2` crate (saturated 4-limb
-# Montgomery; lvl1 only). Replaces the modarith backend.
-gf-fp2crate = ["dep:fp2", "dep:hex-literal", "dep:rand_core"]
-# Opt-in vendored GF5_248 backend with hand-written x86_64 BMI2/ADX asm
-# (incl. fp_sqr). lvl1 only; needs RUSTFLAGS="-C target-cpu=native".
-gf-fast = ["dep:hex-literal"]
+# Opt-out of the vendored asm GF backend at lvl1 to use the in-tree
+# unsaturated modarith reference instead. lvl3/lvl5 always use modarith.
+gf-portable = []
 # Exposes DRBG snapshot/restore for deterministic benchmark replays.
 # Do not enable in production — leaks DRBG state.
 bench-internals = []
@@ -34,9 +31,7 @@ malachite-base = { version = "0.9", optional = true, default-features = false }
 rug = { version = "1.24", optional = true, features = ["integer", "rational"] }
 gmp-mpfr-sys = { version = "1.6", optional = true, default-features = false }
 crypto-bigint = { version = "0.7.3", features = ["alloc", "zeroize"], optional = true }
-fp2 = { version = "0.4.2", optional = true, default-features = false }
-hex-literal = { version = "0.4", optional = true }
-rand_core = { version = "0.9", optional = true }
+hex-literal = "0.4"
 
 [build-dependencies]
 cc = "1"
@@ -103,7 +98,7 @@ required-features = ["bench-internals"]
 [[bench]]
 name = "bench_fp_asm"
 harness = false
-required-features = ["gf-fast"]
+required-features = ["lvl1"]
 
 [profile.release]
 lto = true

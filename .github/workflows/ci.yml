@@ -7,27 +7,29 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Enables the BMI2/ADX inline-asm GF backend at lvl1.
+  RUSTFLAGS: -C target-cpu=native
 
 jobs:
   verify-only:
-    name: verify-only (${{ matrix.level }})
+    name: verify-only (${{ matrix.features }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        level: [lvl1, lvl3, lvl5]
+        features: [lvl1, lvl3, lvl5, "lvl1,gf-portable"]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.level }}
+          key: ${{ matrix.features }}
       - name: Build
-        run: cargo build --release --no-default-features --features ${{ matrix.level }}
+        run: cargo build --release --no-default-features --features ${{ matrix.features }}
       - name: Test
-        run: cargo test --release --no-default-features --features ${{ matrix.level }}
+        run: cargo test --release --no-default-features --features ${{ matrix.features }}
       - name: Clippy
-        run: cargo clippy --no-default-features --features ${{ matrix.level }} -- -D clippy::correctness -D clippy::suspicious
+        run: cargo clippy --no-default-features --features ${{ matrix.features }} -- -D clippy::correctness -D clippy::suspicious
 
   sign:
     name: sign (${{ matrix.level }}, ${{ matrix.backend }})

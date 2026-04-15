@@ -2,18 +2,9 @@
 //! p = 5·2²⁴⁸ − 1, with hand-written x86_64 BMI2/ADX asm including a
 //! dedicated `fp_sqr_asm`).
 //!
-//! Replaces `fp.rs` when feature `gf-fast` is enabled. `fp2.rs` is unchanged.
+//! Default GF(p) backend at lvl1. `fp2.rs` is unchanged.
 
 use core::fmt;
-
-#[cfg(any(feature = "lvl3", feature = "lvl5"))]
-compile_error!("gf-fast currently supports lvl1 only");
-
-#[cfg(feature = "sign")]
-compile_error!(
-    "gf-fast is verify-only for now: sign_data precomp constants are stored in the \
-     modarith internal representation and need re-encoding for this backend"
-);
 
 #[path = "gf5_248_vendored/mod.rs"]
 mod gf5_248;
@@ -300,7 +291,7 @@ impl fmt::Debug for Fp {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, gf5_248_asm))]
 mod tests {
     use super::*;
     use crate::test_util::Prng;
@@ -309,7 +300,6 @@ mod tests {
     /// asm) and to the extern-C `.S` `fp_sqr_asm`/`fp_mul_asm` for all inputs
     /// in the working range (< 2²⁵²).
     #[test]
-    #[cfg(gf5_248_asm)]
     fn sqr_matches_mul() {
         let mut prng = Prng(0x5248_5248);
         for _ in 0..100_000 {
