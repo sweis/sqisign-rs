@@ -96,7 +96,7 @@ pub fn quat_lattice_sample_from_ball(
         #[cfg(debug_assertions)]
         {
             cnt += 1;
-            if cnt % 100 == 0 {
+            if cnt.is_multiple_of(100) {
                 eprintln!("Lattice sampling rejected {} times", cnt - 1);
             }
         }

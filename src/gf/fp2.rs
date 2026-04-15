@@ -219,26 +219,20 @@ pub fn fp2_sqrt(a: &mut Fp2) {
 
     fp_sqr(&mut x0, &a.re);
     fp_sqr(&mut x1, &a.im);
-    let s = x0;
-    fp_add(&mut x0, &s, &x1);
+    fp_add_ip(&mut x0, &x1);
     fp_sqrt(&mut x0);
     let s = x0;
     fp_select(&mut x0, &s, &a.re, fp_is_zero(&a.im));
-    let s = x0;
-    fp_add(&mut x0, &s, &a.re);
+    fp_add_ip(&mut x0, &a.re);
     fp_add(&mut t0, &x0, &x0);
 
     fp_exp3div4(&mut x1, &t0);
 
-    let s = x0;
-    fp_mul(&mut x0, &s, &x1);
-    let s = x1;
-    fp_mul(&mut x1, &s, &a.im);
+    fp_mul_ip(&mut x0, &x1);
+    fp_mul_ip(&mut x1, &a.im);
     fp_add(&mut t1, &x0, &x0);
-    let s = t1;
-    fp_sqr(&mut t1, &s);
-    let s = t0;
-    fp_sub(&mut t0, &s, &t1);
+    fp_sqr_ip(&mut t1);
+    fp_sub_ip(&mut t0, &t1);
     let f = fp_is_zero(&t0);
     fp_neg(&mut t1, &x0);
     fp_copy(&mut t0, &x1);
@@ -284,34 +278,27 @@ pub fn fp2_batched_inv(x: &mut [Fp2]) {
         return;
     }
     let mut t1 = vec![Fp2::default(); len];
-    let mut t2 = vec![Fp2::default(); len];
-
     t1[0] = x[0];
     for i in 1..len {
         let prev = t1[i - 1];
         fp2_mul(&mut t1[i], &prev, &x[i]);
     }
-    let mut inverse = t1[len - 1];
-    fp2_inv(&mut inverse);
-
-    t2[0] = inverse;
-    for i in 1..len {
-        let prev = t2[i - 1];
-        fp2_mul(&mut t2[i], &prev, &x[len - i]);
+    let mut acc = t1[len - 1];
+    fp2_inv(&mut acc);
+    for i in (1..len).rev() {
+        let mut r = Fp2::default();
+        fp2_mul(&mut r, &acc, &t1[i - 1]);
+        fp2_mul_ip(&mut acc, &x[i]);
+        x[i] = r;
     }
-    x[0] = t2[len - 1];
-    for i in 1..len {
-        let a = t1[i - 1];
-        let b = t2[len - i - 1];
-        fp2_mul(&mut x[i], &a, &b);
-    }
+    x[0] = acc;
 }
 
 /// Variable-time square-and-multiply: out = x^exp, where exp is little-endian limbs.
 pub fn fp2_pow_vartime(out: &mut Fp2, x: &Fp2, exp: &[Digit]) {
     let mut acc = *x;
     fp2_set_one(out);
-    for &word in exp.iter() {
+    for &word in exp {
         for i in 0..RADIX {
             if (word >> i) & 1 == 1 {
                 fp2_mul_ip(out, &acc);
@@ -351,21 +338,6 @@ pub fn fp2_frob(out: &mut Fp2, input: &Fp2) {
     fp_neg(&mut out.im, &input.im);
 }
 
-pub fn fp2_print(name: &str, a: &Fp2) {
-    let mut buf = [0u8; FP_ENCODED_BYTES];
-    fp_encode(&mut buf, &a.re);
-    print!("{}0x", name);
-    for b in buf.iter().rev() {
-        print!("{:02x}", b);
-    }
-    print!(" + i*0x");
-    fp_encode(&mut buf, &a.im);
-    for b in buf.iter().rev() {
-        print!("{:02x}", b);
-    }
-    println!();
-}
-
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -373,31 +345,12 @@ pub fn fp2_print(name: &str, a: &Fp2) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    struct Prng(u64);
-    impl Prng {
-        fn next(&mut self) -> u64 {
-            self.0 ^= self.0 << 13;
-            self.0 ^= self.0 >> 7;
-            self.0 ^= self.0 << 17;
-            self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-        }
-        fn fill(&mut self, buf: &mut [u8]) {
-            for chunk in buf.chunks_mut(8) {
-                let x = self.next().to_le_bytes();
-                chunk.copy_from_slice(&x[..chunk.len()]);
-            }
-        }
-    }
+    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
+    use crate::test_util::assert_hex;
+    use crate::test_util::Prng;
 
     fn fp2_random(prng: &mut Prng) -> Fp2 {
-        let mut buf = [0u8; FP_ENCODED_BYTES];
-        let mut a = Fp2::default();
-        prng.fill(&mut buf);
-        fp_decode_reduce(&mut a.re, &buf);
-        prng.fill(&mut buf);
-        fp_decode_reduce(&mut a.im, &buf);
-        a
+        prng.fp2()
     }
 
     const ITERS: usize = 300;
@@ -655,14 +608,6 @@ mod tests {
             fp2_mul(&mut p, x, o);
             assert_ne!(fp2_is_equal(&p, &one), 0);
         }
-    }
-
-    fn assert_hex(buf: &[u8], expected: &str) {
-        let mut got = String::new();
-        for b in buf {
-            got.push_str(&format!("{:02x}", b));
-        }
-        assert_eq!(got, expected);
     }
 
     /// Golden vectors extracted from the C reference implementation

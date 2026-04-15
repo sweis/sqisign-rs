@@ -8,9 +8,10 @@ use crate::ec::{
     ec_curve_init, jac_to_xz_add_components, lift_basis, test_jac_order_twof, EcBasis,
 };
 use crate::gf::{fp2_batched_inv, fp2_sqrt};
+#[cfg(feature = "sign")]
+use crate::precomp::NORMALIZATION_TRANSFORMS;
 use crate::precomp::{
-    PrecompBasisChangeMatrix, CHI_EVAL, EVEN_INDEX, FP2_CONSTANTS, NORMALIZATION_TRANSFORMS,
-    SPLITTING_TRANSFORMS,
+    PrecompBasisChangeMatrix, CHI_EVAL, EVEN_INDEX, FP2_CONSTANTS, SPLITTING_TRANSFORMS,
 };
 
 // ===========================================================================
@@ -37,6 +38,7 @@ fn select_base_change_matrix(
     }
 }
 
+#[cfg(feature = "sign")]
 #[inline]
 fn set_base_change_matrix_from_precomp(res: &mut BasisChangeMatrix, m: &PrecompBasisChangeMatrix) {
     for i in 0..4 {
@@ -118,6 +120,7 @@ fn apply_isomorphism(res: &mut ThetaPoint, m: &BasisChangeMatrix, p: &ThetaPoint
 }
 
 /// res ← M1 · M2 (4×4 matrix product).
+#[cfg(feature = "sign")]
 fn base_change_matrix_multiplication(
     res: &mut BasisChangeMatrix,
     m1: &BasisChangeMatrix,
@@ -784,7 +787,7 @@ fn sample_random_index() -> u8 {
             break;
         }
     }
-    let secret_index = seed - (((seed as u64) * 2_863_311_531u64 >> 34) as u32) * 6;
+    let secret_index = seed - ((((seed as u64) * 2_863_311_531u64) >> 34) as u32) * 6;
     debug_assert_eq!(secret_index, seed % 6);
     secret_index as u8
 }

@@ -69,6 +69,7 @@ match_bool = "allow"
 
 [dev-dependencies]
 hex = "0.4"
+hex-literal = "0.4"
 
 [[example]]
 name = "sign_verify"

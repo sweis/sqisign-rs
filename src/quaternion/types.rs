@@ -17,27 +17,19 @@ pub type Ibq = [Ibz; 2];
 
 #[inline]
 pub fn ibz_vec_2_init() -> IbzVec2 {
-    [Ibz::default(), Ibz::default()]
+    Default::default()
 }
 #[inline]
 pub fn ibz_vec_4_init() -> IbzVec4 {
-    [
-        Ibz::default(),
-        Ibz::default(),
-        Ibz::default(),
-        Ibz::default(),
-    ]
+    Default::default()
 }
 #[inline]
 pub fn ibz_mat_2x2_init() -> IbzMat2x2 {
-    [
-        [Ibz::default(), Ibz::default()],
-        [Ibz::default(), Ibz::default()],
-    ]
+    Default::default()
 }
 #[inline]
 pub fn ibz_mat_4x4_init() -> IbzMat4x4 {
-    core::array::from_fn(|_| core::array::from_fn(|_| Ibz::default()))
+    Default::default()
 }
 
 // ---------------------------------------------------------------------------
@@ -96,25 +88,15 @@ impl Default for QuatLattice {
 
 /// Left ideal of a maximal order. `parent_order` mirrors C's
 /// `const quat_lattice_t *` and points into static precomputed data.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct QuatLeftIdeal {
     pub lattice: QuatLattice,
     pub norm: Ibz,
     pub parent_order: Option<&'static QuatLattice>,
 }
 
-impl Default for QuatLeftIdeal {
-    fn default() -> Self {
-        Self {
-            lattice: QuatLattice::default(),
-            norm: Ibz::default(),
-            parent_order: None,
-        }
-    }
-}
-
 /// Extremal maximal order (precomputed data).
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct QuatPExtremalMaximalOrder {
     pub order: QuatLattice,
     pub z: QuatAlgElem,
@@ -123,6 +105,7 @@ pub struct QuatPExtremalMaximalOrder {
 }
 
 /// Parameters for `quat_represent_integer`.
+#[derive(Debug)]
 pub struct QuatRepresentIntegerParams {
     pub primality_test_iterations: i32,
     pub order: &'static QuatPExtremalMaximalOrder,
@@ -169,31 +152,8 @@ impl fmt::Debug for QuatLeftIdeal {
         writeln!(f, "left ideal\nnorm: {}", self.norm)?;
         writeln!(f, "{:?}", self.lattice)?;
         match self.parent_order {
-            Some(o) => write!(f, "parent order {:?}", o),
+            Some(o) => write!(f, "parent order {o:?}"),
             None => write!(f, "Parent order not given!"),
         }
     }
-}
-
-pub fn ibz_mat_2x2_print(mat: &IbzMat2x2) {
-    println!(
-        "matrix: {} {} \n        {} {} \n        ",
-        mat[0][0], mat[0][1], mat[1][0], mat[1][1]
-    );
-}
-pub fn ibz_mat_4x4_print(mat: &IbzMat4x4) {
-    print!("matrix: ");
-    for row in mat {
-        for v in row {
-            print!("{} ", v);
-        }
-        print!("\n        ");
-    }
-    println!();
-}
-pub fn ibz_vec_2_print(v: &IbzVec2) {
-    println!("vector: {} {} \n", v[0], v[1]);
-}
-pub fn ibz_vec_4_print(v: &IbzVec4) {
-    println!("vector: {} {} {} {} \n", v[0], v[1], v[2], v[3]);
 }

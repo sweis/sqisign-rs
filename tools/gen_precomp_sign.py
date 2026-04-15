@@ -253,10 +253,7 @@ use crate::quaternion::{
     Ibz, IbzMat2x2, QuatAlg, QuatAlgElem, QuatLattice, QuatLeftIdeal,
     QuatPExtremalMaximalOrder,
 };
-use crate::quaternion::intbig::{
-    ibz_convert_to_str, ibz_copy_digits, ibz_from_i64, ibz_mod, ibz_neg, ibz_pow,
-    ibz_probab_prime, ibz_set_from_str,
-};
+use crate::quaternion::intbig::{ibz_copy_digits, ibz_neg};
 use crate::ec::{EcCurve, EcBasis, EcPoint};
 use crate::gf::{Fp, Fp2};
 
@@ -353,7 +350,7 @@ def gen_endomorphism_action():
 
     out.append("""\
 /// Precomputed endomorphism rings applied to precomputed torsion bases.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CurveWithEndomorphismRing {
     pub curve: EcCurve,
     pub basis_even: EcBasis,
@@ -410,6 +407,7 @@ def main():
 TESTS_GENERIC = r"""
 #[cfg(test)]
 mod tests {
+    use crate::quaternion::intbig::*;
     use super::*;
     use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
@@ -498,6 +496,7 @@ mod tests {
 TESTS_LVL1 = r"""
 #[cfg(test)]
 mod tests_lvl1 {
+    use crate::quaternion::intbig::*;
     use super::*;
 
     #[test]

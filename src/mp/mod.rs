@@ -9,8 +9,6 @@
 
 #![allow(clippy::needless_range_loop)]
 
-use core::fmt::Write as _;
-
 /// One saturated limb. The C reference is built with `RADIX_64`.
 pub type Digit = u64;
 /// Signed companion of [`Digit`].
@@ -78,15 +76,7 @@ pub const fn shiftl(high: Digit, low: Digit, shift: u32) -> Digit {
     (high << shift) ^ (low >> (RADIX - shift))
 }
 
-/// 64×64 → 128-bit multiply. `out[0]` = low word, `out[1]` = high word.
-#[inline(always)]
-pub fn mul(out: &mut [Digit], a: Digit, b: Digit) {
-    let r = (a as u128) * (b as u128);
-    out[0] = r as Digit;
-    out[1] = (r >> RADIX) as Digit;
-}
-
-/// Convenience wrapper around [`mul`] returning a `[low, high]` pair.
+/// 64×64 → 128-bit multiply, returning `[low, high]`.
 #[inline(always)]
 pub fn mul_pair(a: Digit, b: Digit) -> [Digit; 2] {
     let r = (a as u128) * (b as u128);
@@ -211,56 +201,22 @@ pub fn mp_is_zero(a: &[Digit], nwords: usize) -> bool {
     is_digit_zero_ct(r) != 0
 }
 
-/// 2-limb × 2-limb → 4-limb multiply.
-///
-/// NOTE: Faithful port of C `mp_mul2`, which omits the `a[1]*b[0]` partial
-/// product. This matches the reference implementation; correctness review of
-/// this routine against the spec is tracked separately.
-#[inline]
-pub fn mp_mul2(c: &mut [Digit], a: &[Digit], b: &[Digit]) {
-    let mut carry = 0u32;
-    let t0 = mul_pair(a[0], b[0]);
-    let t1 = mul_pair(a[0], b[1]);
-    let mut t0 = t0;
-    let mut t1 = t1;
-    let (s, co) = addc(t0[1], t1[0], carry);
-    t0[1] = s;
-    carry = co;
-    let (s, co) = addc(0, t1[1], carry);
-    t1[1] = s;
-    carry = co;
-    let mut t2 = mul_pair(a[1], b[1]);
-    let (s, co) = addc(t2[0], t1[1], carry);
-    t2[0] = s;
-    carry = co;
-    let (s, _co) = addc(0, t2[1], carry);
-    t2[1] = s;
-    c[0] = t0[0];
-    c[1] = t0[1];
-    c[2] = t2[0];
-    c[3] = t2[1];
-}
-
-/// Debug print as a single big-endian hex literal.
-pub fn mp_print(a: &[Digit], nwords: usize) -> String {
-    let mut s = String::from("0x");
-    for i in 0..nwords {
-        let _ = write!(s, "{:016x}", a[nwords - 1 - i]);
-    }
-    s
-}
-
 /// `b = a` over `nwords` limbs.
 #[inline]
 pub fn mp_copy(b: &mut [Digit], a: &[Digit], nwords: usize) {
     b[..nwords].copy_from_slice(&a[..nwords]);
 }
 
+/// Stack-scratch upper bound for `mp_mul` / `mp_inv_2e` / `mp_invert_matrix`.
+/// Covers `NWORDS_ORDER` at every level (4 / 6 / 8).
+const MP_SCRATCH: usize = 8;
+
 /// Low half of `a * b`: `nwords`-limb inputs, `nwords`-limb output.
 /// Matches C `mp_mul`, which discards the high half.
 pub fn mp_mul(c: &mut [Digit], a: &[Digit], b: &[Digit], nwords: usize) {
-    let mut cc = vec![0 as Digit; nwords];
-    let mut t = vec![0 as Digit; nwords];
+    debug_assert!(nwords <= MP_SCRATCH);
+    let mut cc = [0u64; MP_SCRATCH];
+    let mut t = [0u64; MP_SCRATCH];
 
     for i in 0..nwords {
         let p0 = mul_pair(a[i], b[0]);
@@ -294,10 +250,8 @@ pub fn mp_mod_2exp(a: &mut [Digit], e: u32, nwords: usize) {
     let q = (e >> LOG2RADIX) as usize;
     let r = e & (RADIX - 1);
     if q < nwords {
-        a[q] &= ((1 as Digit) << r).wrapping_sub(1);
-        for i in q + 1..nwords {
-            a[i] = 0;
-        }
+        a[q] &= (1u64 << r).wrapping_sub(1);
+        a[q + 1..nwords].fill(0);
     }
 }
 
@@ -342,12 +296,13 @@ pub fn mp_is_even(x: &[Digit]) -> bool {
 /// Compute `b = a^{-1} mod 2^e` via Newton/Hensel lifting. `a` must be odd.
 pub fn mp_inv_2e(b: &mut [Digit], a: &[Digit], e: i32, nwords: usize) {
     debug_assert!(a[0] & 1 == 1, "mp_inv_2e: input must be odd");
+    debug_assert!(nwords <= MP_SCRATCH);
 
-    let mut x = vec![0 as Digit; nwords];
-    let mut y = vec![0 as Digit; nwords];
-    let mut aa = vec![0 as Digit; nwords];
-    let mut tmp = vec![0 as Digit; nwords];
-    let mut mp_one = vec![0 as Digit; nwords];
+    let mut x = [0u64; MP_SCRATCH];
+    let mut y = [0u64; MP_SCRATCH];
+    let mut aa = [0u64; MP_SCRATCH];
+    let mut tmp = [0u64; MP_SCRATCH];
+    let mut mp_one = [0u64; MP_SCRATCH];
     mp_one[0] = 1;
 
     mp_copy(&mut aa, a, nwords);
@@ -369,8 +324,8 @@ pub fn mp_inv_2e(b: &mut [Digit], a: &[Digit], e: i32, nwords: usize) {
     mp_neg(&mut tmp, nwords);
     mp_add(&mut y, &mp_one, &tmp, nwords);
 
-    let mut xtmp = vec![0 as Digit; nwords];
-    let mut ytmp = vec![0 as Digit; nwords];
+    let mut xtmp = [0u64; MP_SCRATCH];
+    let mut ytmp = [0u64; MP_SCRATCH];
     for _ in 0..p {
         mp_add(&mut tmp, &mp_one, &y, nwords);
         mp_copy(&mut xtmp, &x, nwords);
@@ -384,7 +339,7 @@ pub fn mp_inv_2e(b: &mut [Digit], a: &[Digit], e: i32, nwords: usize) {
 
     #[cfg(debug_assertions)]
     {
-        let mut check = vec![0 as Digit; nwords];
+        let mut check = [0u64; MP_SCRATCH];
         mp_mul(&mut check, &x, &aa, nwords);
         mp_mod_2exp(&mut check, w, nwords);
         debug_assert!(mp_is_one(&check, nwords), "mp_inv_2e self-check failed");
@@ -406,19 +361,20 @@ pub fn mp_invert_matrix(
         p += 1;
     }
     let w = (1i32 << p) as u32;
+    debug_assert!(nwords <= MP_SCRATCH);
 
-    let mut det = vec![0 as Digit; nwords];
-    let mut tmp = vec![0 as Digit; nwords];
-    let mut resa = vec![0 as Digit; nwords];
-    let mut resb = vec![0 as Digit; nwords];
-    let mut resc = vec![0 as Digit; nwords];
-    let mut resd = vec![0 as Digit; nwords];
+    let mut det = [0u64; MP_SCRATCH];
+    let mut tmp = [0u64; MP_SCRATCH];
+    let mut resa = [0u64; MP_SCRATCH];
+    let mut resb = [0u64; MP_SCRATCH];
+    let mut resc = [0u64; MP_SCRATCH];
+    let mut resd = [0u64; MP_SCRATCH];
 
     mp_mul(&mut tmp, r1, s2, nwords);
     mp_mul(&mut det, r2, s1, nwords);
-    let det_copy = det.clone();
+    let det_copy = det;
     mp_sub(&mut det, &tmp, &det_copy, nwords);
-    let det_copy = det.clone();
+    let det_copy = det;
     mp_inv_2e(&mut det, &det_copy, e, nwords);
 
     mp_mul(&mut resa, &det, s2, nwords);
@@ -440,10 +396,21 @@ pub fn mp_invert_matrix(
     mp_copy(s2, &resd, nwords);
 }
 
-/// Byte-swap a digit (matches C `BSWAP_DIGIT`).
-#[inline(always)]
-pub const fn bswap_digit(x: Digit) -> Digit {
-    x.swap_bytes()
+/// Little-endian encode the low `nbytes` bytes of `x` into `enc`.
+#[inline]
+pub fn encode_digits(enc: &mut [u8], x: &[Digit], nbytes: usize) {
+    for (i, b) in enc[..nbytes].iter_mut().enumerate() {
+        *b = (x[i / 8] >> ((i % 8) * 8)) as u8;
+    }
+}
+
+/// Little-endian decode `nbytes` bytes from `enc` into `x`, zero-extending.
+#[inline]
+pub fn decode_digits(x: &mut [Digit], enc: &[u8], nbytes: usize) {
+    x.fill(0);
+    for (i, &b) in enc[..nbytes].iter().enumerate() {
+        x[i / 8] |= (b as u64) << ((i % 8) * 8);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -490,10 +457,8 @@ mod tests {
 
     #[test]
     fn mul_full_width() {
-        let mut out = [0; 2];
-        mul(&mut out, Digit::MAX, Digit::MAX);
         // (2^64 - 1)^2 = 2^128 - 2^65 + 1
-        assert_eq!(out, [1, Digit::MAX - 1]);
+        assert_eq!(mul_pair(Digit::MAX, Digit::MAX), [1, Digit::MAX - 1]);
     }
 
     #[test]

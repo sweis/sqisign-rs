@@ -22,7 +22,7 @@ use super::{
     JacPoint,
 };
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct PairingParams {
     pub e: u32,
     pub p: EcPoint,
@@ -33,7 +33,7 @@ pub struct PairingParams {
     pub a24: EcPoint,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct PairingDlogDiffPoints {
     pub pmr: EcPoint,
     pub pms: EcPoint,
@@ -41,7 +41,7 @@ pub struct PairingDlogDiffPoints {
     pub smq: EcPoint,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct PairingDlogParams {
     pub e: u32,
     pub pq: EcBasis,
@@ -206,10 +206,10 @@ fn translate_self(p: &mut EcPoint) {
 /// Compute the biextension monodromy g_{P,Q}^{2^e} (level 1) via cubical
 /// arithmetic of P + 2^e·Q. `swap_pq` chooses between (P, ixP) and (Q, ixQ).
 fn monodromy_i(r: &mut EcPoint, pd: &PairingParams, swap_pq: bool) {
-    let (p, q, ixp) = if !swap_pq {
-        (pd.p, pd.q, pd.ixp)
-    } else {
+    let (p, q, ixp) = if swap_pq {
         (pd.q, pd.p, pd.ixq)
+    } else {
+        (pd.p, pd.q, pd.ixp)
     };
     let mut pnq = EcPoint::default();
     let mut nq = EcPoint::default();
@@ -322,6 +322,9 @@ pub fn reduced_tate(
 // Fp² 2-adic discrete log
 // ---------------------------------------------------------------------------
 
+/// Upper bound on the recursion stack: ⌈log₂(TORSION_EVEN_POWER)⌉ + 1 ≤ 11 at lvl5.
+const DLOG_DEPTH: usize = 16;
+
 fn fp2_dlog_2e_rec(
     a: &mut [Digit; NWORDS_ORDER],
     len: i64,
@@ -387,12 +390,13 @@ fn fp2_dlog_2e(scal: &mut [Digit; NWORDS_ORDER], f: &Fp2, g_inverse: &Fp2, e: i3
         log += 1;
     }
     log += 1;
-    let mut pows_f = vec![Fp2::default(); log];
-    let mut pows_g = vec![Fp2::default(); log];
+    debug_assert!(log <= DLOG_DEPTH);
+    let mut pows_f = [Fp2::default(); DLOG_DEPTH];
+    let mut pows_g = [Fp2::default(); DLOG_DEPTH];
     pows_f[0] = *f;
     pows_g[0] = *g_inverse;
     *scal = [0; NWORDS_ORDER];
-    let ok = fp2_dlog_2e_rec(scal, e as i64, &mut pows_f, &mut pows_g, 1);
+    let ok = fp2_dlog_2e_rec(scal, e as i64, &mut pows_f[..log], &mut pows_g[..log], 1);
     debug_assert!(ok);
     ok
 }

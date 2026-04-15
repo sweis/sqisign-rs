@@ -16,9 +16,7 @@ pub fn ibz_vec_4_set(vec: &mut IbzVec4, c0: i32, c1: i32, c2: i32, c3: i32) {
 }
 
 pub fn ibz_vec_4_copy(dst: &mut IbzVec4, src: &IbzVec4) {
-    for i in 0..4 {
-        ibz_copy(&mut dst[i], &src[i]);
-    }
+    dst.clone_from(src);
 }
 
 pub fn ibz_vec_4_copy_ibz(res: &mut IbzVec4, c0: &Ibz, c1: &Ibz, c2: &Ibz, c3: &Ibz) {
@@ -34,12 +32,6 @@ pub fn ibz_vec_4_content(content: &mut Ibz, v: &IbzVec4) {
     ibz_gcd(content, &v[2], &t);
     let t = content.clone();
     ibz_gcd(content, &v[3], &t);
-}
-
-pub fn ibz_vec_4_negate(neg: &mut IbzVec4, vec: &IbzVec4) {
-    for i in 0..4 {
-        ibz_neg(&mut neg[i], &vec[i]);
-    }
 }
 
 pub fn ibz_vec_4_add(res: &mut IbzVec4, a: &IbzVec4, b: &IbzVec4) {
@@ -112,19 +104,7 @@ pub fn ibz_mat_4x4_mul(res: &mut IbzMat4x4, a: &IbzMat4x4, b: &IbzMat4x4) {
 }
 
 pub fn ibz_mat_4x4_copy(dst: &mut IbzMat4x4, src: &IbzMat4x4) {
-    for i in 0..4 {
-        for j in 0..4 {
-            ibz_copy(&mut dst[i][j], &src[i][j]);
-        }
-    }
-}
-
-pub fn ibz_mat_4x4_negate(neg: &mut IbzMat4x4, mat: &IbzMat4x4) {
-    for i in 0..4 {
-        for j in 0..4 {
-            ibz_neg(&mut neg[i][j], &mat[i][j]);
-        }
-    }
+    dst.clone_from(src);
 }
 
 pub fn ibz_mat_4x4_transpose(transposed: &mut IbzMat4x4, mat: &IbzMat4x4) {
@@ -135,14 +115,6 @@ pub fn ibz_mat_4x4_transpose(transposed: &mut IbzMat4x4, mat: &IbzMat4x4) {
         }
     }
     ibz_mat_4x4_copy(transposed, &work);
-}
-
-pub fn ibz_mat_4x4_zero(m: &mut IbzMat4x4) {
-    for i in 0..4 {
-        for j in 0..4 {
-            ibz_set(&mut m[i][j], 0);
-        }
-    }
 }
 
 pub fn ibz_mat_4x4_identity(id: &mut IbzMat4x4) {

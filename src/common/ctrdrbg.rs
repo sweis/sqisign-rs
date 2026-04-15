@@ -19,6 +19,12 @@ pub struct DrbgState {
     reseed_counter: u32,
 }
 
+impl core::fmt::Debug for DrbgState {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DrbgState").finish_non_exhaustive()
+    }
+}
+
 #[inline]
 fn aes256_ecb(cipher: &Aes256, ctr: &[u8; 16], out: &mut [u8; 16]) {
     let mut block = GenericArray::clone_from_slice(ctr);
@@ -87,19 +93,10 @@ impl DrbgState {
         // Expand the key schedule once per call, not per block.
         let cipher = Aes256::new(GenericArray::from_slice(&self.key));
         let mut block = [0u8; 16];
-        let mut i = 0;
-        let mut xlen = x.len();
-        while xlen > 0 {
+        for chunk in x.chunks_mut(16) {
             increment_v(&mut self.v);
             aes256_ecb(&cipher, &self.v, &mut block);
-            if xlen > 15 {
-                x[i..i + 16].copy_from_slice(&block);
-                i += 16;
-                xlen -= 16;
-            } else {
-                x[i..i + xlen].copy_from_slice(&block[..xlen]);
-                xlen = 0;
-            }
+            chunk.copy_from_slice(&block[..chunk.len()]);
         }
         ctr_drbg_update(&cipher, None, &mut self.key, &mut self.v);
         self.reseed_counter += 1;
@@ -197,10 +194,7 @@ mod tests {
     /// the per-test seeds. The first derived seed must equal KAT seed 0.
     #[test]
     fn drbg_outer_kat_loop() {
-        let mut ent = [0u8; 48];
-        for (i, b) in ent.iter_mut().enumerate() {
-            *b = i as u8;
-        }
+        let ent: [u8; 48] = core::array::from_fn(|i| i as u8);
         let mut drbg = DrbgState::new(&ent, None);
         let mut s0 = [0u8; 48];
         drbg.fill(&mut s0);
@@ -215,10 +209,7 @@ mod tests {
     /// unit tests use local instances.
     #[test]
     fn global_wrappers() {
-        let mut ent = [0u8; 48];
-        for (i, b) in ent.iter_mut().enumerate() {
-            *b = i as u8;
-        }
+        let ent: [u8; 48] = core::array::from_fn(|i| i as u8);
         randombytes_init(&ent);
         let mut s0 = [0u8; 48];
         randombytes(&mut s0);

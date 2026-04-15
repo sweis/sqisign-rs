@@ -15,7 +15,7 @@ use crate::precomp::*;
 use crate::quaternion::*;
 use crate::verification::{
     hash_to_challenge, public_key_from_bytes, public_key_to_bytes, signature_to_bytes, PublicKey,
-    Scalar, Signature,
+    Signature,
 };
 
 #[cfg(debug_assertions)]
@@ -34,15 +34,15 @@ fn ibz_from_limbs(limbs: &[u64]) -> Ibz {
 
 fn sec_degree() -> &'static Ibz {
     static V: OnceLock<Ibz> = OnceLock::new();
-    V.get_or_init(|| ibz_from_limbs(&SEC_DEGREE))
+    V.get_or_init(|| ibz_from_limbs(SEC_DEGREE))
 }
 fn com_degree() -> &'static Ibz {
     static V: OnceLock<Ibz> = OnceLock::new();
-    V.get_or_init(|| ibz_from_limbs(&COM_DEGREE))
+    V.get_or_init(|| ibz_from_limbs(COM_DEGREE))
 }
 fn torsion_plus_2power_ibz() -> &'static Ibz {
     static V: OnceLock<Ibz> = OnceLock::new();
-    V.get_or_init(|| ibz_from_limbs(&TORSION_PLUS_2POWER))
+    V.get_or_init(|| ibz_from_limbs(TORSION_PLUS_2POWER))
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +55,12 @@ pub struct SecretKey {
     pub secret_ideal: QuatLeftIdeal,
     pub mat_ba_can_to_ba0_two: IbzMat2x2,
     pub canonical_basis: EcBasis,
+}
+
+impl core::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SecretKey").finish_non_exhaustive()
+    }
 }
 
 // Best-effort zeroization. `rug::Integer` (inside QuatLeftIdeal/IbzMat2x2) does
@@ -82,13 +88,13 @@ impl Drop for SecretKey {
         // mutable limb access). Buffers from prior reallocations are never
         // covered — see PORTING.md.
         ibz_secure_clear(&mut self.secret_ideal.norm);
-        for row in self.secret_ideal.lattice.basis.iter_mut() {
+        for row in &mut self.secret_ideal.lattice.basis {
             for e in row.iter_mut() {
                 ibz_secure_clear(e);
             }
         }
         ibz_secure_clear(&mut self.secret_ideal.lattice.denom);
-        for row in self.mat_ba_can_to_ba0_two.iter_mut() {
+        for row in &mut self.mat_ba_can_to_ba0_two {
             for e in row.iter_mut() {
                 ibz_secure_clear(e);
             }
@@ -166,20 +172,7 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
 // encode_signature.c
 // ---------------------------------------------------------------------------
 
-fn encode_digits(enc: &mut [u8], x: &[Digit], nbytes: usize) {
-    for (i, b) in enc[..nbytes].iter_mut().enumerate() {
-        *b = (x[i / 8] >> ((i % 8) * 8)) as u8;
-    }
-}
-
-fn decode_digits(x: &mut [Digit], enc: &[u8], nbytes: usize) {
-    for d in x.iter_mut() {
-        *d = 0;
-    }
-    for (i, &b) in enc[..nbytes].iter().enumerate() {
-        x[i / 8] |= (b as u64) << ((i % 8) * 8);
-    }
-}
+use crate::mp::{decode_digits, encode_digits};
 
 fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
     #[cfg(debug_assertions)]
@@ -194,7 +187,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
         ibz_abs(&mut absv, x);
         debug_assert!(ibz_cmp(&absv, &bnd) < 0);
     }
-    let ndigits = (nbytes + 7) / 8;
+    let ndigits = nbytes.div_ceil(8);
     let mut d = zeroize::Zeroizing::new(vec![0u64; ndigits]);
     if ibz_cmp(x, ibz_const_zero()) >= 0 {
         ibz_to_digits(&mut d, x);
@@ -216,7 +209,7 @@ fn ibz_to_bytes(enc: &mut [u8], x: &Ibz, nbytes: usize, sgn: bool) -> usize {
 
 fn ibz_from_bytes(x: &mut Ibz, enc: &[u8], nbytes: usize, sgn: bool) -> usize {
     debug_assert!(nbytes > 0);
-    let ndigits = (nbytes + 7) / 8;
+    let ndigits = nbytes.div_ceil(8);
     let mut d = zeroize::Zeroizing::new(vec![0u64; ndigits]);
     decode_digits(&mut d, enc, nbytes);
     if sgn && (enc[nbytes - 1] >> 7) != 0 {
@@ -479,10 +472,11 @@ fn compute_random_aux_norm_and_helpers(
     ibz_pow(remain, ibz_const_two(), pow_dim2_deg_resp as u32);
     ibz_sub(random_aux_norm, remain, &degree_odd_resp);
 
-    for _ in 0..HD_EXTRA_TORSION {
-        let s = remain.clone();
-        ibz_mul(remain, &s, ibz_const_two());
-    }
+    ibz_pow(
+        remain,
+        ibz_const_two(),
+        (pow_dim2_deg_resp + HD_EXTRA_TORSION as i32) as u32,
+    );
     ibz_invmod(degree_resp_inv, &degree_odd_resp, remain);
 
     pow_dim2_deg_resp as u8

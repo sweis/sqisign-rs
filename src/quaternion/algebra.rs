@@ -186,8 +186,7 @@ pub fn quat_alg_elem_set(elem: &mut QuatAlgElem, denom: i32, c0: i32, c1: i32, c
 }
 
 pub fn quat_alg_elem_copy(dst: &mut QuatAlgElem, src: &QuatAlgElem) {
-    ibz_copy(&mut dst.denom, &src.denom);
-    ibz_vec_4_copy(&mut dst.coord, &src.coord);
+    dst.clone_from(src);
 }
 
 pub fn quat_alg_elem_copy_ibz(

@@ -15,7 +15,7 @@ use malachite_base::num::arithmetic::traits::{
 };
 use malachite_base::num::basic::traits::{One, Two, Zero};
 use malachite_base::num::conversion::traits::{ExactFrom, FromStringBase, ToStringBase};
-use malachite_base::num::logic::traits::{BitAccess, SignificantBits, TrailingZeros};
+use malachite_base::num::logic::traits::{BitAccess, SignificantBits};
 use malachite_nz::integer::Integer;
 use malachite_nz::natural::Natural;
 

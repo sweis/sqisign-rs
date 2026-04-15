@@ -340,11 +340,6 @@ fn modnsqr(a: &mut [u64; NLIMBS], n: u32) {
 fn modmul_ip(a: [u64; NLIMBS], b: [u64; NLIMBS], c: &mut [u64; NLIMBS]) {
     modmul(&a, &b, c);
 }
-#[inline(always)]
-fn modsqr_ip(a: [u64; NLIMBS], c: &mut [u64; NLIMBS]) {
-    modsqr(&a, c);
-}
-
 /// Progenitor: z = w^((p-3)/4). Addition chain from modarith.
 pub fn modpro(w: &[u64; NLIMBS], z: &mut [u64; NLIMBS]) {
     let x = *w;

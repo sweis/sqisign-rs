@@ -10,8 +10,8 @@ use crate::ec::{
 };
 use crate::gf::{
     fp2_add, fp2_add_ip, fp2_copy, fp2_dbl_ip, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_mul_ip,
-    fp2_neg, fp2_neg_ip, fp2_rsub_ip, fp2_select, fp2_set_one, fp2_set_zero, fp2_sqr, fp2_sqr_ip,
-    fp2_sub, fp2_sub_ip, Fp2,
+    fp2_neg, fp2_neg_ip, fp2_select, fp2_set_one, fp2_set_zero, fp2_sqr, fp2_sqr_ip, fp2_sub,
+    fp2_sub_ip, Fp2,
 };
 
 mod theta_isogenies;
@@ -274,36 +274,22 @@ pub fn test_couple_point_order_twof(t: &ThetaCouplePoint, e: &ThetaCoupleCurve, 
 /// Hadamard transform: (x,y,z,t) ↦ (x+y+z+t, x−y+z−t, x+y−z−t, x−y−z+t).
 #[inline]
 pub fn hadamard(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    let mut t1 = Fp2::default();
-    let mut t2 = Fp2::default();
-    let mut t3 = Fp2::default();
-    let mut t4 = Fp2::default();
-
-    fp2_add(&mut t1, &in_.x, &in_.y);
-    fp2_sub(&mut t2, &in_.x, &in_.y);
-    fp2_add(&mut t3, &in_.z, &in_.t);
-    fp2_sub(&mut t4, &in_.z, &in_.t);
-
-    fp2_add(&mut out.x, &t1, &t3);
-    fp2_add(&mut out.y, &t2, &t4);
-    fp2_sub(&mut out.z, &t1, &t3);
-    fp2_sub(&mut out.t, &t2, &t4);
+    *out = *in_;
+    hadamard_ip(out);
 }
 
 /// Coordinate-wise squaring.
 #[inline]
 pub fn pointwise_square(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    fp2_sqr(&mut out.x, &in_.x);
-    fp2_sqr(&mut out.y, &in_.y);
-    fp2_sqr(&mut out.z, &in_.z);
-    fp2_sqr(&mut out.t, &in_.t);
+    *out = *in_;
+    pointwise_square_ip(out);
 }
 
 /// Square coordinates then apply the Hadamard transform.
 #[inline]
 pub fn to_squared_theta(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    pointwise_square(out, in_);
-    hadamard_ip(out);
+    *out = *in_;
+    to_squared_theta_ip(out);
 }
 
 /// In-place Hadamard. The transform reads all inputs into locals before

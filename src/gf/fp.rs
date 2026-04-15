@@ -43,7 +43,7 @@ impl fmt::Debug for Fp {
         fp_encode(&mut buf, self);
         write!(f, "Fp(0x")?;
         for b in buf.iter().rev() {
-            write!(f, "{:02x}", b)?;
+            write!(f, "{b:02x}")?;
         }
         write!(f, ")")
     }
@@ -129,11 +129,6 @@ fn modnsqr(a: &mut [u64; NLIMBS], n: u32) {
         let t = *a;
         modsqr(&t, a);
     }
-}
-
-#[inline]
-fn modmul_ip(a: [u64; NLIMBS], b: [u64; NLIMBS], c: &mut [u64; NLIMBS]) {
-    modmul(&a, &b, c);
 }
 
 fn modinv(x: &[u64; NLIMBS], h: Option<&[u64; NLIMBS]>, z: &mut [u64; NLIMBS]) {
@@ -226,19 +221,6 @@ fn modqr(h: Option<&[u64; NLIMBS]>, x: &[u64; NLIMBS]) -> i32 {
 }
 
 #[inline(never)]
-fn modcmv(b: i32, g: &[u64; NLIMBS], f: &mut [u64; NLIMBS]) {
-    let r: u64 = 0x3cc3_c33c_5aa5_a55a;
-    let c0 = (1u64.wrapping_sub(b as u64)).wrapping_add(r);
-    let c1 = (b as u64).wrapping_add(r);
-    for i in 0..NLIMBS {
-        let s = g[i];
-        let t = f[i];
-        let v = c0.wrapping_mul(t).wrapping_add(c1.wrapping_mul(s));
-        f[i] = v.wrapping_sub(r.wrapping_mul(t.wrapping_add(s)));
-    }
-}
-
-#[inline(never)]
 fn modcsw(b: i32, g: &mut [u64; NLIMBS], f: &mut [u64; NLIMBS]) {
     let r: u64 = 0x3cc3_c33c_5aa5_a55a;
     let c0 = (1u64.wrapping_sub(b as u64)).wrapping_add(r);
@@ -286,26 +268,6 @@ fn modshr(n: u32, a: &mut [u64; NLIMBS]) -> u64 {
     }
     a[NLIMBS - 1] >>= n;
     r
-}
-
-#[allow(dead_code)]
-fn mod2r(r: u32, a: &mut [u64; NLIMBS]) {
-    let n = (r / LIMB_BITS) as usize;
-    let m = r % LIMB_BITS;
-    modzer(a);
-    if r as usize >= NBYTES * 8 {
-        return;
-    }
-    a[n] = 1u64 << m;
-    let t = *a;
-    nres(&t, a);
-}
-
-#[allow(dead_code)]
-fn modsign(a: &[u64; NLIMBS]) -> i32 {
-    let mut c = [0u64; NLIMBS];
-    redc(a, &mut c);
-    (c[0] % 2) as i32
 }
 
 fn modcmp(a: &[u64; NLIMBS], b: &[u64; NLIMBS]) -> i32 {
@@ -510,9 +472,7 @@ pub fn fp_decode_reduce(d: &mut Fp, src: &[u8]) {
     if rem != 0 {
         let k = len - rem;
         tmp[..rem].copy_from_slice(&src[k..len]);
-        for b in tmp[rem..].iter_mut() {
-            *b = 0;
-        }
+        tmp[rem..].fill(0);
         fp_decode(d, &tmp);
         len = k;
     }
@@ -544,29 +504,12 @@ pub fn fp_decode_reduce(d: &mut Fp, src: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    struct Prng(u64);
-    impl Prng {
-        fn next(&mut self) -> u64 {
-            self.0 ^= self.0 << 13;
-            self.0 ^= self.0 >> 7;
-            self.0 ^= self.0 << 17;
-            self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-        }
-        fn fill(&mut self, buf: &mut [u8]) {
-            for chunk in buf.chunks_mut(8) {
-                let x = self.next().to_le_bytes();
-                chunk.copy_from_slice(&x[..chunk.len()]);
-            }
-        }
-    }
+    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
+    use crate::test_util::assert_hex;
+    use crate::test_util::Prng;
 
     fn fp_random(prng: &mut Prng) -> Fp {
-        let mut buf = [0u8; FP_ENCODED_BYTES];
-        prng.fill(&mut buf);
-        let mut a = Fp::default();
-        fp_decode_reduce(&mut a, &buf);
-        a
+        prng.fp()
     }
 
     const ITERS: usize = 500;
@@ -813,15 +756,6 @@ mod tests {
         let ok = fp_decode(&mut d, &buf);
         assert_eq!(ok, 0);
         assert_ne!(fp_is_zero(&d), 0);
-    }
-
-    #[cfg(all(feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
-    fn assert_hex(buf: &[u8], expected: &str) {
-        let mut got = String::new();
-        for b in buf {
-            got.push_str(&format!("{:02x}", b));
-        }
-        assert_eq!(got, expected);
     }
 
     /// Golden vectors extracted from the C reference (libsqisign_gf_lvl1.a).

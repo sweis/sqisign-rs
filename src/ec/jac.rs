@@ -93,11 +93,6 @@ pub fn jac_from_ws(q: &mut JacPoint, p: &JacPoint, ao3: &Fp2, curve: &EcCurve) {
 }
 
 #[inline]
-pub fn copy_jac_point(p: &mut JacPoint, q: &JacPoint) {
-    *p = *q;
-}
-
-#[inline]
 pub fn jac_neg(q: &mut JacPoint, p: &JacPoint) {
     fp2_copy(&mut q.x, &p.x);
     fp2_neg(&mut q.y, &p.y);

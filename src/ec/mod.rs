@@ -471,15 +471,15 @@ pub fn xdbladd(
 /// Montgomery ladder: Q = k·P over `kbits` bits.
 pub fn xmul(q: &mut EcPoint, p: &EcPoint, k: &[Digit], kbits: i32, curve: &EcCurve) {
     let mut a24 = EcPoint::default();
-    if !curve.is_a24_computed_and_normalized {
+    if curve.is_a24_computed_and_normalized {
+        fp2_copy(&mut a24.x, &curve.a24.x);
+        fp2_copy(&mut a24.z, &curve.a24.z);
+        debug_assert!(fp2_is_one(&a24.z) != 0);
+    } else {
         fp2_add(&mut a24.x, &curve.c, &curve.c);
         let s = a24.x;
         fp2_add(&mut a24.z, &s, &s);
         fp2_add_ip(&mut a24.x, &curve.a);
-    } else {
-        fp2_copy(&mut a24.x, &curve.a24.x);
-        fp2_copy(&mut a24.z, &curve.a24.z);
-        debug_assert!(fp2_is_one(&a24.z) != 0);
     }
 
     let mut r0 = EcPoint::default();
@@ -532,10 +532,10 @@ pub fn xdblmul(
     sigma[0] &= mevens;
     sigma[1] = (sigma[1] & mevens) | (1 & !mevens);
 
-    let mut one = [0 as Digit; NWORDS_ORDER];
+    let mut one = [0u64; NWORDS_ORDER];
     one[0] = 1;
-    let mut k_t = [0 as Digit; NWORDS_ORDER];
-    let mut l_t = [0 as Digit; NWORDS_ORDER];
+    let mut k_t = [0u64; NWORDS_ORDER];
+    let mut l_t = [0u64; NWORDS_ORDER];
     mp::mp_sub(&mut k_t, k, &one, NWORDS_ORDER);
     mp::mp_sub(&mut l_t, l, &one, NWORDS_ORDER);
     let kt = k_t;
@@ -543,7 +543,7 @@ pub fn xdblmul(
     let lt = l_t;
     mp::select_ct(&mut l_t, &lt, l, maskl, NWORDS_ORDER);
 
-    let mut r = [0 as Digit; 2 * BITS];
+    let mut r = [0u64; 2 * BITS];
     let mut pre_sigma: Digit = 0;
     for i in 0..kbits as usize {
         let maskk = 0u64.wrapping_sub(sigma[0] ^ pre_sigma);
@@ -565,14 +565,9 @@ pub fn xdblmul(
 
         pre_sigma = sigma[0];
         let maskk = 0u64.wrapping_sub(r[2 * i + 1]);
-        let mut temp = [0 as Digit; 1];
-        let s0 = [sigma[0]];
-        let s1 = [sigma[1]];
-        mp::select_ct(&mut temp, &s0, &s1, maskk, 1);
-        let mut s1_out = [0 as Digit; 1];
-        mp::select_ct(&mut s1_out, &s1, &s0, maskk, 1);
-        sigma[1] = s1_out[0];
-        sigma[0] = temp[0];
+        let d = (sigma[0] ^ sigma[1]) & maskk;
+        sigma[0] ^= d;
+        sigma[1] ^= d;
     }
 
     let mut rr = [EcPoint::default(); 3];
@@ -581,24 +576,16 @@ pub fn xdblmul(
     select_point(&mut rr[1], p, q, maskk);
     select_point(&mut rr[2], q, p, maskk);
 
-    let mut diff1a = EcPoint::default();
-    let mut diff1b = EcPoint::default();
-    let mut diff2a = EcPoint::default();
-    let mut diff2b = EcPoint::default();
-    fp2_copy(&mut diff1a.x, &rr[1].x);
-    fp2_copy(&mut diff1a.z, &rr[1].z);
-    fp2_copy(&mut diff1b.x, &rr[2].x);
-    fp2_copy(&mut diff1b.z, &rr[2].z);
+    let mut diff1a = rr[1];
+    let mut diff1b = rr[2];
 
     let (r1, r2) = (rr[1], rr[2]);
     xadd(&mut rr[2], &r1, &r2, pq);
     if ec_has_zero_coordinate(&rr[2]) != 0 {
         return 0;
     }
-    fp2_copy(&mut diff2a.x, &rr[2].x);
-    fp2_copy(&mut diff2a.z, &rr[2].z);
-    fp2_copy(&mut diff2b.x, &pq.x);
-    fp2_copy(&mut diff2b.z, &pq.z);
+    let mut diff2a = rr[2];
+    let mut diff2b = *pq;
 
     let a_is_zero = fp2_is_zero(&curve.a) != 0;
 
@@ -819,26 +806,6 @@ pub fn test_jac_order_twof(p: &JacPoint, e: &EcCurve, t: i32) -> u32 {
     fp2_is_zero(&test.z)
 }
 
-#[allow(dead_code)]
-pub fn ec_point_print(name: &str, p: &EcPoint) {
-    if fp2_is_zero(&p.z) != 0 {
-        println!("{} = INF", name);
-    } else {
-        let mut a = p.z;
-        fp2_inv(&mut a);
-        fp2_mul_ip(&mut a, &p.x);
-        fp2_print(name, &a);
-    }
-}
-
-#[allow(dead_code)]
-pub fn ec_curve_print(name: &str, e: &EcCurve) {
-    let mut a = e.c;
-    fp2_inv(&mut a);
-    fp2_mul_ip(&mut a, &e.a);
-    fp2_print(name, &a);
-}
-
 // ===========================================================================
 // Tests (port of curve-arith-test.c, basis-gen-test.c)
 // ===========================================================================
@@ -847,33 +814,7 @@ pub fn ec_curve_print(name: &str, e: &EcCurve) {
 mod tests {
     use super::*;
     use crate::precomp::TORSION_EVEN_POWER;
-
-    // Test-only PRNG matching the pattern in gf::tests.
-    struct Prng(u64);
-    impl Prng {
-        fn next(&mut self) -> u64 {
-            self.0 ^= self.0 << 13;
-            self.0 ^= self.0 >> 7;
-            self.0 ^= self.0 << 17;
-            self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
-        }
-        fn fp(&mut self) -> Fp {
-            let mut buf = [0u8; FP_ENCODED_BYTES];
-            for chunk in buf.chunks_mut(8) {
-                let x = self.next().to_le_bytes();
-                chunk.copy_from_slice(&x[..chunk.len()]);
-            }
-            let mut a = Fp::default();
-            fp_decode_reduce(&mut a, &buf);
-            a
-        }
-        fn fp2(&mut self) -> Fp2 {
-            Fp2 {
-                re: self.fp(),
-                im: self.fp(),
-            }
-        }
-    }
+    use crate::test_util::Prng;
 
     fn projective_is_on_curve(p: &EcPoint, curve: &EcCurve) -> bool {
         let mut t0 = Fp2::default();

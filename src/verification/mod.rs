@@ -20,7 +20,7 @@ use crate::precomp::{
 pub type Scalar = [Digit; NWORDS_ORDER];
 pub type ScalarMtx2x2 = [[Scalar; 2]; 2];
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Signature {
     pub e_aux_a: Fp2,
     pub backtracking: u8,
@@ -31,7 +31,7 @@ pub struct Signature {
     pub hint_chall: u8,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct PublicKey {
     pub curve: EcCurve,
     pub hint_pk: u8,
@@ -56,8 +56,8 @@ pub fn hash_to_challenge(scalar: &mut Scalar, pk: &PublicKey, com_curve: &EcCurv
         fp2_encode(&mut buf[FP2_ENCODED_BYTES..], &j2);
     }
 
-    let mut hash_bytes = (2 * SECURITY_BITS + 7) / 8;
-    let mut limbs = (hash_bytes + 7) / 8;
+    let mut hash_bytes = (2 * SECURITY_BITS).div_ceil(8);
+    let mut limbs = hash_bytes.div_ceil(8);
     let mut bits = (2 * SECURITY_BITS) % RADIX as usize;
     let mut mask = (!0u64) >> ((RADIX as usize - bits) % RADIX as usize);
 
@@ -84,8 +84,8 @@ pub fn hash_to_challenge(scalar: &mut Scalar, pk: &PublicKey, com_curve: &EcCurv
     ctx.absorb(&acc[..hash_bytes]);
     ctx.finalize();
 
-    hash_bytes = (TORSION_EVEN_POWER - SQISIGN_RESPONSE_LENGTH + 7) / 8;
-    limbs = (hash_bytes + 7) / 8;
+    hash_bytes = (TORSION_EVEN_POWER - SQISIGN_RESPONSE_LENGTH).div_ceil(8);
+    limbs = hash_bytes.div_ceil(8);
     bits = (TORSION_EVEN_POWER - SQISIGN_RESPONSE_LENGTH) % RADIX as usize;
     mask = (!0u64) >> ((RADIX as usize - bits) % RADIX as usize);
 
@@ -111,20 +111,7 @@ fn mask_top_limb(acc: &mut [u8], limbs: usize, mask: u64) {
 // encode_verification.c
 // ---------------------------------------------------------------------------
 
-fn encode_digits(enc: &mut [u8], x: &[Digit], nbytes: usize) {
-    for (i, b) in enc[..nbytes].iter_mut().enumerate() {
-        *b = (x[i / 8] >> ((i % 8) * 8)) as u8;
-    }
-}
-
-fn decode_digits(x: &mut [Digit], enc: &[u8], nbytes: usize) {
-    for d in x.iter_mut() {
-        *d = 0;
-    }
-    for (i, &b) in enc[..nbytes].iter().enumerate() {
-        x[i / 8] |= (b as u64) << ((i % 8) * 8);
-    }
-}
+use crate::mp::{decode_digits, encode_digits};
 
 pub fn public_key_to_bytes(enc: &mut [u8], pk: &PublicKey) {
     debug_assert_eq!(enc.len(), PUBLICKEY_BYTES);
@@ -531,38 +518,21 @@ pub fn sqisign_verify(m: &[u8], sig_bytes: &[u8], pk_bytes: &[u8]) -> bool {
 #[cfg(all(test, feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
 mod tests {
     use super::*;
+    use hex_literal::hex;
 
     // Golden values from tools/dump_verify_intermediates.c on KAT 0.
-    const KAT0_PK: [u8; PUBLICKEY_BYTES] = hex_literal(
-        b"07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202\
-          9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A010B",
+    const KAT0_PK: [u8; PUBLICKEY_BYTES] = hex!(
+        "07CCD21425136F6E865E497D2D4D208F0054AD81372066E817480787AAF7B202\
+         9550C89E892D618CE3230F23510BFBE68FCCDDAEA51DB1436B462ADFAF008A010B"
     );
-    const KAT0_SM: [u8; 181] = hex_literal(
-        b"84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04\
-          55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01\
-          0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04\
-          DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674\
-          71D86EFF3447018ADB0A6551EE8322AB30010202D81C4D8D734FCBFBEADE3D3F\
-          8A039FAA2A2C9957E835AD55B22E75BF57BB556AC8",
+    const KAT0_SM: [u8; 181] = hex!(
+        "84228651F271B0F39F2F19F2E8718F31ED3365AC9E5CB303AFE663D0CFC11F04\
+         55D891B0CA6C7E653F9BA2667730BB77BEFE1B1A31828404284AF8FD7BAACC01\
+         0001D974B5CA671FF65708D8B462A5A84A1443EE9B5FED7218767C9D85CEED04\
+         DB0A69A2F6EC3BE835B3B2624B9A0DF68837AD00BCACC27D1EC806A448402674\
+         71D86EFF3447018ADB0A6551EE8322AB30010202D81C4D8D734FCBFBEADE3D3F\
+         8A039FAA2A2C9957E835AD55B22E75BF57BB556AC8"
     );
-
-    const fn hex_literal<const N: usize>(s: &[u8]) -> [u8; N] {
-        let mut out = [0u8; N];
-        let mut i = 0;
-        while i < N {
-            out[i] = (hex_nibble(s[2 * i]) << 4) | hex_nibble(s[2 * i + 1]);
-            i += 1;
-        }
-        out
-    }
-    const fn hex_nibble(c: u8) -> u8 {
-        match c {
-            b'0'..=b'9' => c - b'0',
-            b'a'..=b'f' => c - b'a' + 10,
-            b'A'..=b'F' => c - b'A' + 10,
-            _ => panic!("bad hex"),
-        }
-    }
 
     #[test]
     fn decode_kat0_pk_sig() {
@@ -598,16 +568,16 @@ mod tests {
         // previously hit a debug_assert in `gluing_compute`. Must reject
         // gracefully (also in debug builds), not panic. The C reference
         // crashes here in debug mode (`#ifndef NDEBUG assert(...)`).
-        let pk: [u8; PUBLICKEY_BYTES] = hex_literal(
-            b"1584B4356B7B4E181EDCF26987F87BE2AC278594EFE19F4A19B2B64E35D93000\
-              93FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E461CC68F749B60102",
+        let pk: [u8; PUBLICKEY_BYTES] = hex!(
+            "1584B4356B7B4E181EDCF26987F87BE2AC278594EFE19F4A19B2B64E35D93000\
+             93FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E461CC68F749B60102"
         );
-        let sig: [u8; SIGNATURE_BYTES] = hex_literal(
-            b"E0B82F57B5E76BCCE7CD8EC810AF242BE46BF0289726C9E962E1D1B21CDCEE02\
-              69019AD486AE5C386201EFEB356409EDC6D83B94DB5443BD7A2BD83415623701\
-              00014E35D9300093FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E4\
-              61CC68F749B60102E0B82F57B5E76BCCE7CDD26E57E315332ADA8EDDB914D0A7\
-              A3470D1EC18F38E6DF5EBE2D0FE37E1D6B030B0B",
+        let sig: [u8; SIGNATURE_BYTES] = hex!(
+            "E0B82F57B5E76BCCE7CD8EC810AF242BE46BF0289726C9E962E1D1B21CDCEE02\
+             69019AD486AE5C386201EFEB356409EDC6D83B94DB5443BD7A2BD83415623701\
+             00014E35D9300093FB5A2203F31BA91E3D544B3D84451DC05C95006D6D5643E4\
+             61CC68F749B60102E0B82F57B5E76BCCE7CDD26E57E315332ADA8EDDB914D0A7\
+             A3470D1EC18F38E6DF5EBE2D0FE37E1D6B030B0B"
         );
         assert!(!sqisign_verify(b"", &sig, &pk));
     }
@@ -784,15 +754,11 @@ mod tests {
         // rather than silently mapping to A=0 (j=1728).
         let m = &KAT0_SM[SIGNATURE_BYTES..];
         let mut bad_pk = KAT0_PK;
-        for b in bad_pk[..32].iter_mut() {
-            *b = 0xFF;
-        }
+        bad_pk[..32].fill(0xFF);
         assert!(!sqisign_verify(m, &KAT0_SM[..SIGNATURE_BYTES], &bad_pk));
 
         let mut bad_sig = KAT0_SM;
-        for b in bad_sig[..32].iter_mut() {
-            *b = 0xFF;
-        }
+        bad_sig[..32].fill(0xFF);
         assert!(!sqisign_verify(m, &bad_sig[..SIGNATURE_BYTES], &KAT0_PK));
     }
 

@@ -120,22 +120,6 @@ pub fn quat_lideal_mul(
     ibz_div(&mut product.norm, &mut norm, &pn, &norm_d);
 }
 
-pub fn quat_lideal_add(
-    sum: &mut QuatLeftIdeal,
-    i1: &QuatLeftIdeal,
-    i2: &QuatLeftIdeal,
-    alg: &QuatAlg,
-) {
-    debug_assert!(core::ptr::eq(
-        i1.parent_order.unwrap(),
-        i2.parent_order.unwrap()
-    ));
-    debug_assert!(quat_order_is_maximal(i2.parent_order.unwrap(), alg) != 0);
-    quat_lattice_add(&mut sum.lattice, &i1.lattice, &i2.lattice);
-    sum.parent_order = i1.parent_order;
-    quat_lideal_norm(sum);
-}
-
 pub fn quat_lideal_inter(
     inter: &mut QuatLeftIdeal,
     i1: &QuatLeftIdeal,

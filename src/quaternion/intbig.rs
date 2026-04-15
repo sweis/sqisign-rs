@@ -48,13 +48,6 @@ pub fn ibz_const_three() -> &'static Ibz {
     const_int(3)
 }
 
-#[inline]
-pub fn ibz_init(x: &mut Ibz) {
-    *x = ibz_new();
-}
-#[inline]
-pub fn ibz_finalize(_x: &mut Ibz) {}
-
 // ---------------------------------------------------------------------------
 // Random sampling (deterministic via the KAT DRBG). Backend-agnostic; all
 // big-integer access goes through `ibz_*` so the byte-consumption pattern is
@@ -71,10 +64,10 @@ pub fn ibz_rand_interval(rand: &mut Ibz, a: &Ibz, b: &Ibz) -> i32 {
     debug_assert!(ibz_is_positive(&bmina));
 
     let len_bits = ibz_significant_bits(&bmina) as usize;
-    let len_bytes = (len_bits + 7) / 8;
+    let len_bytes = len_bits.div_ceil(8);
     const LIMB: usize = core::mem::size_of::<Digit>();
     const LIMB_BITS: usize = LIMB * 8;
-    let len_limbs = (len_bytes + LIMB - 1) / LIMB;
+    let len_limbs = len_bytes.div_ceil(LIMB);
 
     let shift = (LIMB_BITS - len_bits % LIMB_BITS) % LIMB_BITS;
     let mask: Digit = (!0u64) >> shift;
@@ -86,10 +79,8 @@ pub fn ibz_rand_interval(rand: &mut Ibz, a: &Ibz, b: &Ibz) -> i32 {
         // C draws exactly len_bytes; the upper bytes of the top limb are
         // discarded by the mask, so their initial value is irrelevant.
         randombytes(&mut buf[..len_bytes]);
-        for (i, chunk) in buf.chunks(LIMB).enumerate() {
-            let mut arr = [0u8; LIMB];
-            arr[..chunk.len()].copy_from_slice(chunk);
-            limbs[i] = u64::from_le_bytes(arr);
+        for (l, chunk) in limbs.iter_mut().zip(buf.chunks_exact(LIMB)) {
+            *l = u64::from_le_bytes(chunk.try_into().unwrap());
         }
         limbs[len_limbs - 1] &= mask;
         ibz_copy_digits(&mut tmp, &limbs);

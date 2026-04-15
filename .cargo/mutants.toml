@@ -23,14 +23,7 @@ exclude_re = [
     "test_jac_order_twof",
     "test_couple_point_order_twof",
     "Debug for",
-    # Dead code ported faithfully from C (documented in PORTING.md):
-    "bswap_digit",
-    "mp_mul2",
-    "mod2r",
-    "modsign",
-    "modcmv",
     "fn add_carry",
-    "copy_jac_point",
     "add_couple_jac_points",
     "public_key_init",
     # Sign-only (exercised by kat_sign integration test, not verify-path lib tests):
@@ -56,8 +49,6 @@ exclude_re = [
     "theta_point_to_montgomery_point",
     "theta_product_structure_to_elliptic_product",
     # Test helpers:
-    "hex_literal",
-    "hex_nibble",
     "kat_vector",
     # Equivalent mutations (extra Newton iterations / disjoint-bit XOR vs OR):
     "in mp_inv_2e",

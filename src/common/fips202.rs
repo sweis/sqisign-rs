@@ -7,8 +7,6 @@
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use sha3::{Shake256, Shake256Reader};
 
-pub const SHAKE256_RATE: usize = 136;
-
 /// One-shot SHAKE256: hash `input` and squeeze `output.len()` bytes.
 pub fn shake256(output: &mut [u8], input: &[u8]) {
     let mut hasher = Shake256::default();
@@ -24,6 +22,12 @@ pub fn shake256(output: &mut [u8], input: &[u8]) {
 #[derive(Clone)]
 pub struct Shake256Inc {
     state: State,
+}
+
+impl core::fmt::Debug for Shake256Inc {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Shake256Inc").finish_non_exhaustive()
+    }
 }
 
 #[derive(Clone)]

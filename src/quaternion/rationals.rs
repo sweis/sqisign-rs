@@ -78,25 +78,19 @@ pub fn ibq_inv(inv: &mut Ibq, x: &Ibq) -> i32 {
 }
 
 pub fn ibq_cmp(a: &Ibq, b: &Ibq) -> i32 {
-    let mut x = a[0].clone();
-    let mut y = b[0].clone();
-    let t = y.clone();
-    ibz_mul(&mut y, &t, &a[1]);
-    let t = x.clone();
-    ibz_mul(&mut x, &t, &b[1]);
+    let mut x = Ibz::default();
+    let mut y = Ibz::default();
+    ibz_mul(&mut x, &a[0], &b[1]);
+    ibz_mul(&mut y, &b[0], &a[1]);
+    // Negating both operands flips the comparison; track the sign instead.
+    let mut sign = 1;
     if ibz_cmp(&a[1], ibz_const_zero()) > 0 {
-        let t = y.clone();
-        ibz_neg(&mut y, &t);
-        let t = x.clone();
-        ibz_neg(&mut x, &t);
+        sign = -sign;
     }
     if ibz_cmp(&b[1], ibz_const_zero()) > 0 {
-        let t = y.clone();
-        ibz_neg(&mut y, &t);
-        let t = x.clone();
-        ibz_neg(&mut x, &t);
+        sign = -sign;
     }
-    ibz_cmp(&x, &y)
+    sign * ibz_cmp(&x, &y)
 }
 
 pub fn ibq_is_zero(x: &Ibq) -> i32 {

@@ -228,7 +228,7 @@ pub fn quat_lattice_hnf(lat: &mut QuatLattice) {
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut modn, &lat.basis);
     let m = modn.clone();
     ibz_abs(&mut modn, &m);
-    let mut generators: Vec<IbzVec4> = (0..4).map(|_| ibz_vec_4_init()).collect();
+    let mut generators: [IbzVec4; 4] = Default::default();
     for i in 0..4 {
         for j in 0..4 {
             ibz_copy(&mut generators[j][i], &lat.basis[i][j]);
@@ -260,8 +260,8 @@ pub fn quat_lattice_gram(g: &mut IbzMat4x4, lattice: &QuatLattice, alg: &QuatAlg
     }
     for i in 0..4 {
         for j in (i + 1)..4 {
-            let t = g[j][i].clone();
-            ibz_copy(&mut g[i][j], &t);
+            let (lo, hi) = g.split_at_mut(j);
+            ibz_copy(&mut lo[i][j], &hi[0][i]);
         }
     }
 }

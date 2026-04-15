@@ -4,8 +4,6 @@
 //!
 //! Ported from the reference C implementation at <https://github.com/SQIsign/the-sqisign>.
 
-#![allow(dead_code)] // TODO: remove once port is complete
-#![allow(unused_imports)]
 #![cfg_attr(
     feature = "cryptobigint",
     allow(clippy::large_stack_arrays, clippy::large_stack_frames)
@@ -29,3 +27,6 @@ pub mod signature;
 pub mod nistapi;
 
 pub mod params;
+
+#[cfg(test)]
+pub(crate) mod test_util;

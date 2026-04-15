@@ -9,8 +9,7 @@ use crate::quaternion::{
     QuatPExtremalMaximalOrder,
 };
 use crate::quaternion::intbig::{
-    ibz_convert_to_str, ibz_copy_digits, ibz_from_i64, ibz_mod, ibz_neg, ibz_pow,
-    ibz_probab_prime, ibz_set_from_str,
+    ibz_copy_digits, ibz_neg,
 };
 use crate::ec::{EcCurve, EcBasis, EcPoint};
 use crate::gf::{Fp, Fp2};
@@ -85,7 +84,7 @@ pub fn conjugating_elements() -> &'static [QuatAlgElem; 7] {
 
 // --- endomorphism_action.c ---
 /// Precomputed endomorphism rings applied to precomputed torsion bases.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CurveWithEndomorphismRing {
     pub curve: EcCurve,
     pub basis_even: EcBasis,
@@ -114,6 +113,7 @@ pub fn basis_even() -> &'static EcBasis { &curves_with_endomorphisms()[0].basis_
 
 #[cfg(test)]
 mod tests {
+    use crate::quaternion::intbig::*;
     use super::*;
     use crate::precomp::{P_COFACTOR_FOR_2F, TORSION_EVEN_POWER};
 
@@ -200,6 +200,7 @@ mod tests {
 
 #[cfg(test)]
 mod tests_lvl1 {
+    use crate::quaternion::intbig::*;
     use super::*;
 
     #[test]

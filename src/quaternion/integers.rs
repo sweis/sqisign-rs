@@ -21,7 +21,7 @@ pub fn ibz_generate_random_prime(
     let mut cnt: u64 = 0;
     while found == 0 {
         cnt += 1;
-        if cnt % 100_000 == 0 {
+        if cnt.is_multiple_of(100_000) {
             eprintln!(
                 "Random prime generation is still running after {cnt} attempts, this is not normal! \
                  The expected number of attempts is {bitsize}"

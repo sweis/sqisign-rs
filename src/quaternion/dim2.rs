@@ -4,32 +4,11 @@
 use super::intbig::*;
 use super::types::*;
 
-pub fn ibz_vec_2_set(vec: &mut IbzVec2, a0: i32, a1: i32) {
-    ibz_set(&mut vec[0], a0);
-    ibz_set(&mut vec[1], a1);
-}
-
 pub fn ibz_mat_2x2_set(mat: &mut IbzMat2x2, a00: i32, a01: i32, a10: i32, a11: i32) {
     ibz_set(&mut mat[0][0], a00);
     ibz_set(&mut mat[0][1], a01);
     ibz_set(&mut mat[1][0], a10);
     ibz_set(&mut mat[1][1], a11);
-}
-
-pub fn ibz_mat_2x2_copy(copy: &mut IbzMat2x2, src: &IbzMat2x2) {
-    for i in 0..2 {
-        for j in 0..2 {
-            ibz_copy(&mut copy[i][j], &src[i][j]);
-        }
-    }
-}
-
-pub fn ibz_mat_2x2_add(sum: &mut IbzMat2x2, a: &IbzMat2x2, b: &IbzMat2x2) {
-    for i in 0..2 {
-        for j in 0..2 {
-            ibz_add(&mut sum[i][j], &a[i][j], &b[i][j]);
-        }
-    }
 }
 
 /// `det = a11*a22 - a12*a21`.

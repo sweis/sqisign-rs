@@ -3,7 +3,6 @@
 //! Port of `ec/ref/lvlx/basis.c`.
 
 use super::*;
-use crate::gf::*;
 use crate::precomp::{
     BASIS_E0_PX, BASIS_E0_QX, P_COFACTOR_FOR_2F, P_COFACTOR_FOR_2F_BITLENGTH, TORSION_EVEN_POWER,
 };
@@ -283,10 +282,10 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
     let mut p = EcPoint::default();
     let mut q = EcPoint::default();
 
-    let hint = if !hint_a {
-        find_na_x_coord(&mut p.x, curve, 1)
-    } else {
+    let hint = if hint_a {
         find_nqr_factor(&mut p.x, curve, 1)
+    } else {
+        find_na_x_coord(&mut p.x, curve, 1)
     }
     // Signing path: caller supplies an honest curve, so the search succeeds
     // with probability > 1 − 2⁻²⁵⁶. If it ever fails the curve is degenerate.
@@ -331,10 +330,10 @@ pub fn ec_curve_to_basis_2f_from_hint(
     let mut q = EcPoint::default();
 
     if hint_p == 0 {
-        let ok = if !hint_a {
-            find_na_x_coord(&mut p.x, curve, 128)
-        } else {
+        let ok = if hint_a {
             find_nqr_factor(&mut p.x, curve, 128)
+        } else {
+            find_na_x_coord(&mut p.x, curve, 128)
         };
         if ok.is_none() {
             return 0;

@@ -6,7 +6,6 @@ use std::sync::OnceLock;
 
 use crate::ec::biextension::ec_dlog_2_tate;
 use crate::ec::*;
-use crate::gf::Fp2;
 use crate::mp::{mp_invert_matrix, Digit};
 use crate::precomp::{
     curves_with_endomorphisms, extremal_orders, maxord_o0, quatalg_pinfty, NWORDS_ORDER,
@@ -47,7 +46,7 @@ pub fn torsion_plus_2power() -> &'static Ibz {
     static T: OnceLock<Ibz> = OnceLock::new();
     T.get_or_init(|| {
         let mut z = Ibz::default();
-        ibz_copy_digits(&mut z, &TORSION_PLUS_2POWER);
+        ibz_copy_digits(&mut z, TORSION_PLUS_2POWER);
         z
     })
 }

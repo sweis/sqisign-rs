@@ -42,14 +42,14 @@ fn fixed_degree_isogeny_impl(
 
     let u_bitsize = ibz_bitsize(u);
 
-    let length: u32 = if !small {
-        (TORSION_EVEN_POWER as u32) - HD_EXTRA_TORSION
-    } else {
+    let length: u32 = if small {
         let l = ibz_bitsize(&quatalg_pinfty().p) as u32 + QUAT_REPRES_BOUND_INPUT as u32
             - u_bitsize as u32;
         debug_assert!(u_bitsize < l as i32);
         debug_assert!(l < (TORSION_EVEN_POWER as u32) - HD_EXTRA_TORSION);
         l
+    } else {
+        (TORSION_EVEN_POWER as u32) - HD_EXTRA_TORSION
     };
     debug_assert!(length > 0);
 
@@ -379,11 +379,7 @@ fn find_uv_from_lists(
                     let uv = u.clone();
                     ibz_div(u, &mut remain, &uv, &small_norms1[i1]);
                     debug_assert!(ibz_is_zero(&remain) != 0);
-                    found = if found != 0 && ibz_get(u) != 0 && ibz_get(v) != 0 {
-                        1
-                    } else {
-                        0
-                    };
+                    found = i32::from(found != 0 && ibz_get(u) != 0 && ibz_get(v) != 0);
                     if number_sum_square == 2 {
                         found = ibz_cornacchia_prime(au, bu, ibz_const_one(), u);
                     }
@@ -537,9 +533,15 @@ pub fn find_uv(
                 a.cmp(&b)
             }
         });
-        let svs: Vec<IbzVec4> = order.iter().map(|&i| small_vecs[j][i].clone()).collect();
-        let sns: Vec<Ibz> = order.iter().map(|&i| small_norms[j][i].clone()).collect();
-        for (i, (sv, sn)) in svs.into_iter().zip(sns.into_iter()).enumerate() {
+        let svs: Vec<IbzVec4> = order
+            .iter()
+            .map(|&i| core::mem::take(&mut small_vecs[j][i]))
+            .collect();
+        let sns: Vec<Ibz> = order
+            .iter()
+            .map(|&i| core::mem::take(&mut small_norms[j][i]))
+            .collect();
+        for (i, (sv, sn)) in svs.into_iter().zip(sns).enumerate() {
             small_vecs[j][i] = sv;
             small_norms[j][i] = sn;
         }
@@ -549,8 +551,7 @@ pub fn find_uv(
         }
 
         for i in 0..indices[j] {
-            let sn = small_norms[j][i].clone();
-            ibz_div(&mut quotients[j][i], &mut remain, &n, &sn);
+            ibz_div(&mut quotients[j][i], &mut remain, &n, &small_norms[j][i]);
         }
     }
 

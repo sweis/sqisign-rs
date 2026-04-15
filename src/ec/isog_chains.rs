@@ -3,7 +3,6 @@
 //! Port of `ec/ref/lvlx/isog_chains.c`.
 
 use super::*;
-use crate::gf::*;
 
 /// Strategy-based 2ⁿ-isogeny walk using degree-4 steps.
 fn ec_eval_even_strategy(
@@ -238,10 +237,8 @@ pub fn ec_isomorphism(isom: &mut EcIsom, from: &EcCurve, to: &EcCurve) -> u32 {
     fp2_mul(&mut t0, &from.c, &to.c);
     fp2_add(&mut t1, &t0, &t0);
     fp2_add_ip(&mut t0, &t1);
-    let d = isom.d;
-    fp2_mul(&mut isom.d, &d, &t0);
-    let nx = isom.nx;
-    fp2_mul(&mut isom.nx, &nx, &t0);
+    fp2_mul_ip(&mut isom.d, &t0);
+    fp2_mul_ip(&mut isom.nx, &t0);
 
     fp2_is_zero(&isom.nx) | fp2_is_zero(&isom.d)
 }
@@ -249,11 +246,8 @@ pub fn ec_isomorphism(isom: &mut EcIsom, from: &EcCurve, to: &EcCurve) -> u32 {
 /// In-place evaluation of an isomorphism on a point.
 pub fn ec_iso_eval(p: &mut EcPoint, isom: &EcIsom) {
     let mut tmp = Fp2::default();
-    let px = p.x;
-    fp2_mul(&mut p.x, &px, &isom.nx);
+    fp2_mul_ip(&mut p.x, &isom.nx);
     fp2_mul(&mut tmp, &p.z, &isom.nz);
-    let px = p.x;
-    fp2_add(&mut p.x, &px, &tmp);
-    let pz = p.z;
-    fp2_mul(&mut p.z, &pz, &isom.d);
+    fp2_add_ip(&mut p.x, &tmp);
+    fp2_mul_ip(&mut p.z, &isom.d);
 }

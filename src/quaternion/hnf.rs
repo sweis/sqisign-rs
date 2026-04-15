@@ -31,19 +31,6 @@ pub fn ibz_centered_mod(remainder: &mut Ibz, a: &Ibz, modn: &Ibz) {
     ibz_sub(remainder, &tmp, &t);
 }
 
-/// `res = if c { x } else { y }` via arithmetic select (matches C).
-pub fn ibz_conditional_assign(res: &mut Ibz, x: &Ibz, y: &Ibz, c: i32) {
-    let mut s = Ibz::default();
-    let mut t = Ibz::default();
-    let mut r = Ibz::default();
-    ibz_set(&mut s, (c != 0) as i32);
-    ibz_sub(&mut t, ibz_const_one(), &s);
-    ibz_mul(&mut r, &s, x);
-    ibz_mul(res, &t, y);
-    let z = res.clone();
-    ibz_add(res, &r, &z);
-}
-
 /// Extended GCD with `u != 0`, `d > 0`, and `u·x > 0` minimal.
 /// See `hnf_internal.c` for the precise post-conditions.
 pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: &Ibz) {
@@ -105,7 +92,7 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
         let mut sum = Ibz::default();
         let mut prod = Ibz::default();
         let mut res = false;
-        res |= !(ibz_cmp(d, ibz_const_zero()) >= 0);
+        res |= ibz_cmp(d, ibz_const_zero()) < 0;
         if ibz_is_zero(&x1) != 0 && ibz_is_zero(&y1) != 0 {
             res |= !(ibz_is_zero(v) != 0 && ibz_is_one(u) != 0 && ibz_is_one(d) != 0);
         } else {

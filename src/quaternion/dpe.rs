@@ -120,10 +120,8 @@ impl Dpe {
         }
         if self.m < other.m {
             -1
-        } else if self.m > other.m {
-            1
         } else {
-            0
+            i32::from(self.m > other.m)
         }
     }
 
