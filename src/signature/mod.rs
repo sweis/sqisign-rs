@@ -5,19 +5,16 @@
 use std::sync::OnceLock;
 
 use crate::ec::*;
+use crate::gf::fp2_is_one;
 #[cfg(debug_assertions)]
 use crate::gf::Fp2;
-use crate::gf::{fp2_copy, fp2_is_one};
 use crate::hd::*;
 use crate::id2iso::*;
 use crate::mp::Digit;
 use crate::params::*;
 use crate::precomp::*;
 use crate::quaternion::*;
-use crate::verification::{
-    hash_to_challenge, public_key_from_bytes, public_key_to_bytes, signature_to_bytes, PublicKey,
-    Signature,
-};
+use crate::verification::{hash_to_challenge, PublicKey, Signature};
 
 #[cfg(debug_assertions)]
 use crate::ec::biextension::weil;
@@ -105,7 +102,7 @@ impl Drop for SecretKey {
 
 pub fn secret_key_init(sk: &mut SecretKey) {
     *sk = SecretKey::default();
-    ec_curve_init(&mut sk.curve);
+    sk.curve = EcCurve::e0();
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +139,11 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
             ) != 0) as i32;
     }
 
-    debug_assert!(test_basis_order_twof(&b0_two, &sk.curve, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &b0_two,
+        &sk.curve,
+        TORSION_EVEN_POWER as i32
+    ));
 
     pk.hint_pk = ec_curve_to_basis_2f_to_hint(
         &mut sk.canonical_basis,
@@ -150,9 +151,11 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
         TORSION_EVEN_POWER as i32,
     );
 
-    debug_assert!(
-        test_basis_order_twof(&sk.canonical_basis, &sk.curve, TORSION_EVEN_POWER as i32) != 0
-    );
+    debug_assert!(test_basis_order_twof(
+        &sk.canonical_basis,
+        &sk.curve,
+        TORSION_EVEN_POWER as i32
+    ));
 
     change_of_basis_matrix_tate(
         &mut sk.mat_ba_can_to_ba0_two,
@@ -162,7 +165,7 @@ pub fn protocols_keygen(pk: &mut PublicKey, sk: &mut SecretKey) -> i32 {
         TORSION_EVEN_POWER as i32,
     );
 
-    copy_curve(&mut pk.curve, &sk.curve);
+    pk.curve = sk.curve;
     pk.curve.is_a24_computed_and_normalized = false;
     debug_assert!(fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF);
 
@@ -234,7 +237,7 @@ fn ibz_from_bytes(x: &mut Ibz, enc: &[u8], nbytes: usize, sgn: bool) -> usize {
 pub fn secret_key_to_bytes(enc: &mut [u8], sk: &SecretKey, pk: &PublicKey) {
     debug_assert_eq!(enc.len(), SECRETKEY_BYTES);
     let mut p = 0;
-    public_key_to_bytes(&mut enc[..PUBLICKEY_BYTES], pk);
+    enc[..PUBLICKEY_BYTES].copy_from_slice(&pk.to_bytes());
     p += PUBLICKEY_BYTES;
 
     p += ibz_to_bytes(
@@ -270,8 +273,7 @@ pub fn secret_key_to_bytes(enc: &mut [u8], sk: &SecretKey, pk: &PublicKey) {
 pub fn secret_key_from_bytes(sk: &mut SecretKey, pk: &mut PublicKey, enc: &[u8]) {
     debug_assert_eq!(enc.len(), SECRETKEY_BYTES);
     let mut p = 0;
-    let ok = public_key_from_bytes(pk, &enc[..PUBLICKEY_BYTES]);
-    debug_assert!(ok, "non-canonical pk encoding inside sk");
+    *pk = PublicKey::try_from(&enc[..PUBLICKEY_BYTES]).expect("canonical pk encoding inside sk");
     p += PUBLICKEY_BYTES;
 
     {
@@ -303,12 +305,9 @@ pub fn secret_key_from_bytes(sk: &mut SecretKey, pk: &mut PublicKey, enc: &[u8])
     debug_assert_eq!(p, SECRETKEY_BYTES);
 
     sk.curve = pk.curve;
-    ec_curve_to_basis_2f_from_hint(
-        &mut sk.canonical_basis,
-        &mut sk.curve,
-        TORSION_EVEN_POWER as i32,
-        pk.hint_pk,
-    );
+    sk.canonical_basis =
+        ec_curve_to_basis_2f_from_hint(&mut sk.curve, TORSION_EVEN_POWER as i32, pk.hint_pk)
+            .unwrap();
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +443,7 @@ fn compute_random_aux_norm_and_helpers(
         resp_quat,
         quatalg_pinfty(),
     );
-    debug_assert!(ibz_is_one(&norm_d) != 0);
+    debug_assert!(ibz_is_one(&norm_d));
     let dfr = degree_full_resp.clone();
     ibz_div(&mut degree_full_resp, remain, &dfr, lattice_content);
     debug_assert_eq!(ibz_cmp(remain, ibz_const_zero()), 0);
@@ -520,12 +519,12 @@ fn compute_dim2_isogeny_challenge(
     exp_diadic_val_full_resp: i32,
     reduced_order: i32,
 ) -> i32 {
-    let mut e_com_x_aux = ThetaCoupleCurve::default();
-    copy_curve(&mut e_com_x_aux.e1, &domain.e1);
-    copy_curve(&mut e_com_x_aux.e2, &domain.e2);
+    let mut e_com_x_aux = ThetaCoupleCurve {
+        e1: domain.e1,
+        e2: domain.e2,
+    };
 
-    let mut dim_two_ker = ThetaKernelCouplePoints::default();
-    copy_bases_to_kernel(&mut dim_two_ker, &domain.b1, &domain.b2);
+    let mut dim_two_ker = ThetaKernelCouplePoints::from_bases(&domain.b1, &domain.b2);
 
     let mut scalar = [0 as Digit; NWORDS_ORDER];
     ibz_to_digits(&mut scalar, degree_resp_inv);
@@ -564,41 +563,42 @@ fn compute_dim2_isogeny_challenge(
     double_couple_point_iter(&mut dim_two_ker.t1m2, n, &s, &e_com_x_aux);
 
     let mut pushed_points = [ThetaCouplePoint::default(); 3];
-    copy_point(&mut pushed_points[0].p1, &domain.b1.p);
-    copy_point(&mut pushed_points[1].p1, &domain.b1.q);
-    copy_point(&mut pushed_points[2].p1, &domain.b1.pmq);
-    ec_point_init(&mut pushed_points[0].p2);
-    ec_point_init(&mut pushed_points[1].p2);
-    ec_point_init(&mut pushed_points[2].p2);
+    pushed_points[0].p1 = domain.b1.p;
+    pushed_points[1].p1 = domain.b1.q;
+    pushed_points[2].p1 = domain.b1.pmq;
+    pushed_points[0].p2 = EcPoint::IDENTITY;
+    pushed_points[1].p2 = EcPoint::IDENTITY;
+    pushed_points[2].p2 = EcPoint::IDENTITY;
 
     let mut codomain_product = ThetaCoupleCurve::default();
 
-    if theta_chain_compute_and_eval_randomized(
+    if !theta_chain_compute_and_eval_randomized(
         pow_dim2_deg_resp as u32,
         &mut e_com_x_aux,
         &dim_two_ker,
         true,
         &mut codomain_product,
         &mut pushed_points,
-    ) == 0
-    {
+    ) {
         return 0;
     }
 
-    debug_assert!(
-        test_couple_point_order_twof(&pushed_points[0], &codomain_product, reduced_order) != 0
-    );
+    debug_assert!(test_couple_point_order_twof(
+        &pushed_points[0],
+        &codomain_product,
+        reduced_order
+    ));
 
-    copy_curve(&mut codomain.e1, &codomain_product.e2);
-    copy_curve(&mut codomain.e2, &codomain_product.e1);
+    codomain.e1 = codomain_product.e2;
+    codomain.e2 = codomain_product.e1;
 
-    copy_point(&mut codomain.b1.p, &pushed_points[0].p2);
-    copy_point(&mut codomain.b1.q, &pushed_points[1].p2);
-    copy_point(&mut codomain.b1.pmq, &pushed_points[2].p2);
+    codomain.b1.p = pushed_points[0].p2;
+    codomain.b1.q = pushed_points[1].p2;
+    codomain.b1.pmq = pushed_points[2].p2;
 
-    copy_point(&mut codomain.b2.p, &pushed_points[0].p1);
-    copy_point(&mut codomain.b2.q, &pushed_points[1].p1);
-    copy_point(&mut codomain.b2.pmq, &pushed_points[2].p1);
+    codomain.b2.p = pushed_points[0].p1;
+    codomain.b2.q = pushed_points[1].p1;
+    codomain.b2.pmq = pushed_points[2].p1;
     1
 }
 
@@ -633,18 +633,18 @@ fn compute_small_chain_isogeny_signature(
         &bcc,
         e_chall_2,
     );
-    debug_assert!(test_basis_order_twof(b_chall_2, e_chall_2, length) != 0);
+    debug_assert!(test_basis_order_twof(b_chall_2, e_chall_2, length));
 
     let mut ker = EcPoint::default();
     ec_biscalar_mul_ibz_vec(&mut ker, &vec_resp_two, length, b_chall_2, e_chall_2);
-    debug_assert!(test_point_order_twof(&ker, e_chall_2, length) != 0);
+    debug_assert!(test_point_order_twof(&ker, e_chall_2, length));
 
     if ec_eval_small_chain(e_chall_2, &ker, length, &mut points, true) != 0 {
         ret = 0;
     }
-    copy_point(&mut b_chall_2.p, &points[0]);
-    copy_point(&mut b_chall_2.q, &points[1]);
-    copy_point(&mut b_chall_2.pmq, &points[2]);
+    b_chall_2.p = points[0];
+    b_chall_2.q = points[1];
+    b_chall_2.pmq = points[2];
 
     ret
 }
@@ -661,19 +661,25 @@ fn compute_challenge_codomain_signature(
 
     phi_chall.curve = sk.curve;
     phi_chall.length = (TORSION_EVEN_POWER - sig.backtracking as usize) as u32;
-    debug_assert!(test_basis_order_twof(&bas_sk, &sk.curve, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &bas_sk,
+        &sk.curve,
+        TORSION_EVEN_POWER as i32
+    ));
 
-    ec_ladder3pt(
-        &mut phi_chall.kernel,
+    phi_chall.kernel = ec_ladder3pt(
         &sig.chall_coeff,
         &bas_sk.p,
         &bas_sk.q,
         &bas_sk.pmq,
         &sk.curve,
-    );
-    debug_assert!(
-        test_point_order_twof(&phi_chall.kernel, &sk.curve, TORSION_EVEN_POWER as i32) != 0
-    );
+    )
+    .unwrap();
+    debug_assert!(test_point_order_twof(
+        &phi_chall.kernel,
+        &sk.curve,
+        TORSION_EVEN_POWER as i32
+    ));
 
     let pk = phi_chall.kernel;
     ec_dbl_iter(
@@ -708,7 +714,7 @@ fn compute_challenge_codomain_signature(
 
 fn set_aux_curve_signature(sig: &mut Signature, e_aux: &mut EcCurve) {
     ec_normalize_curve(e_aux);
-    fp2_copy(&mut sig.e_aux_a, &e_aux.a);
+    sig.e_aux_a = e_aux.a;
 }
 
 fn compute_and_set_basis_change_matrix(
@@ -731,8 +737,12 @@ fn compute_and_set_basis_change_matrix(
 
     #[cfg(debug_assertions)]
     {
-        debug_assert!(test_basis_order_twof(&b_aux_2_can, e_aux_2, TORSION_EVEN_POWER as i32) != 0);
-        debug_assert!(test_basis_order_twof(b_aux_2, e_aux_2, f) != 0);
+        debug_assert!(test_basis_order_twof(
+            &b_aux_2_can,
+            e_aux_2,
+            TORSION_EVEN_POWER as i32
+        ));
+        debug_assert!(test_basis_order_twof(b_aux_2, e_aux_2, f));
         let mut w0 = Fp2::default();
         weil(
             &mut w0,
@@ -754,7 +764,11 @@ fn compute_and_set_basis_change_matrix(
 
     matrix_application_even_basis(b_chall_2, e_chall, &mut mat_baux2_to_baux2_can, f);
 
-    debug_assert!(test_basis_order_twof(&b_can_chall, e_chall, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &b_can_chall,
+        e_chall,
+        TORSION_EVEN_POWER as i32
+    ));
 
     change_of_basis_matrix_tate(
         &mut mat_bchall_can_to_bchall,
@@ -797,8 +811,8 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
 
     let mut e_chall = sk.curve;
 
-    ec_curve_init(&mut ecom_eaux.e1);
-    ec_curve_init(&mut ecom_eaux.e2);
+    ecom_eaux.e1 = EcCurve::e0();
+    ecom_eaux.e2 = EcCurve::e0();
 
     while ret == 0 {
         ret = commit(&mut ecom_eaux.e1, &mut ecom_eaux.b1, &mut lideal_commit) as i32;
@@ -806,7 +820,7 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
             continue;
         }
 
-        hash_to_challenge(&mut sig.chall_coeff, pk, &ecom_eaux.e1, m);
+        sig.chall_coeff = hash_to_challenge(pk, &ecom_eaux.e1, m);
 
         {
             let mut lideal_chall_two = QuatLeftIdeal::default();
@@ -844,12 +858,16 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
                 continue;
             }
 
-            debug_assert!(
-                test_basis_order_twof(&ecom_eaux.b1, &ecom_eaux.e1, TORSION_EVEN_POWER as i32) != 0
-            );
-            debug_assert!(
-                test_basis_order_twof(&ecom_eaux.b2, &ecom_eaux.e2, TORSION_EVEN_POWER as i32) != 0
-            );
+            debug_assert!(test_basis_order_twof(
+                &ecom_eaux.b1,
+                &ecom_eaux.e1,
+                TORSION_EVEN_POWER as i32
+            ));
+            debug_assert!(test_basis_order_twof(
+                &ecom_eaux.b2,
+                &ecom_eaux.e2,
+                TORSION_EVEN_POWER as i32
+            ));
 
             reduced_order =
                 pow_dim2_deg_resp as i32 + HD_EXTRA_TORSION as i32 + sig.two_resp_length as i32;
@@ -880,8 +898,8 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
                 continue;
             }
         } else {
-            copy_curve(&mut eaux2_echall2.e1, &ecom_eaux.e1);
-            copy_curve(&mut eaux2_echall2.e2, &ecom_eaux.e1);
+            eaux2_echall2.e1 = ecom_eaux.e1;
+            eaux2_echall2.e2 = ecom_eaux.e1;
             reduced_order = sig.two_resp_length as i32;
             let bb = ecom_eaux.b1;
             ec_dbl_iter_basis(
@@ -898,7 +916,7 @@ pub fn protocols_sign(sig: &mut Signature, pk: &PublicKey, sk: &mut SecretKey, m
                 &bb,
                 &mut ecom_eaux.e1,
             );
-            copy_basis(&mut eaux2_echall2.b2, &eaux2_echall2.b1);
+            eaux2_echall2.b2 = eaux2_echall2.b1;
         }
 
         if sig.two_resp_length > 0 {
@@ -950,10 +968,8 @@ pub fn sqisign_keypair() -> Result<([u8; CRYPTO_PUBLICKEYBYTES], [u8; CRYPTO_SEC
         return Err(());
     }
     let mut sk_bytes = [0u8; CRYPTO_SECRETKEYBYTES];
-    let mut pk_bytes = [0u8; CRYPTO_PUBLICKEYBYTES];
     secret_key_to_bytes(&mut sk_bytes, &sk, &pk);
-    public_key_to_bytes(&mut pk_bytes, &pk);
-    Ok((pk_bytes, sk_bytes))
+    Ok((pk.to_bytes(), sk_bytes))
 }
 
 pub fn sqisign_sign(m: &[u8], sk_bytes: &[u8]) -> Result<[u8; CRYPTO_BYTES], ()> {
@@ -969,7 +985,5 @@ pub fn sqisign_sign(m: &[u8], sk_bytes: &[u8]) -> Result<[u8; CRYPTO_BYTES], ()>
     if protocols_sign(&mut sig, &pk, &mut sk, m) == 0 {
         return Err(());
     }
-    let mut sig_bytes = [0u8; CRYPTO_BYTES];
-    signature_to_bytes(&mut sig_bytes, &sig);
-    Ok(sig_bytes)
+    Ok(sig.to_bytes())
 }

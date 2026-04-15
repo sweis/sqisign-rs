@@ -74,9 +74,7 @@ pub fn ec_biscalar_mul_ibz_vec(
     let mut scalars = [[0 as Digit; NWORDS_ORDER]; 2];
     ibz_to_digits(&mut scalars[0], &scalar_vec[0]);
     ibz_to_digits(&mut scalars[1], &scalar_vec[1]);
-    let s0 = scalars[0];
-    let s1 = scalars[1];
-    ec_biscalar_mul(res, &s0, &s1, f, pq, curve);
+    *res = ec_biscalar_mul(&scalars[0], &scalars[1], f, pq, curve).unwrap();
 }
 
 /// Given an O₀-ideal of norm 2ᶠ, compute (s₀, s₁) such that the kernel
@@ -121,7 +119,7 @@ pub fn id2iso_ideal_to_kernel_dlogs_even(vec: &mut IbzVec2, lideal: &QuatLeftIde
         ibz_mod(&mut vec[0], &mat[0][0], norm);
         ibz_mod(&mut vec[1], &mat[1][0], norm);
         ibz_gcd(&mut tmp, &vec[0], &vec[1]);
-        if ibz_is_even(&tmp) != 0 {
+        if ibz_is_even(&tmp) {
             ibz_mod(&mut vec[0], &mat[0][1], norm);
             ibz_mod(&mut vec[1], &mat[1][1], norm);
         }
@@ -142,7 +140,7 @@ pub fn matrix_application_even_basis(
     e: &EcCurve,
     mat: &mut IbzMat2x2,
     f: i32,
-) -> i32 {
+) -> Option<()> {
     let mut s0 = [0 as Digit; NWORDS_ORDER];
     let mut s1 = [0 as Digit; NWORDS_ORDER];
     let mut tmp = Ibz::default();
@@ -161,12 +159,12 @@ pub fn matrix_application_even_basis(
     // R = [a]P + [b]Q
     ibz_to_digits(&mut s0, &mat[0][0]);
     ibz_to_digits(&mut s1, &mat[1][0]);
-    ec_biscalar_mul(&mut bas.p, &s0, &s1, f, &tmp_bas, e);
+    bas.p = ec_biscalar_mul(&s0, &s1, f, &tmp_bas, e).unwrap();
 
     // S = [c]P + [d]Q
     ibz_to_digits(&mut s0, &mat[0][1]);
     ibz_to_digits(&mut s1, &mat[1][1]);
-    ec_biscalar_mul(&mut bas.q, &s0, &s1, f, &tmp_bas, e);
+    bas.q = ec_biscalar_mul(&s0, &s1, f, &tmp_bas, e).unwrap();
 
     // R - S = [a-c]P + [b-d]Q
     ibz_sub(&mut tmp, &mat[0][0], &mat[0][1]);
@@ -177,7 +175,8 @@ pub fn matrix_application_even_basis(
     let t = tmp.clone();
     ibz_mod(&mut tmp, &t, &pow_two);
     ibz_to_digits(&mut s1, &tmp);
-    ec_biscalar_mul(&mut bas.pmq, &s0, &s1, f, &tmp_bas, e)
+    bas.pmq = ec_biscalar_mul(&s0, &s1, f, &tmp_bas, e)?;
+    Some(())
 }
 
 /// Apply an endomorphism `theta` (an algebra element in the order
@@ -200,7 +199,7 @@ pub fn endomorphism_application_even_basis(
         theta,
         &extremal_orders()[index_alternate_curve].order,
     );
-    debug_assert!(ibz_is_odd(&content) != 0);
+    debug_assert!(ibz_is_odd(&content));
 
     for i in 0..2 {
         for j in 0..2 {
@@ -299,11 +298,11 @@ fn change_of_basis_matrix_tate_impl(
     let mut x4 = [0 as Digit; NWORDS_ORDER];
 
     if invert {
-        debug_assert!(test_basis_order_twof(b1, e, TORSION_EVEN_POWER as i32) != 0);
+        debug_assert!(test_basis_order_twof(b1, e, TORSION_EVEN_POWER as i32));
         ec_dlog_2_tate(&mut x1, &mut x2, &mut x3, &mut x4, b1, b2, e, f);
         mp_invert_matrix(&mut x1, &mut x2, &mut x3, &mut x4, f, NWORDS_ORDER);
     } else {
-        debug_assert!(test_basis_order_twof(b2, e, TORSION_EVEN_POWER as i32) != 0);
+        debug_assert!(test_basis_order_twof(b2, e, TORSION_EVEN_POWER as i32));
         ec_dlog_2_tate(&mut x1, &mut x2, &mut x3, &mut x4, b2, b1, e, f);
     }
 
@@ -311,21 +310,21 @@ fn change_of_basis_matrix_tate_impl(
     {
         let e_full = TORSION_EVEN_POWER as i32;
         let e_diff = e_full - f;
-        let mut test = EcPoint::default();
+        let mut test;
         let mut test2 = EcPoint::default();
         if invert {
-            ec_biscalar_mul(&mut test, &x1, &x2, f, b2, e);
+            test = ec_biscalar_mul(&x1, &x2, f, b2, e).unwrap();
             ec_dbl_iter(&mut test2, e_diff, &b1.p, e);
             debug_assert!(ec_is_equal(&test, &test2) != 0);
-            ec_biscalar_mul(&mut test, &x3, &x4, f, b2, e);
+            test = ec_biscalar_mul(&x3, &x4, f, b2, e).unwrap();
             ec_dbl_iter(&mut test2, e_diff, &b1.q, e);
             debug_assert!(ec_is_equal(&test, &test2) != 0);
         } else {
-            ec_biscalar_mul(&mut test, &x1, &x2, f, b2, e);
+            test = ec_biscalar_mul(&x1, &x2, f, b2, e).unwrap();
             let s = test;
             ec_dbl_iter(&mut test, e_diff, &s, e);
             debug_assert!(ec_is_equal(&test, &b1.p) != 0);
-            ec_biscalar_mul(&mut test, &x3, &x4, f, b2, e);
+            test = ec_biscalar_mul(&x3, &x4, f, b2, e).unwrap();
             let s = test;
             ec_dbl_iter(&mut test, e_diff, &s, e);
             debug_assert!(ec_is_equal(&test, &b1.q) != 0);

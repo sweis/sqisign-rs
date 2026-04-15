@@ -3,12 +3,10 @@
 
 use crate::common::fips202::Shake256Inc;
 use crate::ec::*;
-use crate::gf::{
-    fp2_decode, fp2_encode, fp2_inv, fp2_is_one, fp2_is_zero, fp2_mul, fp2_set_one, Fp2,
-};
+use crate::gf::{fp2_inv, fp2_is_one, fp2_is_zero, fp2_mul, Fp2};
 use crate::hd::{
-    copy_bases_to_kernel, theta_chain_compute_and_eval_verify, ThetaCoupleCurve,
-    ThetaKernelCouplePoints, HD_EXTRA_TORSION,
+    theta_chain_compute_and_eval_verify, ThetaCoupleCurve, ThetaKernelCouplePoints,
+    HD_EXTRA_TORSION,
 };
 use crate::mp::{mp_compare, mp_is_even, mp_mod_2exp, mp_sub, multiple_mp_shiftl, Digit, RADIX};
 use crate::precomp::{
@@ -18,6 +16,33 @@ use crate::precomp::{
 
 pub type Scalar = [Digit; NWORDS_ORDER];
 pub type ScalarMtx2x2 = [[Scalar; 2]; 2];
+
+/// Reasons signature verification can fail.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VerifyError {
+    /// Input slice has the wrong length.
+    BadLength,
+    /// A field element was not canonically encoded.
+    BadEncoding,
+    /// A curve coefficient is invalid (A = ±2).
+    BadCurve,
+    /// The signature's response-length parameters are inconsistent.
+    BadResponseLength,
+    /// The basis-change matrix entries exceed the canonical bound.
+    BadMatrixBound,
+    /// Basis hint did not yield a valid 2ᶠ-torsion basis.
+    BadHint,
+    /// An intermediate point was at infinity / had a zero coordinate.
+    DegeneratePoint,
+    /// A 2ⁿ-isogeny step failed (singular kernel or bad torsion order).
+    IsogenyFailure,
+    /// Theta-chain codomain did not split as an elliptic product.
+    NotAProduct,
+    /// Recomputed challenge does not match the signature's `chall_coeff`.
+    ChallengeMismatch,
+}
+
+type VResult<T> = Result<T, VerifyError>;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Signature {
@@ -37,22 +62,22 @@ pub struct PublicKey {
 }
 
 pub fn public_key_init(pk: &mut PublicKey) {
-    ec_curve_init(&mut pk.curve);
+    pk.curve = EcCurve::e0();
 }
 
 // ---------------------------------------------------------------------------
 // hash_to_challenge (common.c)
 // ---------------------------------------------------------------------------
 
-pub fn hash_to_challenge(scalar: &mut Scalar, pk: &PublicKey, com_curve: &EcCurve, message: &[u8]) {
+pub fn hash_to_challenge(pk: &PublicKey, com_curve: &EcCurve, message: &[u8]) -> Scalar {
     let mut buf = [0u8; 2 * FP2_ENCODED_BYTES];
     {
         let mut j1 = Fp2::default();
         let mut j2 = Fp2::default();
         ec_j_inv(&mut j1, &pk.curve);
         ec_j_inv(&mut j2, com_curve);
-        fp2_encode(&mut buf[..FP2_ENCODED_BYTES], &j1);
-        fp2_encode(&mut buf[FP2_ENCODED_BYTES..], &j2);
+        buf[..FP2_ENCODED_BYTES].copy_from_slice(&j1.encode());
+        buf[FP2_ENCODED_BYTES..].copy_from_slice(&j2.encode());
     }
 
     let mut hash_bytes = (2 * SECURITY_BITS).div_ceil(8);
@@ -92,10 +117,12 @@ pub fn hash_to_challenge(scalar: &mut Scalar, pk: &PublicKey, com_curve: &EcCurv
     ctx.squeeze(&mut acc[..hash_bytes]);
     mask_top_limb(&mut acc, limbs, mask);
 
+    let mut scalar = [0u64; NWORDS_ORDER];
     for (i, limb) in scalar.iter_mut().enumerate() {
         *limb = u64::from_le_bytes(acc[i * 8..i * 8 + 8].try_into().unwrap());
     }
-    mp_mod_2exp(scalar, SECURITY_BITS as u32, NWORDS_ORDER);
+    mp_mod_2exp(&mut scalar, SECURITY_BITS as u32, NWORDS_ORDER);
+    scalar
 }
 
 #[inline]
@@ -112,81 +139,99 @@ fn mask_top_limb(acc: &mut [u8], limbs: usize, mask: u64) {
 
 use crate::mp::{decode_digits, encode_digits};
 
-pub fn public_key_to_bytes(enc: &mut [u8], pk: &PublicKey) {
-    debug_assert_eq!(enc.len(), PUBLICKEY_BYTES);
-    let mut tmp = pk.curve.c;
-    debug_assert!(fp2_is_zero(&tmp) == 0);
-    fp2_inv(&mut tmp);
-    let s = tmp;
-    fp2_mul(&mut tmp, &pk.curve.a, &s);
-    fp2_encode(&mut enc[..FP2_ENCODED_BYTES], &tmp);
-    enc[FP2_ENCODED_BYTES] = pk.hint_pk;
-}
-
-/// Decode a public key. Returns `false` if the field-element encoding is
-/// non-canonical (limb value ≥ p); the C reference discards this status.
-pub fn public_key_from_bytes(pk: &mut PublicKey, enc: &[u8]) -> bool {
-    debug_assert_eq!(enc.len(), PUBLICKEY_BYTES);
-    *pk = PublicKey::default();
-    let ok = fp2_decode(&mut pk.curve.a, &enc[..FP2_ENCODED_BYTES]);
-    fp2_set_one(&mut pk.curve.c);
-    pk.hint_pk = enc[FP2_ENCODED_BYTES];
-    ok == 0xFFFF_FFFF
-}
-
-pub fn signature_to_bytes(enc: &mut [u8], sig: &Signature) {
-    debug_assert_eq!(enc.len(), SIGNATURE_BYTES);
-    let mut p = 0;
-    fp2_encode(&mut enc[p..p + FP2_ENCODED_BYTES], &sig.e_aux_a);
-    p += FP2_ENCODED_BYTES;
-    enc[p] = sig.backtracking;
-    p += 1;
-    enc[p] = sig.two_resp_length;
-    p += 1;
-    let nbytes = (SQISIGN_RESPONSE_LENGTH + 9) / 8;
-    for i in 0..2 {
-        for j in 0..2 {
-            encode_digits(&mut enc[p..], &sig.mat_bchall_can_to_b_chall[i][j], nbytes);
-            p += nbytes;
-        }
+impl PublicKey {
+    pub fn to_bytes(&self) -> [u8; PUBLICKEY_BYTES] {
+        let mut tmp = self.curve.c;
+        debug_assert!(fp2_is_zero(&tmp) == 0);
+        fp2_inv(&mut tmp);
+        let s = tmp;
+        fp2_mul(&mut tmp, &self.curve.a, &s);
+        let mut enc = [0u8; PUBLICKEY_BYTES];
+        enc[..FP2_ENCODED_BYTES].copy_from_slice(&tmp.encode());
+        enc[FP2_ENCODED_BYTES] = self.hint_pk;
+        enc
     }
-    let nbytes = SECURITY_BITS / 8;
-    encode_digits(&mut enc[p..], &sig.chall_coeff, nbytes);
-    p += nbytes;
-    enc[p] = sig.hint_aux;
-    p += 1;
-    enc[p] = sig.hint_chall;
-    p += 1;
-    debug_assert_eq!(p, SIGNATURE_BYTES);
 }
 
-/// Decode a signature. Returns `false` if the field-element encoding is
-/// non-canonical (limb value ≥ p); the C reference discards this status.
-pub fn signature_from_bytes(sig: &mut Signature, enc: &[u8]) -> bool {
-    debug_assert_eq!(enc.len(), SIGNATURE_BYTES);
-    let mut p = 0;
-    let ok = fp2_decode(&mut sig.e_aux_a, &enc[..FP2_ENCODED_BYTES]);
-    p += FP2_ENCODED_BYTES;
-    sig.backtracking = enc[p];
-    p += 1;
-    sig.two_resp_length = enc[p];
-    p += 1;
-    let nbytes = (SQISIGN_RESPONSE_LENGTH + 9) / 8;
-    for i in 0..2 {
-        for j in 0..2 {
-            decode_digits(&mut sig.mat_bchall_can_to_b_chall[i][j], &enc[p..], nbytes);
-            p += nbytes;
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = VerifyError;
+    /// Fails if the slice has the wrong length or the field-element encoding
+    /// is non-canonical (≥ p). The C reference discards the latter status.
+    fn try_from(enc: &[u8]) -> VResult<Self> {
+        if enc.len() != PUBLICKEY_BYTES {
+            return Err(VerifyError::BadLength);
         }
+        let mut pk = PublicKey::default();
+        pk.curve.a = Fp2::try_decode(&enc[..FP2_ENCODED_BYTES]).ok_or(VerifyError::BadEncoding)?;
+        pk.curve.c = Fp2::ONE;
+        pk.hint_pk = enc[FP2_ENCODED_BYTES];
+        Ok(pk)
     }
-    let nbytes = SECURITY_BITS / 8;
-    decode_digits(&mut sig.chall_coeff, &enc[p..], nbytes);
-    p += nbytes;
-    sig.hint_aux = enc[p];
-    p += 1;
-    sig.hint_chall = enc[p];
-    p += 1;
-    debug_assert_eq!(p, SIGNATURE_BYTES);
-    ok == 0xFFFF_FFFF
+}
+
+impl Signature {
+    pub fn to_bytes(&self) -> [u8; SIGNATURE_BYTES] {
+        let mut enc = [0u8; SIGNATURE_BYTES];
+        let mut p = 0;
+        enc[p..p + FP2_ENCODED_BYTES].copy_from_slice(&self.e_aux_a.encode());
+        p += FP2_ENCODED_BYTES;
+        enc[p] = self.backtracking;
+        p += 1;
+        enc[p] = self.two_resp_length;
+        p += 1;
+        let nbytes = (SQISIGN_RESPONSE_LENGTH + 9) / 8;
+        for row in &self.mat_bchall_can_to_b_chall {
+            for entry in row {
+                encode_digits(&mut enc[p..], entry, nbytes);
+                p += nbytes;
+            }
+        }
+        let nbytes = SECURITY_BITS / 8;
+        encode_digits(&mut enc[p..], &self.chall_coeff, nbytes);
+        p += nbytes;
+        enc[p] = self.hint_aux;
+        p += 1;
+        enc[p] = self.hint_chall;
+        p += 1;
+        debug_assert_eq!(p, SIGNATURE_BYTES);
+        enc
+    }
+}
+
+impl TryFrom<&[u8]> for Signature {
+    type Error = VerifyError;
+    /// Fails if the slice has the wrong length or the field-element encoding
+    /// is non-canonical (≥ p). The C reference discards the latter status.
+    fn try_from(enc: &[u8]) -> VResult<Self> {
+        if enc.len() != SIGNATURE_BYTES {
+            return Err(VerifyError::BadLength);
+        }
+        let mut sig = Signature {
+            e_aux_a: Fp2::try_decode(&enc[..FP2_ENCODED_BYTES]).ok_or(VerifyError::BadEncoding)?,
+            ..Default::default()
+        };
+        let mut p = FP2_ENCODED_BYTES;
+        sig.backtracking = enc[p];
+        p += 1;
+        sig.two_resp_length = enc[p];
+        p += 1;
+        let nbytes = (SQISIGN_RESPONSE_LENGTH + 9) / 8;
+        for row in &mut sig.mat_bchall_can_to_b_chall {
+            for entry in row {
+                decode_digits(entry, &enc[p..], nbytes);
+                p += nbytes;
+            }
+        }
+        let nbytes = SECURITY_BITS / 8;
+        decode_digits(&mut sig.chall_coeff, &enc[p..], nbytes);
+        p += nbytes;
+        sig.hint_aux = enc[p];
+        p += 1;
+        sig.hint_chall = enc[p];
+        p += 1;
+        debug_assert_eq!(p, SIGNATURE_BYTES);
+        Ok(sig)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +253,7 @@ fn check_canonical_basis_change_matrix(sig: &Signature) -> bool {
     multiple_mp_shiftl(&mut aux, shift as u32, NWORDS_ORDER);
     for i in 0..2 {
         for j in 0..2 {
-            if mp_compare(&aux, &sig.mat_bchall_can_to_b_chall[i][j], NWORDS_ORDER) <= 0 {
+            if mp_compare(&aux, &sig.mat_bchall_can_to_b_chall[i][j], NWORDS_ORDER).is_le() {
                 return false;
             }
         }
@@ -216,38 +261,25 @@ fn check_canonical_basis_change_matrix(sig: &Signature) -> bool {
     true
 }
 
-fn compute_challenge_verify(
-    e_chall: &mut EcCurve,
-    sig: &Signature,
-    epk: &EcCurve,
-    hint_pk: u8,
-) -> bool {
-    let mut bas_ea = EcBasis::default();
-    let mut phi_chall = EcIsogEven::default();
-    copy_curve(&mut phi_chall.curve, epk);
-    phi_chall.length = (TORSION_EVEN_POWER - sig.backtracking as usize) as u32;
+fn compute_challenge_verify(sig: &Signature, epk: &EcCurve, hint_pk: u8) -> VResult<EcCurve> {
+    let mut phi_chall = EcIsogEven {
+        curve: *epk,
+        length: (TORSION_EVEN_POWER - sig.backtracking as usize) as u32,
+        ..Default::default()
+    };
 
-    if ec_curve_to_basis_2f_from_hint(
-        &mut bas_ea,
-        &mut phi_chall.curve,
-        TORSION_EVEN_POWER as i32,
-        hint_pk,
-    ) == 0
-    {
-        return false;
-    }
+    let bas_ea =
+        ec_curve_to_basis_2f_from_hint(&mut phi_chall.curve, TORSION_EVEN_POWER as i32, hint_pk)
+            .ok_or(VerifyError::BadHint)?;
 
-    if ec_ladder3pt(
-        &mut phi_chall.kernel,
+    phi_chall.kernel = ec_ladder3pt(
         &sig.chall_coeff,
         &bas_ea.p,
         &bas_ea.q,
         &bas_ea.pmq,
         &phi_chall.curve,
-    ) == 0
-    {
-        return false;
-    }
+    )
+    .ok_or(VerifyError::DegeneratePoint)?;
 
     let ker = phi_chall.kernel;
     ec_dbl_iter(
@@ -257,93 +289,65 @@ fn compute_challenge_verify(
         &mut phi_chall.curve,
     );
 
-    copy_curve(e_chall, &phi_chall.curve);
-    if ec_eval_even(e_chall, &phi_chall, &mut []) != 0 {
-        return false;
+    let mut e_chall = phi_chall.curve;
+    if ec_eval_even(&mut e_chall, &phi_chall, &mut []) != 0 {
+        return Err(VerifyError::IsogenyFailure);
     }
-    true
+    Ok(e_chall)
 }
 
 fn matrix_scalar_application_even_basis(
-    bas: &mut EcBasis,
+    bas: &EcBasis,
     e: &EcCurve,
     mat: &ScalarMtx2x2,
     f: i32,
-) -> bool {
+) -> Option<EcBasis> {
     let mut scalar0: Scalar = [0; NWORDS_ORDER];
     let mut scalar1: Scalar = [0; NWORDS_ORDER];
-    let tmp_bas = *bas;
-
-    if ec_biscalar_mul(&mut bas.p, &mat[0][0], &mat[1][0], f, &tmp_bas, e) == 0 {
-        return false;
-    }
-    if ec_biscalar_mul(&mut bas.q, &mat[0][1], &mat[1][1], f, &tmp_bas, e) == 0 {
-        return false;
-    }
     mp_sub(&mut scalar0, &mat[0][0], &mat[0][1], NWORDS_ORDER);
     mp_mod_2exp(&mut scalar0, f as u32, NWORDS_ORDER);
     mp_sub(&mut scalar1, &mat[1][0], &mat[1][1], NWORDS_ORDER);
     mp_mod_2exp(&mut scalar1, f as u32, NWORDS_ORDER);
-    ec_biscalar_mul(&mut bas.pmq, &scalar0, &scalar1, f, &tmp_bas, e) != 0
+    Some(EcBasis {
+        p: ec_biscalar_mul(&mat[0][0], &mat[1][0], f, bas, e)?,
+        q: ec_biscalar_mul(&mat[0][1], &mat[1][1], f, bas, e)?,
+        pmq: ec_biscalar_mul(&scalar0, &scalar1, f, bas, e)?,
+    })
 }
 
 fn challenge_and_aux_basis_verify(
-    b_chall_can: &mut EcBasis,
-    b_aux_can: &mut EcBasis,
     e_chall: &mut EcCurve,
     e_aux: &mut EcCurve,
     sig: &Signature,
     pow_dim2_deg_resp: i32,
-) -> bool {
-    if ec_curve_to_basis_2f_from_hint(
-        b_chall_can,
-        e_chall,
-        TORSION_EVEN_POWER as i32,
-        sig.hint_chall,
-    ) == 0
-    {
-        return false;
-    }
-    let bcc = *b_chall_can;
-    ec_dbl_iter_basis(
-        b_chall_can,
-        TORSION_EVEN_POWER as i32
-            - pow_dim2_deg_resp
-            - HD_EXTRA_TORSION as i32
-            - sig.two_resp_length as i32,
-        &bcc,
-        e_chall,
-    );
+) -> VResult<(EcBasis, EcBasis)> {
+    let f = TORSION_EVEN_POWER as i32;
+    let extra = HD_EXTRA_TORSION as i32;
+    let resp_order = pow_dim2_deg_resp + extra + sig.two_resp_length as i32;
 
-    if ec_curve_to_basis_2f_from_hint(b_aux_can, e_aux, TORSION_EVEN_POWER as i32, sig.hint_aux)
-        == 0
-    {
-        return false;
-    }
-    let bac = *b_aux_can;
-    ec_dbl_iter_basis(
-        b_aux_can,
-        TORSION_EVEN_POWER as i32 - pow_dim2_deg_resp - HD_EXTRA_TORSION as i32,
-        &bac,
-        e_aux,
-    );
+    let mut b_chall_can =
+        ec_curve_to_basis_2f_from_hint(e_chall, f, sig.hint_chall).ok_or(VerifyError::BadHint)?;
+    let bcc = b_chall_can;
+    ec_dbl_iter_basis(&mut b_chall_can, f - resp_order, &bcc, e_chall);
+
+    let mut b_aux_can =
+        ec_curve_to_basis_2f_from_hint(e_aux, f, sig.hint_aux).ok_or(VerifyError::BadHint)?;
+    let bac = b_aux_can;
+    ec_dbl_iter_basis(&mut b_aux_can, f - pow_dim2_deg_resp - extra, &bac, e_aux);
 
     #[cfg(debug_assertions)]
-    if test_basis_order_twof(
-        b_chall_can,
-        e_chall,
-        HD_EXTRA_TORSION as i32 + pow_dim2_deg_resp + sig.two_resp_length as i32,
-    ) == 0
-    {
+    if !test_basis_order_twof(&b_chall_can, e_chall, resp_order) {
         eprintln!("canonical basis has wrong order, expect something to fail");
     }
 
-    matrix_scalar_application_even_basis(
-        b_chall_can,
+    let b_chall_can = matrix_scalar_application_even_basis(
+        &b_chall_can,
         e_chall,
         &sig.mat_bchall_can_to_b_chall,
-        pow_dim2_deg_resp + HD_EXTRA_TORSION as i32 + sig.two_resp_length as i32,
+        resp_order,
     )
+    .ok_or(VerifyError::DegeneratePoint)?;
+    Ok((b_chall_can, b_aux_can))
 }
 
 fn two_response_isogeny_verify(
@@ -351,20 +355,14 @@ fn two_response_isogeny_verify(
     b_chall_can: &mut EcBasis,
     sig: &Signature,
     pow_dim2_deg_resp: i32,
-) -> bool {
-    let mut ker = EcPoint::default();
-    let mut points = [EcPoint::default(); 3];
-
-    if mp_is_even(&sig.mat_bchall_can_to_b_chall[0][0])
-        && mp_is_even(&sig.mat_bchall_can_to_b_chall[1][0])
-    {
-        copy_point(&mut ker, &b_chall_can.q);
+) -> VResult<()> {
+    let m = &sig.mat_bchall_can_to_b_chall;
+    let mut ker = if mp_is_even(&m[0][0]) && mp_is_even(&m[1][0]) {
+        b_chall_can.q
     } else {
-        copy_point(&mut ker, &b_chall_can.p);
-    }
-    copy_point(&mut points[0], &b_chall_can.p);
-    copy_point(&mut points[1], &b_chall_can.q);
-    copy_point(&mut points[2], &b_chall_can.pmq);
+        b_chall_can.p
+    };
+    let mut points = [b_chall_can.p, b_chall_can.q, b_chall_can.pmq];
 
     let k = ker;
     ec_dbl_iter(
@@ -382,41 +380,40 @@ fn two_response_isogeny_verify(
         false,
     ) != 0
     {
-        return false;
+        return Err(VerifyError::IsogenyFailure);
     }
 
-    copy_point(&mut b_chall_can.p, &points[0]);
-    copy_point(&mut b_chall_can.q, &points[1]);
-    copy_point(&mut b_chall_can.pmq, &points[2]);
-    true
+    *b_chall_can = EcBasis {
+        p: points[0],
+        q: points[1],
+        pmq: points[2],
+    };
+    Ok(())
 }
 
 fn compute_commitment_curve_verify(
-    e_com: &mut EcCurve,
     b_chall_can: &EcBasis,
     b_aux_can: &EcBasis,
     e_chall: &EcCurve,
     e_aux: &EcCurve,
     pow_dim2_deg_resp: i32,
-) -> bool {
-    let mut e12 = ThetaCoupleCurve::default();
-    copy_curve(&mut e12.e1, e_chall);
-    copy_curve(&mut e12.e2, e_aux);
-
-    let mut dim_two_ker = ThetaKernelCouplePoints::default();
-    copy_bases_to_kernel(&mut dim_two_ker, b_chall_can, b_aux_can);
-
-    let mut codomain = ThetaCoupleCurve::default();
-    ec_curve_init(&mut codomain.e1);
-    ec_curve_init(&mut codomain.e2);
+) -> VResult<EcCurve> {
+    let mut e12 = ThetaCoupleCurve {
+        e1: *e_chall,
+        e2: *e_aux,
+    };
+    let dim_two_ker = ThetaKernelCouplePoints::from_bases(b_chall_can, b_aux_can);
+    let mut codomain = ThetaCoupleCurve {
+        e1: EcCurve::e0(),
+        e2: EcCurve::e0(),
+    };
 
     let codomain_splits = if pow_dim2_deg_resp == 0 {
-        copy_curve(&mut codomain.e1, &e12.e1);
-        copy_curve(&mut codomain.e2, &e12.e2);
+        codomain = e12;
         if ec_is_basis_four_torsion(b_chall_can, e_chall) == 0 {
-            return false;
+            return Err(VerifyError::IsogenyFailure);
         }
-        1
+        true
     } else {
         theta_chain_compute_and_eval_verify(
             pow_dim2_deg_resp as u32,
@@ -428,90 +425,66 @@ fn compute_commitment_curve_verify(
         )
     };
 
-    copy_curve(e_com, &codomain.e1);
-    codomain_splits != 0
+    if codomain_splits {
+        Ok(codomain.e1)
+    } else {
+        Err(VerifyError::NotAProduct)
+    }
 }
 
-pub fn protocols_verify(sig: &Signature, pk: &PublicKey, m: &[u8]) -> bool {
+/// SQIsign verification (Algorithm 4.9).
+pub fn protocols_verify(sig: &Signature, pk: &PublicKey, m: &[u8]) -> VResult<()> {
     if !check_canonical_basis_change_matrix(sig) {
-        return false;
+        return Err(VerifyError::BadMatrixBound);
     }
 
     let pow_dim2_deg_resp =
         SQISIGN_RESPONSE_LENGTH as i32 - sig.two_resp_length as i32 - sig.backtracking as i32;
     if pow_dim2_deg_resp < 0 || pow_dim2_deg_resp == 1 {
-        return false;
+        return Err(VerifyError::BadResponseLength);
     }
 
-    if ec_curve_verify_a(&pk.curve.a) == 0 {
-        return false;
+    if !ec_curve_verify_a(&pk.curve.a) {
+        return Err(VerifyError::BadCurve);
     }
-
-    let mut e_aux = EcCurve::default();
-    if ec_curve_init_from_a(&mut e_aux, &sig.e_aux_a) == 0 {
-        return false;
-    }
+    let mut e_aux = ec_curve_init_from_a(&sig.e_aux_a).ok_or(VerifyError::BadCurve)?;
 
     debug_assert!(
         fp2_is_one(&pk.curve.c) == 0xFFFF_FFFF && !pk.curve.is_a24_computed_and_normalized
     );
 
-    let mut e_chall = EcCurve::default();
-    if !compute_challenge_verify(&mut e_chall, sig, &pk.curve, pk.hint_pk) {
-        return false;
+    let mut e_chall = compute_challenge_verify(sig, &pk.curve, pk.hint_pk)?;
+
+    let (mut b_chall_can, b_aux_can) =
+        challenge_and_aux_basis_verify(&mut e_chall, &mut e_aux, sig, pow_dim2_deg_resp)?;
+
+    if sig.two_resp_length > 0 {
+        two_response_isogeny_verify(&mut e_chall, &mut b_chall_can, sig, pow_dim2_deg_resp)?;
     }
 
-    let mut b_chall_can = EcBasis::default();
-    let mut b_aux_can = EcBasis::default();
-    if !challenge_and_aux_basis_verify(
-        &mut b_chall_can,
-        &mut b_aux_can,
-        &mut e_chall,
-        &mut e_aux,
-        sig,
-        pow_dim2_deg_resp,
-    ) {
-        return false;
-    }
-
-    if sig.two_resp_length > 0
-        && !two_response_isogeny_verify(&mut e_chall, &mut b_chall_can, sig, pow_dim2_deg_resp)
-    {
-        return false;
-    }
-
-    let mut e_com = EcCurve::default();
-    if !compute_commitment_curve_verify(
-        &mut e_com,
+    let e_com = compute_commitment_curve_verify(
         &b_chall_can,
         &b_aux_can,
         &e_chall,
         &e_aux,
         pow_dim2_deg_resp,
-    ) {
-        return false;
+    )?;
+
+    if sig.chall_coeff == hash_to_challenge(pk, &e_com, m) {
+        Ok(())
+    } else {
+        Err(VerifyError::ChallengeMismatch)
     }
-
-    let mut chk_chall: Scalar = [0; NWORDS_ORDER];
-    hash_to_challenge(&mut chk_chall, pk, &e_com, m);
-
-    mp_compare(&sig.chall_coeff, &chk_chall, NWORDS_ORDER) == 0
 }
 
 /// Top-level verification matching the NIST API contract.
 pub fn sqisign_verify(m: &[u8], sig_bytes: &[u8], pk_bytes: &[u8]) -> bool {
-    if sig_bytes.len() != SIGNATURE_BYTES || pk_bytes.len() != PUBLICKEY_BYTES {
-        return false;
-    }
-    let mut pkt = PublicKey::default();
-    let mut sigt = Signature::default();
-    if !public_key_from_bytes(&mut pkt, pk_bytes) {
-        return false;
-    }
-    if !signature_from_bytes(&mut sigt, sig_bytes) {
-        return false;
-    }
-    protocols_verify(&sigt, &pkt, m)
+    let go = || -> VResult<()> {
+        let pkt = PublicKey::try_from(pk_bytes)?;
+        let sigt = Signature::try_from(sig_bytes)?;
+        protocols_verify(&sigt, &pkt, m)
+    };
+    go().is_ok()
 }
 
 #[cfg(all(test, feature = "lvl1", not(feature = "lvl3"), not(feature = "lvl5")))]
@@ -535,12 +508,10 @@ mod tests {
 
     #[test]
     fn decode_kat0_pk_sig() {
-        let mut pk = PublicKey::default();
-        public_key_from_bytes(&mut pk, &KAT0_PK);
+        let pk = PublicKey::try_from(&KAT0_PK[..]).unwrap();
         assert_eq!(pk.hint_pk, 11);
 
-        let mut sig = Signature::default();
-        signature_from_bytes(&mut sig, &KAT0_SM[..SIGNATURE_BYTES]);
+        let sig = Signature::try_from(&KAT0_SM[..SIGNATURE_BYTES]).unwrap();
         assert_eq!(sig.backtracking, 0);
         assert_eq!(sig.two_resp_length, 1);
         assert_eq!(sig.hint_aux, 2);
@@ -555,9 +526,7 @@ mod tests {
         );
 
         // Roundtrip.
-        let mut roundtrip = [0u8; SIGNATURE_BYTES];
-        signature_to_bytes(&mut roundtrip, &sig);
-        assert_eq!(&roundtrip[..], &KAT0_SM[..SIGNATURE_BYTES]);
+        assert_eq!(&sig.to_bytes()[..], &KAT0_SM[..SIGNATURE_BYTES]);
     }
 
     #[test]
@@ -723,13 +692,13 @@ mod tests {
         // entangled-basis NQR search never terminates because Im(ib·A²-(1+ib)²)=0
         // for every b. The C reference loops unbounded; we cap the search and
         // reject. A = √2 ∈ Fp works since p ≡ 7 (mod 8).
-        use crate::gf::{fp_is_square, fp_set_small, fp_sqrt, FP2_ENCODED_BYTES};
+        use crate::gf::{fp_is_square, fp_sqrt, Fp, FP2_ENCODED_BYTES};
         let mut a = Fp2::default();
-        fp_set_small(&mut a.re, 2);
+        a.re = Fp::from_small(2);
         assert!(fp_is_square(&a.re) != 0);
         fp_sqrt(&mut a.re);
         let mut pk = [0u8; PUBLICKEY_BYTES];
-        fp2_encode(&mut pk[..FP2_ENCODED_BYTES], &a);
+        pk[..FP2_ENCODED_BYTES].copy_from_slice(&a.encode());
         pk[FP2_ENCODED_BYTES] = 1; // hint_pk = 1
 
         let m = &KAT0_SM[SIGNATURE_BYTES..];
@@ -740,7 +709,7 @@ mod tests {
         // Same attack via sig.e_aux_a: take KAT0 sig, replace e_aux_a with √2,
         // set hint_aux=1.
         let mut sig = KAT0_SM;
-        fp2_encode(&mut sig[..FP2_ENCODED_BYTES], &a);
+        sig[..FP2_ENCODED_BYTES].copy_from_slice(&a.encode());
         sig[SIGNATURE_BYTES - 2] = 1; // hint_aux
         let t = std::time::Instant::now();
         assert!(!sqisign_verify(m, &sig[..SIGNATURE_BYTES], &KAT0_PK));
@@ -780,10 +749,8 @@ mod tests {
         // Golden test for the SHAKE256 iteration loop: hash of KAT0 (pk, com=pk)
         // with empty message must be a specific value. Any change to mask/loop
         // arithmetic breaks this.
-        let mut pk = PublicKey::default();
-        public_key_from_bytes(&mut pk, &KAT0_PK);
-        let mut s: Scalar = [0; NWORDS_ORDER];
-        hash_to_challenge(&mut s, &pk, &pk.curve, b"");
+        let pk = PublicKey::try_from(&KAT0_PK[..]).unwrap();
+        let s = hash_to_challenge(&pk, &pk.curve, b"");
         // Value pinned from current implementation (matches C; KAT-validated).
         assert_eq!(s, [16658541885460340183, 53469704974404856, 0, 0]);
     }

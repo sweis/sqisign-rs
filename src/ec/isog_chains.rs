@@ -127,7 +127,7 @@ fn ec_eval_even_strategy(
 /// Evaluate a 2ⁿ-isogeny on a list of points; image curve written to `image`.
 /// Returns 0 on success, 0xFFFFFFFF if the kernel is malformed.
 pub fn ec_eval_even(image: &mut EcCurve, phi: &EcIsogEven, points: &mut [EcPoint]) -> u32 {
-    copy_curve(image, &phi.curve);
+    *image = phi.curve;
     ec_eval_even_strategy(image, points, &phi.kernel, phi.length as i32)
 }
 

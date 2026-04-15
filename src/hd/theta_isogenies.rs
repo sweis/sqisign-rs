@@ -3,9 +3,7 @@
 //! Ported from `src/hd/ref/lvlx/theta_isogenies.c`.
 
 use super::*;
-use crate::ec::{
-    ec_curve_init, jac_to_xz_add_components, lift_basis, test_jac_order_twof, EcBasis,
-};
+use crate::ec::{jac_to_xz_add_components, lift_basis, test_jac_order_twof, EcBasis};
 use crate::gf::{fp2_batched_inv, fp2_sqrt};
 #[cfg(feature = "sign")]
 use crate::precomp::NORMALIZATION_TRANSFORMS;
@@ -49,14 +47,7 @@ fn set_base_change_matrix_from_precomp(res: &mut BasisChangeMatrix, m: &PrecompB
 
 #[inline]
 fn choose_index_theta_point(res: &mut Fp2, ind: i32, t: &ThetaPoint) {
-    let src = match ind & 3 {
-        0 => &t.x,
-        1 => &t.y,
-        2 => &t.z,
-        3 => &t.t,
-        _ => unreachable!(),
-    };
-    fp2_copy(res, src);
+    *res = t[ind as usize];
 }
 
 /// res ← M · P, optionally skipping the t-column when `pt_not_zero == false`.
@@ -107,10 +98,10 @@ fn apply_isomorphism_general(
         fp2_add_ip(&mut temp.t, &x1);
     }
 
-    fp2_copy(&mut res.x, &temp.x);
-    fp2_copy(&mut res.y, &temp.y);
-    fp2_copy(&mut res.z, &temp.z);
-    fp2_copy(&mut res.t, &temp.t);
+    res.x = temp.x;
+    res.y = temp.y;
+    res.z = temp.z;
+    res.t = temp.t;
 }
 
 #[inline]
@@ -126,13 +117,11 @@ fn base_change_matrix_multiplication(
     m2: &BasisChangeMatrix,
 ) {
     let mut tmp = BasisChangeMatrix::default();
-    let mut sum = Fp2::default();
-    let mut m_ik;
     for i in 0..4 {
         for j in 0..4 {
-            fp2_set_zero(&mut sum);
+            let mut sum = Fp2::ZERO;
             for k in 0..4 {
-                m_ik = m1.m[i][k];
+                let mut m_ik = m1.m[i][k];
                 let m_kj = m2.m[k][j];
                 fp2_mul_ip(&mut m_ik, &m_kj);
                 let ss = sum;
@@ -159,7 +148,7 @@ fn base_change(out: &mut ThetaPoint, phi: &ThetaGluing, t: &ThetaCouplePoint) {
 }
 
 fn action_by_translation_z_and_det(z_inv: &mut Fp2, det_inv: &mut Fp2, p4: &EcPoint, p2: &EcPoint) {
-    fp2_copy(z_inv, &p4.z);
+    *z_inv = p4.z;
     let mut tmp = Fp2::default();
     fp2_mul(det_inv, &p4.x, &p2.z);
     fp2_mul(&mut tmp, &p4.z, &p2.x);
@@ -285,7 +274,7 @@ fn gluing_change_of_basis(
     fp2_add_ip(&mut t102, &tmp);
 
     // Row 0: trace.
-    fp2_set_one(&mut m.m[0][0]);
+    m.m[0][0] = Fp2::ONE;
     fp2_mul(&mut tmp, &t001, &t002);
     fp2_add_ip(&mut m.m[0][0], &tmp);
     fp2_mul(&mut tmp, &gi[2].g00, &gi[3].g00);
@@ -378,18 +367,18 @@ fn gluing_compute(
     // signature data, so a wrong-order point means "reject", not "panic".
     // The C reference does `#ifndef NDEBUG assert(...)` here (debug crash).
     if verify {
-        if test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3) == 0
-            || test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3) == 0
-            || test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3) == 0
-            || test_jac_order_twof(&xy_k2_8.p2, &e12.e2, 3) == 0
+        if !test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3)
+            || !test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3)
+            || !test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3)
+            || !test_jac_order_twof(&xy_k2_8.p2, &e12.e2, 3)
         {
             return false;
         }
     } else {
-        debug_assert!(test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3) != 0);
-        debug_assert!(test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3) != 0);
-        debug_assert!(test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3) != 0);
-        debug_assert!(test_jac_order_twof(&xy_k2_8.p2, &e12.e2, 3) != 0);
+        debug_assert!(test_jac_order_twof(&xy_k1_8.p1, &e12.e1, 3));
+        debug_assert!(test_jac_order_twof(&xy_k2_8.p1, &e12.e1, 3));
+        debug_assert!(test_jac_order_twof(&xy_k1_8.p2, &e12.e2, 3));
+        debug_assert!(test_jac_order_twof(&xy_k2_8.p2, &e12.e2, 3));
     }
 
     out.xy_k1_8 = *xy_k1_8;
@@ -437,12 +426,12 @@ fn gluing_compute(
     fp2_mul(&mut out.codomain.x, &tt1.x, &tt2.x);
     fp2_mul(&mut out.codomain.y, &tt1.y, &tt2.x);
     fp2_mul(&mut out.codomain.z, &tt1.x, &tt2.z);
-    fp2_set_zero(&mut out.codomain.t);
+    out.codomain.t = Fp2::ZERO;
 
     fp2_mul(&mut out.precomputation.x, &tt1.y, &tt2.z);
-    fp2_copy(&mut out.precomputation.y, &out.codomain.z);
-    fp2_copy(&mut out.precomputation.z, &out.codomain.y);
-    fp2_set_zero(&mut out.precomputation.t);
+    out.precomputation.y = out.codomain.z;
+    out.precomputation.z = out.codomain.y;
+    out.precomputation.t = Fp2::ZERO;
 
     fp2_mul(&mut out.image_k1_8.x, &tt1.x, &out.precomputation.x);
     fp2_mul(&mut out.image_k1_8.y, &tt1.z, &out.precomputation.z);
@@ -488,7 +477,7 @@ fn gluing_eval_point(image: &mut ThetaPoint, p: &ThetaCoupleJacPoint, phi: &Thet
     fp2_sub(&mut t2.x, &s2x, &s1x);
     fp2_mul(&mut t2.y, &ac1.v, &ac2.w);
     fp2_mul(&mut t2.z, &ac1.w, &ac2.v);
-    fp2_set_zero(&mut t2.t);
+    t2.t = Fp2::ZERO;
 
     let s = t1;
     apply_isomorphism_general(&mut t1, &phi.m, &s, true);
@@ -531,7 +520,7 @@ fn gluing_eval_point_special_case(
     fp2_mul(&mut image.x, &t.x, &phi.precomputation.x);
     fp2_mul(&mut image.y, &t.y, &phi.precomputation.y);
     fp2_mul(&mut image.z, &t.z, &phi.precomputation.z);
-    fp2_set_zero(&mut image.t);
+    image.t = Fp2::ZERO;
 
     hadamard_ip(image);
     true
@@ -605,8 +594,8 @@ fn theta_isogeny_compute(
     fp2_mul(&mut t3, &tt2.z, &tt2.t);
     fp2_mul(&mut out.precomputation.x, &t3, &tt1.y);
     fp2_mul(&mut out.precomputation.y, &t3, &tt1.x);
-    fp2_copy(&mut out.precomputation.z, &out.codomain.null_point.t);
-    fp2_copy(&mut out.precomputation.t, &out.codomain.null_point.z);
+    out.precomputation.z = out.codomain.null_point.t;
+    out.precomputation.t = out.codomain.null_point.z;
 
     if verify {
         fp2_mul(&mut t1, &tt1.x, &out.precomputation.x);
@@ -723,7 +712,7 @@ fn theta_isogeny_compute_2(
         to_squared_theta(&mut tt2, &a.null_point);
     }
 
-    fp2_copy(&mut out.codomain.null_point.x, &tt2.x);
+    out.codomain.null_point.x = tt2.x;
     fp2_mul(&mut out.codomain.null_point.y, &tt2.x, &tt2.y);
     fp2_mul(&mut out.codomain.null_point.z, &tt2.x, &tt2.z);
     fp2_mul(&mut out.codomain.null_point.t, &tt2.x, &tt2.t);
@@ -798,14 +787,13 @@ fn splitting_compute(
     randomize: bool,
 ) -> bool {
     let mut count: u32 = 0;
-    let mut u_cst = Fp2::default();
     let mut t1 = Fp2::default();
     let mut t2 = Fp2::default();
 
     out.m = BasisChangeMatrix::default();
 
     for i in 0..10 {
-        fp2_set_zero(&mut u_cst);
+        let mut u_cst = Fp2::ZERO;
         let chi_row = &CHI_EVAL[EVEN_INDEX[i][0] as usize];
         for (t, &chi) in chi_row.iter().enumerate() {
             choose_index_theta_point(&mut t2, t as i32, &a.null_point);
@@ -873,8 +861,8 @@ fn theta_product_structure_to_elliptic_product(
         return false;
     }
 
-    ec_curve_init(&mut e12.e1);
-    ec_curve_init(&mut e12.e2);
+    e12.e1 = EcCurve::e0();
+    e12.e2 = EcCurve::e0();
 
     if (fp2_is_zero(&a.null_point.x) | fp2_is_zero(&a.null_point.y) | fp2_is_zero(&a.null_point.z))
         != 0
@@ -960,7 +948,7 @@ fn theta_chain_compute_impl(
     p12: &mut [ThetaCouplePoint],
     verify: bool,
     randomize: bool,
-) -> i32 {
+) -> bool {
     // The strategy initialisation at `todo[0] = (n - 2 + extra)` requires this;
     // verify-path callers already guarantee it via the pow_dim2_deg_resp gate.
     debug_assert!(n >= 2 || extra_torsion);
@@ -981,25 +969,24 @@ fn theta_chain_compute_impl(
         q: ker.t2.p2,
         pmq: ker.t1m2.p2,
     };
-    if lift_basis(&mut xy_t1.p1, &mut xy_t2.p1, &mut bas1, &mut e12.e1) == 0 {
-        return 0;
-    }
-    if lift_basis(&mut xy_t1.p2, &mut xy_t2.p2, &mut bas2, &mut e12.e2) == 0 {
-        return 0;
+    if !lift_basis(&mut xy_t1.p1, &mut xy_t2.p1, &mut bas1, &mut e12.e1)
+        || !lift_basis(&mut xy_t1.p2, &mut xy_t2.p2, &mut bas2, &mut e12.e2)
+    {
+        return false;
     }
 
     let extra: u32 = if extra_torsion { HD_EXTRA_TORSION } else { 0 };
 
     debug_assert!(extra == 0 || extra == 2);
     if verify {
-        if test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32) == 0
-            || test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32) == 0
+        if !test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32)
+            || !test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32)
         {
-            return 0;
+            return false;
         }
     } else {
-        debug_assert!(test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32) != 0);
-        debug_assert!(test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32) != 0);
+        debug_assert!(test_point_order_twof(&bas2.p, &e12.e2, (n + extra) as i32));
+        debug_assert!(test_jac_order_twof(&xy_t2.p2, &e12.e2, (n + extra) as i32));
     }
 
     let mut pts: Vec<ThetaPoint> = vec![ThetaPoint::default(); num_p.max(1)];
@@ -1052,13 +1039,13 @@ fn theta_chain_compute_impl(
             &jac_q2[current as usize],
             verify,
         ) {
-            return 0;
+            return false;
         }
 
         for j in 0..num_p {
             debug_assert!(ec_is_zero(&p12[j].p1) != 0 || ec_is_zero(&p12[j].p2) != 0);
             if !gluing_eval_point_special_case(&mut pts[j], &p12[j], &first_step) {
-                return 0;
+                return false;
             }
         }
 
@@ -1132,7 +1119,7 @@ fn theta_chain_compute_impl(
             )
         };
         if !ret {
-            return 0;
+            return false;
         }
 
         for pt in pts.iter_mut().take(num_p) {
@@ -1195,22 +1182,22 @@ fn theta_chain_compute_impl(
         randomize,
     );
     if !is_split {
-        return 0;
+        return false;
     }
 
     if !theta_product_structure_to_elliptic_product(e34, &last_step.b) {
-        return 0;
+        return false;
     }
 
     for j in 0..num_p {
         let s = pts[j];
         apply_isomorphism(&mut pts[j], &last_step.m, &s);
         if !theta_point_to_montgomery_point(&mut p12[j], &pts[j], &last_step.b) {
-            return 0;
+            return false;
         }
     }
 
-    1
+    true
 }
 
 /// (2ⁿ,2ⁿ)-isogeny chain (signing path: no extra checks, no randomization).
@@ -1221,7 +1208,7 @@ pub fn theta_chain_compute_and_eval(
     extra_torsion: bool,
     e34: &mut ThetaCoupleCurve,
     p12: &mut [ThetaCouplePoint],
-) -> i32 {
+) -> bool {
     theta_chain_compute_impl(n, e12, ker, extra_torsion, e34, p12, false, false)
 }
 
@@ -1233,7 +1220,7 @@ pub fn theta_chain_compute_and_eval_verify(
     extra_torsion: bool,
     e34: &mut ThetaCoupleCurve,
     p12: &mut [ThetaCouplePoint],
-) -> i32 {
+) -> bool {
     theta_chain_compute_impl(n, e12, ker, extra_torsion, e34, p12, true, false)
 }
 
@@ -1246,6 +1233,6 @@ pub fn theta_chain_compute_and_eval_randomized(
     extra_torsion: bool,
     e34: &mut ThetaCoupleCurve,
     p12: &mut [ThetaCouplePoint],
-) -> i32 {
+) -> bool {
     theta_chain_compute_impl(n, e12, ker, extra_torsion, e34, p12, false, true)
 }

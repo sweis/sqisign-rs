@@ -10,7 +10,7 @@ pub fn ibz_mod_not_zero(res: &mut Ibz, x: &Ibz, modn: &Ibz) {
     let mut m = Ibz::default();
     let mut t = Ibz::default();
     ibz_mod(&mut m, x, modn);
-    ibz_set(&mut t, ibz_is_zero(&m));
+    ibz_set(&mut t, ibz_is_zero(&m) as i32);
     let s = t.clone();
     ibz_mul(&mut t, &s, modn);
     ibz_add(res, &m, &t);
@@ -33,7 +33,7 @@ pub fn ibz_centered_mod(remainder: &mut Ibz, a: &Ibz, modn: &Ibz) {
 /// Extended GCD with `u != 0`, `d > 0`, and `u·x > 0` minimal.
 /// See `hnf_internal.c` for the precise post-conditions.
 pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: &Ibz) {
-    if ibz_is_zero(x) & ibz_is_zero(y) != 0 {
+    if ibz_is_zero(x) & ibz_is_zero(y) {
         ibz_set(d, 1);
         ibz_set(u, 1);
         ibz_set(v, 0);
@@ -47,26 +47,26 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
     ibz_xgcd(d, u, v, &x1, &y1);
 
     // Ensure u != 0 (per GMP spec, u==0 implies y | x).
-    if ibz_is_zero(u) != 0 {
-        if ibz_is_zero(&x1) == 0 {
-            if ibz_is_zero(&y1) != 0 {
+    if ibz_is_zero(u) {
+        if !ibz_is_zero(&x1) {
+            if ibz_is_zero(&y1) {
                 ibz_set(&mut y1, 1);
             }
             ibz_div(&mut q, &mut r, &x1, &y1);
-            debug_assert!(ibz_is_zero(&r) != 0);
+            debug_assert!(ibz_is_zero(&r));
             let t = v.clone();
             ibz_sub(v, &t, &q);
         }
         ibz_set(u, 1);
     }
-    if ibz_is_zero(&x1) == 0 {
+    if !ibz_is_zero(&x1) {
         debug_assert!(ibz_cmp(d, ibz_const_zero()) > 0);
         ibz_mul(&mut r, &x1, &y1);
         let neg = ibz_cmp(&r, ibz_const_zero()) < 0;
         ibz_mul(&mut q, &x1, u);
         while ibz_cmp(&q, ibz_const_zero()) <= 0 {
             ibz_div(&mut q, &mut r, &y1, d);
-            debug_assert!(ibz_is_zero(&r) != 0);
+            debug_assert!(ibz_is_zero(&r));
             if neg {
                 let t = q.clone();
                 ibz_neg(&mut q, &t);
@@ -74,7 +74,7 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
             let t = u.clone();
             ibz_add(u, &t, &q);
             ibz_div(&mut q, &mut r, &x1, d);
-            debug_assert!(ibz_is_zero(&r) != 0);
+            debug_assert!(ibz_is_zero(&r));
             if neg {
                 let t = q.clone();
                 ibz_neg(&mut q, &t);
@@ -92,13 +92,13 @@ pub fn ibz_xgcd_with_u_not_0(d: &mut Ibz, u: &mut Ibz, v: &mut Ibz, x: &Ibz, y: 
         let mut prod = Ibz::default();
         let mut res = false;
         res |= ibz_cmp(d, ibz_const_zero()) < 0;
-        if ibz_is_zero(&x1) != 0 && ibz_is_zero(&y1) != 0 {
-            res |= !(ibz_is_zero(v) != 0 && ibz_is_one(u) != 0 && ibz_is_one(d) != 0);
+        if ibz_is_zero(&x1) && ibz_is_zero(&y1) {
+            res |= !(ibz_is_zero(v) && ibz_is_one(u) && ibz_is_one(d));
         } else {
             ibz_div(&mut sum, &mut prod, &x1, d);
-            res |= ibz_is_zero(&prod) == 0;
+            res |= !ibz_is_zero(&prod);
             ibz_div(&mut sum, &mut prod, &y1, d);
-            res |= ibz_is_zero(&prod) == 0;
+            res |= !ibz_is_zero(&prod);
             ibz_mul(&mut sum, &x1, u);
             ibz_mul(&mut prod, &y1, v);
             let t = sum.clone();
@@ -116,14 +116,14 @@ pub fn ibz_mat_4x4_is_hnf(mat: &IbzMat4x4) -> i32 {
     let zero = Ibz::default();
     for i in 0..4 {
         for j in 0..i {
-            res = res && ibz_is_zero(&mat[i][j]) != 0;
+            res = res && ibz_is_zero(&mat[i][j]);
         }
         let mut found = false;
         for j in i..4 {
             if found {
                 res = res && ibz_cmp(&mat[i][j], &zero) >= 0;
                 res = res && ibz_cmp(&mat[i][ind], &mat[i][j]) > 0;
-            } else if ibz_is_zero(&mat[i][j]) == 0 {
+            } else if !ibz_is_zero(&mat[i][j]) {
                 found = true;
                 ind = j;
                 res = res && ibz_cmp(&mat[i][j], &zero) > 0;
@@ -136,7 +136,7 @@ pub fn ibz_mat_4x4_is_hnf(mat: &IbzMat4x4) -> i32 {
     let linestart: i32 = -1;
     for j in 0..4 {
         let mut i = 0;
-        while i < 4 && ibz_is_zero(&mat[i][j]) != 0 {
+        while i < 4 && ibz_is_zero(&mat[i][j]) {
             i += 1;
         }
         if i != 4 {
@@ -220,7 +220,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
     while i != -1 {
         while j != 0 {
             j -= 1;
-            if ibz_is_zero(&a[j as usize][i as usize]) == 0 {
+            if !ibz_is_zero(&a[j as usize][i as usize]) {
                 let aki = a[k as usize][i as usize].clone();
                 let aji = a[j as usize][i as usize].clone();
                 ibz_xgcd_with_u_not_0(&mut d, &mut u, &mut v, &aki, &aji);
@@ -248,7 +248,7 @@ pub fn ibz_mat_4xn_hnf_mod_core(
         ibz_xgcd_with_u_not_0(&mut d, &mut u, &mut v, &aki, &m);
         let ak = a[k as usize].clone();
         ibz_vec_4_scalar_mul_mod(&mut w[i as usize], &u, &ak, &m);
-        if ibz_is_zero(&w[i as usize][i as usize]) != 0 {
+        if ibz_is_zero(&w[i as usize][i as usize]) {
             ibz_copy(&mut w[i as usize][i as usize], &m);
         }
         for h in (i + 1)..4 {
@@ -263,12 +263,12 @@ pub fn ibz_mat_4xn_hnf_mod_core(
         }
         let mc = m.clone();
         ibz_div(&mut m, &mut r, &mc, &d);
-        debug_assert!(ibz_is_zero(&r) != 0);
+        debug_assert!(ibz_is_zero(&r));
         if i != 0 {
             k -= 1;
             i -= 1;
             j = k;
-            if ibz_is_zero(&a[k as usize][i as usize]) != 0 {
+            if ibz_is_zero(&a[k as usize][i as usize]) {
                 ibz_copy(&mut a[k as usize][i as usize], &m);
             }
         } else {

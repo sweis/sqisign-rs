@@ -179,6 +179,13 @@ pub fn quat_alg_elem_equal(a: &QuatAlgElem, b: &QuatAlgElem) -> i32 {
     quat_alg_elem_is_zero(&diff)
 }
 
+impl PartialEq for QuatAlgElem {
+    fn eq(&self, other: &Self) -> bool {
+        quat_alg_elem_equal(self, other) != 0
+    }
+}
+impl Eq for QuatAlgElem {}
+
 pub fn quat_alg_elem_set(elem: &mut QuatAlgElem, denom: i32, c0: i32, c1: i32, c2: i32, c3: i32) {
     ibz_vec_4_set(&mut elem.coord, c0, c1, c2, c3);
     ibz_set(&mut elem.denom, denom);

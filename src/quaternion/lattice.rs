@@ -18,6 +18,13 @@ pub fn quat_lattice_reduce_denom(reduced: &mut QuatLattice, lat: &QuatLattice) {
     ibz_abs(&mut reduced.denom, &d);
 }
 
+impl PartialEq for QuatLattice {
+    fn eq(&self, other: &Self) -> bool {
+        quat_lattice_equal(self, other) != 0
+    }
+}
+impl Eq for QuatLattice {}
+
 pub fn quat_lattice_equal(lat1: &QuatLattice, lat2: &QuatLattice) -> i32 {
     let mut a = QuatLattice::default();
     let mut b = QuatLattice::default();
@@ -80,8 +87,8 @@ pub fn quat_lattice_add(res: &mut QuatLattice, lat1: &QuatLattice, lat2: &QuatLa
         }
     }
     ibz_mat_4x4_inv_with_det_as_denom(None, &mut det2, &tmp);
-    debug_assert!(ibz_is_zero(&det1) == 0);
-    debug_assert!(ibz_is_zero(&det2) == 0);
+    debug_assert!(!ibz_is_zero(&det1));
+    debug_assert!(!ibz_is_zero(&det2));
     ibz_gcd(&mut detprod, &det1, &det2);
     ibz_mat_4xn_hnf_mod_core(&mut res.basis, 8, &generators, &detprod);
     ibz_mul(&mut res.denom, &lat1.denom, &lat2.denom);
@@ -185,19 +192,19 @@ pub fn quat_lattice_contains(
     let mut det = Ibz::default();
     let mut prod = Ibz::default();
     ibz_mat_4x4_inv_with_det_as_denom(Some(&mut inv), &mut det, &lat.basis);
-    debug_assert!(ibz_is_zero(&det) == 0);
+    debug_assert!(!ibz_is_zero(&det));
     ibz_mat_4x4_eval(&mut work_coord, &inv, &x.coord);
     let wc = work_coord.clone();
     ibz_vec_4_scalar_mul(&mut work_coord, &lat.denom, &wc);
     ibz_mul(&mut prod, &x.denom, &det);
     let wc = work_coord.clone();
     let divisible = ibz_vec_4_scalar_div(&mut work_coord, &prod, &wc);
-    if divisible != 0 {
+    if divisible {
         if let Some(coord) = coord {
             ibz_vec_4_copy(coord, &work_coord);
         }
     }
-    divisible
+    divisible as i32
 }
 
 pub fn quat_lattice_index(index: &mut Ibz, sublat: &QuatLattice, overlat: &QuatLattice) {
@@ -217,7 +224,7 @@ pub fn quat_lattice_index(index: &mut Ibz, sublat: &QuatLattice, overlat: &QuatL
     let idx = index.clone();
     let tm = tmp.clone();
     ibz_div(index, &mut tmp, &idx, &tm);
-    debug_assert!(ibz_is_zero(&tmp) != 0);
+    debug_assert!(ibz_is_zero(&tmp));
     let t = index.clone();
     ibz_abs(index, &t);
 }

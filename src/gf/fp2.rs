@@ -20,28 +20,42 @@ impl fmt::Debug for Fp2 {
     }
 }
 
-#[inline]
-pub fn fp2_set_small(x: &mut Fp2, val: Digit) {
-    fp_set_small(&mut x.re, val);
-    fp_set_zero(&mut x.im);
+impl Fp2 {
+    pub const ZERO: Self = Self {
+        re: Fp::ZERO,
+        im: Fp::ZERO,
+    };
+    pub const ONE: Self = Self {
+        re: Fp::ONE,
+        im: Fp::ZERO,
+    };
+
+    #[inline]
+    pub fn from_small(val: Digit) -> Self {
+        Self {
+            re: Fp::from_small(val),
+            im: Fp::ZERO,
+        }
+    }
+
+    #[inline]
+    pub fn encode(&self) -> [u8; FP2_ENCODED_BYTES] {
+        let mut out = [0u8; FP2_ENCODED_BYTES];
+        fp2_encode(&mut out, self);
+        out
+    }
+
+    #[inline]
+    pub fn try_decode(bytes: &[u8]) -> Option<Self> {
+        let mut x = Self::ZERO;
+        (fp2_decode(&mut x, bytes) == 0xFFFF_FFFF).then_some(x)
+    }
 }
 
 #[inline]
 pub fn fp2_mul_small(x: &mut Fp2, y: &Fp2, n: u32) {
     fp_mul_small(&mut x.re, &y.re, n);
     fp_mul_small(&mut x.im, &y.im, n);
-}
-
-#[inline]
-pub fn fp2_set_one(x: &mut Fp2) {
-    fp_set_one(&mut x.re);
-    fp_set_zero(&mut x.im);
-}
-
-#[inline]
-pub fn fp2_set_zero(x: &mut Fp2) {
-    fp_set_zero(&mut x.re);
-    fp_set_zero(&mut x.im);
 }
 
 #[inline]
@@ -60,11 +74,6 @@ pub fn fp2_is_one(a: &Fp2) -> u32 {
 }
 
 #[inline]
-pub fn fp2_copy(x: &mut Fp2, y: &Fp2) {
-    *x = *y;
-}
-
-#[inline]
 pub fn fp2_add(x: &mut Fp2, y: &Fp2, z: &Fp2) {
     fp_add(&mut x.re, &y.re, &z.re);
     fp_add(&mut x.im, &y.im, &z.im);
@@ -73,7 +82,7 @@ pub fn fp2_add(x: &mut Fp2, y: &Fp2, z: &Fp2) {
 #[inline]
 pub fn fp2_add_one(x: &mut Fp2, y: &Fp2) {
     fp_add(&mut x.re, &y.re, &ONE);
-    fp_copy(&mut x.im, &y.im);
+    x.im = y.im;
 }
 
 #[inline]
@@ -234,7 +243,7 @@ pub fn fp2_sqrt(a: &mut Fp2) {
     fp_sub_ip(&mut t0, &t1);
     let f = fp_is_zero(&t0);
     fp_neg(&mut t1, &x0);
-    fp_copy(&mut t0, &x1);
+    t0 = x1;
     let s0 = t0;
     fp_select(&mut t0, &s0, &x0, f);
     let s1 = t1;
@@ -296,7 +305,7 @@ pub fn fp2_batched_inv(x: &mut [Fp2]) {
 /// Variable-time square-and-multiply: out = x^exp, where exp is little-endian limbs.
 pub fn fp2_pow_vartime(out: &mut Fp2, x: &Fp2, exp: &[Digit]) {
     let mut acc = *x;
-    fp2_set_one(out);
+    *out = Fp2::ONE;
     for &word in exp {
         for i in 0..RADIX {
             if (word >> i) & 1 == 1 {
@@ -333,7 +342,7 @@ pub fn fp2_cswap(a: &mut Fp2, b: &mut Fp2, ctl: u32) {
 /// Frobenius endomorphism: out = in^p = conj(in) in GF(p²).
 #[inline]
 pub fn fp2_frob(out: &mut Fp2, input: &Fp2) {
-    fp_copy(&mut out.re, &input.re);
+    out.re = input.re;
     fp_neg(&mut out.im, &input.im);
 }
 
@@ -379,8 +388,7 @@ mod tests {
             fp2_add(&mut e, &a, &d);
             assert_ne!(fp2_is_zero(&e), 0);
 
-            let mut one = Fp2::default();
-            fp2_set_one(&mut one);
+            let one = Fp2::ONE;
             fp2_add(&mut e, &a, &one);
             fp2_add_one(&mut f, &a);
             assert_ne!(fp2_is_equal(&e, &f), 0);
@@ -444,13 +452,11 @@ mod tests {
             fp2_mul(&mut e, &b, &a);
             assert_ne!(fp2_is_equal(&d, &e), 0);
 
-            let mut one = Fp2::default();
-            fp2_set_one(&mut one);
+            let one = Fp2::ONE;
             fp2_mul(&mut d, &a, &one);
             assert_ne!(fp2_is_equal(&a, &d), 0);
 
-            let mut zero = Fp2::default();
-            fp2_set_zero(&mut zero);
+            let zero = Fp2::ZERO;
             fp2_mul(&mut d, &a, &zero);
             assert_ne!(fp2_is_zero(&d), 0);
         }
@@ -491,8 +497,7 @@ mod tests {
             let val = (prng.next() as u32) & 0x7FFF_FFFF;
             let mut b = Fp2::default();
             fp2_mul_small(&mut b, &a, val);
-            let mut c = Fp2::default();
-            fp2_set_small(&mut c, val as Digit);
+            let c = Fp2::from_small(val as Digit);
             let mut d = Fp2::default();
             fp2_mul(&mut d, &a, &c);
             assert_ne!(fp2_is_equal(&b, &d), 0);
@@ -560,8 +565,7 @@ mod tests {
     #[test]
     fn inversion() {
         let mut prng = Prng(0x16);
-        let mut one = Fp2::default();
-        fp2_set_one(&mut one);
+        let one = Fp2::ONE;
         for _ in 0..ITERS {
             let a = fp2_random(&mut prng);
             let mut b = a;
@@ -597,8 +601,7 @@ mod tests {
     #[test]
     fn batched_inv() {
         let mut prng = Prng(0x18);
-        let mut one = Fp2::default();
-        fp2_set_one(&mut one);
+        let one = Fp2::ONE;
         let mut xs: Vec<Fp2> = (0..8).map(|_| fp2_random(&mut prng)).collect();
         let orig = xs.clone();
         fp2_batched_inv(&mut xs);
@@ -616,8 +619,8 @@ mod tests {
     fn golden_c_vectors() {
         let mut enc = [0u8; FP2_ENCODED_BYTES];
         let mut x = Fp2::default();
-        fp_set_small(&mut x.re, 3);
-        fp_set_small(&mut x.im, 4);
+        x.re = Fp::from_small(3);
+        x.im = Fp::from_small(4);
         let mut y = Fp2::default();
         fp2_sqr(&mut y, &x);
         fp2_encode(&mut enc, &y);

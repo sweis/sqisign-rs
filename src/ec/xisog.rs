@@ -17,14 +17,13 @@ pub fn xisog_2(kps: &mut EcKps2, b: &mut EcPoint, p: &EcPoint) {
 /// Degree-2 isogeny with kernel ⟨(0,0)⟩.
 pub fn xisog_2_singular(kps: &mut EcKps2, b24: &mut EcPoint, mut a24: EcPoint) {
     let mut t0 = Fp2::default();
-    let mut four = Fp2::default();
-    fp2_set_small(&mut four, 4);
+    let four = Fp2::from_small(4);
     fp2_add(&mut t0, &a24.x, &a24.x);
     fp2_sub_ip(&mut t0, &a24.z);
     fp2_dbl_ip(&mut t0);
     fp2_inv(&mut a24.z);
     fp2_mul_ip(&mut t0, &a24.z);
-    fp2_copy(&mut kps.k.x, &t0);
+    kps.k.x = t0;
     fp2_add(&mut b24.x, &t0, &t0);
     fp2_sqr_ip(&mut t0);
     fp2_sub_ip(&mut t0, &four);

@@ -25,10 +25,10 @@ pub fn ibq_reduce(x: &mut Ibq) {
     ibz_gcd(&mut gcd, &x[0], &x[1]);
     let n = x[0].clone();
     ibz_div(&mut x[0], &mut r, &n, &gcd);
-    debug_assert!(ibz_is_zero(&r) != 0);
+    debug_assert!(ibz_is_zero(&r));
     let d = x[1].clone();
     ibz_div(&mut x[1], &mut r, &d, &gcd);
-    debug_assert!(ibz_is_zero(&r) != 0);
+    debug_assert!(ibz_is_zero(&r));
 }
 
 pub fn ibq_add(sum: &mut Ibq, a: &Ibq, b: &Ibq) {
@@ -66,9 +66,9 @@ pub fn ibq_mul(prod: &mut Ibq, a: &Ibq, b: &Ibq) {
     ibz_mul(&mut prod[1], &a[1], &b[1]);
 }
 
-pub fn ibq_inv(inv: &mut Ibq, x: &Ibq) -> i32 {
-    let res = (ibq_is_zero(x) == 0) as i32;
-    if res != 0 {
+pub fn ibq_inv(inv: &mut Ibq, x: &Ibq) -> bool {
+    let res = !ibq_is_zero(x);
+    if res {
         ibz_copy(&mut inv[0], &x[0]);
         ibz_copy(&mut inv[1], &x[1]);
         inv.swap(0, 1);
@@ -92,18 +92,18 @@ pub fn ibq_cmp(a: &Ibq, b: &Ibq) -> i32 {
     sign * ibz_cmp(&x, &y)
 }
 
-pub fn ibq_is_zero(x: &Ibq) -> i32 {
+pub fn ibq_is_zero(x: &Ibq) -> bool {
     ibz_is_zero(&x[0])
 }
 
-pub fn ibq_is_one(x: &Ibq) -> i32 {
-    (ibz_cmp(&x[0], &x[1]) == 0) as i32
+pub fn ibq_is_one(x: &Ibq) -> bool {
+    ibz_cmp(&x[0], &x[1]) == 0
 }
 
-pub fn ibq_set(q: &mut Ibq, a: &Ibz, b: &Ibz) -> i32 {
+pub fn ibq_set(q: &mut Ibq, a: &Ibz, b: &Ibz) -> bool {
     ibz_copy(&mut q[0], a);
     ibz_copy(&mut q[1], b);
-    (ibz_is_zero(b) == 0) as i32
+    !ibz_is_zero(b)
 }
 
 pub fn ibq_copy(target: &mut Ibq, value: &Ibq) {
@@ -111,13 +111,13 @@ pub fn ibq_copy(target: &mut Ibq, value: &Ibq) {
     ibz_copy(&mut target[1], &value[1]);
 }
 
-pub fn ibq_is_ibz(q: &Ibq) -> i32 {
+pub fn ibq_is_ibz(q: &Ibq) -> bool {
     let mut r = Ibz::default();
     ibz_mod(&mut r, &q[0], &q[1]);
     ibz_is_zero(&r)
 }
 
-pub fn ibq_to_ibz(z: &mut Ibz, q: &Ibq) -> i32 {
+pub fn ibq_to_ibz(z: &mut Ibz, q: &Ibq) -> bool {
     let mut r = Ibz::default();
     ibz_div(z, &mut r, &q[0], &q[1]);
     ibz_is_zero(&r)
@@ -161,16 +161,16 @@ mod tests {
     #[test]
     fn inv_abs_ibz() {
         let mut i = ibq_init();
-        assert_eq!(ibq_inv(&mut i, &q(3, 7)), 1);
+        assert!(ibq_inv(&mut i, &q(3, 7)));
         assert_eq!(i, [z(7), z(3)]);
-        assert_eq!(ibq_inv(&mut i, &q(0, 5)), 0);
+        assert!(!ibq_inv(&mut i, &q(0, 5)));
         let mut a = ibq_init();
         ibq_abs(&mut a, &q(-3, 5));
         assert!(ibq_cmp(&a, &q(3, 5)) == 0);
-        assert_eq!(ibq_is_ibz(&q(6, 3)), 1);
-        assert_eq!(ibq_is_ibz(&q(5, 3)), 0);
+        assert!(ibq_is_ibz(&q(6, 3)));
+        assert!(!ibq_is_ibz(&q(5, 3)));
         let mut zz = Ibz::default();
-        assert_eq!(ibq_to_ibz(&mut zz, &q(6, 3)), 1);
+        assert!(ibq_to_ibz(&mut zz, &q(6, 3)));
         assert_eq!(zz, z(2));
     }
 }

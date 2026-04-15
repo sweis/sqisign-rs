@@ -75,11 +75,11 @@ pub const fn shiftl(high: Digit, low: Digit, shift: u32) -> Digit {
     (high << shift) ^ (low >> (RADIX - shift))
 }
 
-/// 64×64 → 128-bit multiply, returning `[low, high]`.
+/// 64×64 → 128-bit multiply, returning `(low, high)`.
 #[inline(always)]
-pub fn mul_pair(a: Digit, b: Digit) -> [Digit; 2] {
+pub fn mul_pair(a: Digit, b: Digit) -> (Digit, Digit) {
     let r = (a as u128) * (b as u128);
-    [r as Digit, (r >> RADIX) as Digit]
+    (r as Digit, (r >> RADIX) as Digit)
 }
 
 // ---------------------------------------------------------------------------
@@ -176,18 +176,12 @@ pub fn swap_ct(a: &mut [Digit], b: &mut [Digit], option: Digit, nwords: usize) {
     }
 }
 
-/// Lexicographic compare (most-significant limb first).
-/// Returns `1` if `a > b`, `0` if equal, `-1` if `a < b`. **Not** constant-time.
+use core::cmp::Ordering;
+
+/// Lexicographic compare (most-significant limb first). **Not** constant-time.
 #[inline]
-pub fn mp_compare(a: &[Digit], b: &[Digit], nwords: usize) -> i32 {
-    for i in (0..nwords).rev() {
-        if a[i] > b[i] {
-            return 1;
-        } else if a[i] < b[i] {
-            return -1;
-        }
-    }
-    0
+pub fn mp_compare(a: &[Digit], b: &[Digit], nwords: usize) -> Ordering {
+    a[..nwords].iter().rev().cmp(b[..nwords].iter().rev())
 }
 
 /// Constant-time zero check over `nwords` limbs.
@@ -198,12 +192,6 @@ pub fn mp_is_zero(a: &[Digit], nwords: usize) -> bool {
         r |= a[i];
     }
     is_digit_zero_ct(r) != 0
-}
-
-/// `b = a` over `nwords` limbs.
-#[inline]
-pub fn mp_copy(b: &mut [Digit], a: &[Digit], nwords: usize) {
-    b[..nwords].copy_from_slice(&a[..nwords]);
 }
 
 /// Stack-scratch upper bound for `mp_mul` / `mp_inv_2e` / `mp_invert_matrix`.
@@ -218,29 +206,29 @@ pub fn mp_mul(c: &mut [Digit], a: &[Digit], b: &[Digit], nwords: usize) {
     let mut t = [0u64; MP_SCRATCH];
 
     for i in 0..nwords {
-        let p0 = mul_pair(a[i], b[0]);
-        t[0] = p0[0];
+        let (lo, hi) = mul_pair(a[i], b[0]);
+        t[0] = lo;
         if nwords >= 2 {
-            t[1] = p0[1];
+            t[1] = hi;
         }
 
         for j in 1..nwords.saturating_sub(1) {
-            let uv = mul_pair(a[i], b[j]);
-            let (s, carry) = addc(t[j], uv[0], 0);
+            let (lo, hi) = mul_pair(a[i], b[j]);
+            let (s, carry) = addc(t[j], lo, 0);
             t[j] = s;
-            t[j + 1] = uv[1].wrapping_add(carry as Digit);
+            t[j + 1] = hi.wrapping_add(carry as Digit);
         }
 
         let j = nwords - 1;
-        let uv = mul_pair(a[i], b[j]);
-        let (s, _carry) = addc(t[j], uv[0], 0);
+        let (lo, _) = mul_pair(a[i], b[j]);
+        let (s, _carry) = addc(t[j], lo, 0);
         t[j] = s;
 
         // C: mp_add(&cc[i], &cc[i], t, nwords - i)  — in-place on cc tail
         mp_add_inplace(&mut cc[i..], &t, nwords - i);
     }
 
-    mp_copy(c, &cc, nwords);
+    c[..nwords].copy_from_slice(&cc[..nwords]);
 }
 
 /// In-place reduce `a` modulo `2^e` (zero out bits `>= e`).
@@ -304,7 +292,7 @@ pub fn mp_inv_2e(b: &mut [Digit], a: &[Digit], e: i32, nwords: usize) {
     let mut mp_one = [0u64; MP_SCRATCH];
     mp_one[0] = 1;
 
-    mp_copy(&mut aa, a, nwords);
+    aa[..nwords].copy_from_slice(&a[..nwords]);
 
     let mut p: i32 = 1;
     while (1i32 << p) < e {
@@ -323,18 +311,16 @@ pub fn mp_inv_2e(b: &mut [Digit], a: &[Digit], e: i32, nwords: usize) {
     mp_neg(&mut tmp, nwords);
     mp_add(&mut y, &mp_one, &tmp, nwords);
 
-    let mut xtmp = [0u64; MP_SCRATCH];
-    let mut ytmp = [0u64; MP_SCRATCH];
     for _ in 0..p {
         mp_add(&mut tmp, &mp_one, &y, nwords);
-        mp_copy(&mut xtmp, &x, nwords);
+        let xtmp = x;
         mp_mul(&mut x, &xtmp, &tmp, nwords);
-        mp_copy(&mut ytmp, &y, nwords);
+        let ytmp = y;
         mp_mul(&mut y, &ytmp, &ytmp, nwords);
     }
 
     mp_mod_2exp(&mut x, w, nwords);
-    mp_copy(b, &x, nwords);
+    b[..nwords].copy_from_slice(&x[..nwords]);
 
     #[cfg(debug_assertions)]
     {
@@ -389,10 +375,10 @@ pub fn mp_invert_matrix(
     mp_mod_2exp(&mut resc, w, nwords);
     mp_mod_2exp(&mut resd, w, nwords);
 
-    mp_copy(r1, &resa, nwords);
-    mp_copy(r2, &resb, nwords);
-    mp_copy(s1, &resc, nwords);
-    mp_copy(s2, &resd, nwords);
+    r1[..nwords].copy_from_slice(&resa[..nwords]);
+    r2[..nwords].copy_from_slice(&resb[..nwords]);
+    s1[..nwords].copy_from_slice(&resc[..nwords]);
+    s2[..nwords].copy_from_slice(&resd[..nwords]);
 }
 
 /// Little-endian encode the low `nbytes` bytes of `x` into `enc`.
@@ -457,7 +443,7 @@ mod tests {
     #[test]
     fn mul_full_width() {
         // (2^64 - 1)^2 = 2^128 - 2^65 + 1
-        assert_eq!(mul_pair(Digit::MAX, Digit::MAX), [1, Digit::MAX - 1]);
+        assert_eq!(mul_pair(Digit::MAX, Digit::MAX), (1, Digit::MAX - 1));
     }
 
     #[test]
@@ -484,10 +470,10 @@ mod tests {
 
     #[test]
     fn compare_and_zero() {
-        assert_eq!(mp_compare(&[2, 0], &[1, 0], 2), 1);
-        assert_eq!(mp_compare(&[1, 0], &[2, 0], 2), -1);
-        assert_eq!(mp_compare(&[5, 7], &[5, 7], 2), 0);
-        assert_eq!(mp_compare(&[Digit::MAX, 0], &[0, 1], 2), -1);
+        assert_eq!(mp_compare(&[2, 0], &[1, 0], 2), Ordering::Greater);
+        assert_eq!(mp_compare(&[1, 0], &[2, 0], 2), Ordering::Less);
+        assert_eq!(mp_compare(&[5, 7], &[5, 7], 2), Ordering::Equal);
+        assert_eq!(mp_compare(&[Digit::MAX, 0], &[0, 1], 2), Ordering::Less);
         assert!(mp_is_zero(&[0, 0, 0], 3));
         assert!(!mp_is_zero(&[0, 1, 0], 3));
         assert!(mp_is_one(&[1, 0, 0], 3));

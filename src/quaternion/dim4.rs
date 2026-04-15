@@ -46,7 +46,7 @@ pub fn ibz_vec_4_sub(res: &mut IbzVec4, a: &IbzVec4, b: &IbzVec4) {
 }
 
 pub fn ibz_vec_4_is_zero(x: &IbzVec4) -> i32 {
-    x.iter().all(|v| ibz_is_zero(v) != 0) as i32
+    x.iter().all(ibz_is_zero) as i32
 }
 
 pub fn ibz_vec_4_linear_combination(
@@ -73,9 +73,9 @@ pub fn ibz_vec_4_scalar_mul(prod: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) {
     }
 }
 
-pub fn ibz_vec_4_scalar_div(quot: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) -> i32 {
+pub fn ibz_vec_4_scalar_div(quot: &mut IbzVec4, scalar: &Ibz, vec: &IbzVec4) -> bool {
     let mut r = Ibz::default();
-    let mut ok = 1;
+    let mut ok = true;
     for i in 0..4 {
         ibz_div(&mut quot[i], &mut r, &vec[i], scalar);
         ok &= ibz_is_zero(&r);
@@ -128,7 +128,7 @@ pub fn ibz_mat_4x4_is_identity(mat: &IbzMat4x4) -> i32 {
     let mut res = true;
     for i in 0..4 {
         for j in 0..4 {
-            res = res && ((ibz_is_one(&mat[i][j]) != 0) == (i == j));
+            res = res && ((ibz_is_one(&mat[i][j])) == (i == j));
         }
     }
     res as i32
@@ -164,9 +164,9 @@ pub fn ibz_mat_4x4_gcd(gcd: &mut Ibz, mat: &IbzMat4x4) {
     ibz_copy(gcd, &d);
 }
 
-pub fn ibz_mat_4x4_scalar_div(quot: &mut IbzMat4x4, scalar: &Ibz, mat: &IbzMat4x4) -> i32 {
+pub fn ibz_mat_4x4_scalar_div(quot: &mut IbzMat4x4, scalar: &Ibz, mat: &IbzMat4x4) -> bool {
     let mut r = Ibz::default();
-    let mut ok = 1;
+    let mut ok = true;
     for i in 0..4 {
         for j in 0..4 {
             ibz_div(&mut quot[i][j], &mut r, &mat[i][j], scalar);
@@ -350,11 +350,11 @@ pub fn ibz_mat_4x4_inv_with_det_as_denom(
     }
 
     if let Some(inv) = inv {
-        ibz_set(&mut prod, (ibz_is_zero(&work_det) == 0) as i32);
+        ibz_set(&mut prod, (!ibz_is_zero(&work_det)) as i32);
         ibz_mat_4x4_scalar_mul(inv, &prod, &work);
     }
     ibz_copy(det, &work_det);
-    (ibz_is_zero(det) == 0) as i32
+    (!ibz_is_zero(det)) as i32
 }
 
 /// `res = mat * vec`.

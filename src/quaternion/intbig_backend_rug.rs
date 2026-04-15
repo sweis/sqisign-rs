@@ -101,8 +101,8 @@ pub fn ibz_mod_ui(n: &Ibz, d: u64) -> u64 {
 }
 
 #[inline]
-pub fn ibz_divides(a: &Ibz, b: &Ibz) -> i32 {
-    a.is_divisible(b) as i32
+pub fn ibz_divides(a: &Ibz, b: &Ibz) -> bool {
+    a.is_divisible(b)
 }
 
 #[inline]
@@ -138,12 +138,12 @@ pub fn ibz_cmp(a: &Ibz, b: &Ibz) -> i32 {
     }
 }
 #[inline]
-pub fn ibz_is_zero(x: &Ibz) -> i32 {
-    x.is_zero() as i32
+pub fn ibz_is_zero(x: &Ibz) -> bool {
+    x.is_zero()
 }
 #[inline]
-pub fn ibz_is_one(x: &Ibz) -> i32 {
-    (*x == 1) as i32
+pub fn ibz_is_one(x: &Ibz) -> bool {
+    *x == 1
 }
 #[inline]
 pub fn ibz_cmp_int32(x: &Ibz, y: i32) -> i32 {
@@ -154,12 +154,12 @@ pub fn ibz_cmp_int32(x: &Ibz, y: i32) -> i32 {
     }
 }
 #[inline]
-pub fn ibz_is_even(x: &Ibz) -> i32 {
-    (!x.get_bit(0)) as i32
+pub fn ibz_is_even(x: &Ibz) -> bool {
+    !x.get_bit(0)
 }
 #[inline]
-pub fn ibz_is_odd(x: &Ibz) -> i32 {
-    x.get_bit(0) as i32
+pub fn ibz_is_odd(x: &Ibz) -> bool {
+    x.get_bit(0)
 }
 
 pub fn ibz_convert_to_str(i: &Ibz, base: i32) -> Option<String> {
@@ -300,13 +300,12 @@ pub fn ibz_legendre(a: &Ibz, p: &Ibz) -> i32 {
     a.legendre(p)
 }
 
-pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> i32 {
-    if a.is_perfect_square() {
+pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> bool {
+    let exact = a.is_perfect_square();
+    if exact {
         sqrt.assign(a.sqrt_ref());
-        1
-    } else {
-        0
     }
+    exact
 }
 
 #[inline]

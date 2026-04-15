@@ -44,7 +44,7 @@ pub fn ibz_generate_random_prime(
 
 /// Solve `x² + n·y² = p` for positive `x, y`. Assumes `p` prime.
 /// Returns 1 on success, 0 if no solution exists.
-pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
+pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> bool {
     let mut r0 = Ibz::default();
     let mut r1 = Ibz::default();
     let mut r2 = Ibz::default();
@@ -53,30 +53,30 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
 
     // p = 2
     if ibz_cmp(p, ibz_const_two()) == 0 {
-        if ibz_is_one(n) != 0 {
+        if ibz_is_one(n) {
             ibz_set(x, 1);
             ibz_set(y, 1);
-            return 1;
+            return true;
         }
-        return 0;
+        return false;
     }
     // p = n
     if ibz_cmp(p, n) == 0 {
         ibz_set(x, 0);
         ibz_set(y, 1);
-        return 1;
+        return true;
     }
 
     ibz_gcd(&mut r2, p, n);
-    if ibz_is_one(&r2) == 0 {
-        return 0;
+    if !ibz_is_one(&r2) {
+        return false;
     }
 
     // r2 ← √(-n) mod p
     ibz_neg(&mut r2, n);
     let nr2 = r2.clone();
-    if ibz_sqrt_mod_p(&mut r2, &nr2, p) == 0 {
-        return 0;
+    if !ibz_sqrt_mod_p(&mut r2, &nr2, p) {
+        return false;
     }
 
     // Euclidean descent.
@@ -93,11 +93,11 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
     ibz_sub(&mut a, p, &prod);
     let t = a.clone();
     ibz_div(&mut a, &mut r2, &t, n);
-    if ibz_is_zero(&r2) == 0 {
-        return 0;
+    if !ibz_is_zero(&r2) {
+        return false;
     }
-    if ibz_sqrt(y, &a) == 0 {
-        return 0;
+    if !ibz_sqrt(y, &a) {
+        return false;
     }
 
     ibz_copy(x, &r0);
@@ -106,7 +106,7 @@ pub fn ibz_cornacchia_prime(x: &mut Ibz, y: &mut Ibz, n: &Ibz, p: &Ibz) -> i32 {
     ibz_mul(&mut a, &t, n);
     let t = prod.clone();
     ibz_add(&mut prod, &t, &a);
-    (ibz_cmp(&prod, p) == 0) as i32
+    ibz_cmp(&prod, p) == 0
 }
 
 #[cfg(test)]
@@ -123,11 +123,7 @@ mod tests {
         let (mut x, mut y) = (Ibz::default(), Ibz::default());
         // n=1: x² + y² = p
         for &(p, ex, ey) in &[(5, 1, 2), (13, 2, 3), (29, 2, 5), (97, 4, 9)] {
-            assert_eq!(
-                ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(p)),
-                1,
-                "p={p}"
-            );
+            assert!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(p)), "p={p}");
             let xx = x.clone() * x.clone() + y.clone() * y.clone();
             assert_eq!(xx, z(p));
             // Unordered pair.
@@ -139,15 +135,15 @@ mod tests {
             assert_eq!((lo, hi), (z(ex), z(ey)));
         }
         // n=1, p=2.
-        assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(2)), 1);
+        assert!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(2)));
         assert_eq!((x.clone(), y.clone()), (z(1), z(1)));
         // n=1, p ≡ 3 mod 4: no solution.
-        assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(7)), 0);
+        assert!(!ibz_cornacchia_prime(&mut x, &mut y, &z(1), &z(7)));
         // n=3: x² + 3y² = 7 → (2,1).
-        assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(3), &z(7)), 1);
+        assert!(ibz_cornacchia_prime(&mut x, &mut y, &z(3), &z(7)));
         assert_eq!(x.clone() * x.clone() + z(3) * y.clone() * y.clone(), z(7));
         // p = n.
-        assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(13), &z(13)), 1);
+        assert!(ibz_cornacchia_prime(&mut x, &mut y, &z(13), &z(13)));
         assert_eq!((x, y), (z(0), z(1)));
     }
 
@@ -159,7 +155,7 @@ mod tests {
         let (mut x, mut y) = (Ibz::default(), Ibz::default());
         // p ≡ 1 mod 4, so x²+y²=p solvable.
         assert_eq!(ibz_mod_ui(&p, 4), 1);
-        assert_eq!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &p), 1);
+        assert!(ibz_cornacchia_prime(&mut x, &mut y, &z(1), &p));
         assert_eq!(x.clone() * x.clone() + y.clone() * y.clone(), p);
     }
 }

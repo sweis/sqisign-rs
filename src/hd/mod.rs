@@ -3,14 +3,12 @@
 //! Ported from `src/hd/ref/` in the C reference implementation.
 
 use crate::ec::{
-    copy_point, ec_dbl, ec_is_equal, ec_is_zero, jac_add, jac_dbl, jac_dblw, jac_from_ws,
-    jac_to_ws, jac_to_xz, test_point_order_twof, AddComponents, EcBasis, EcCurve, EcPoint,
-    JacPoint,
+    ec_dbl, ec_is_equal, ec_is_zero, jac_add, jac_dbl, jac_dblw, jac_from_ws, jac_to_ws, jac_to_xz,
+    test_point_order_twof, AddComponents, EcBasis, EcCurve, EcPoint, JacPoint,
 };
 use crate::gf::{
-    fp2_add, fp2_add_ip, fp2_copy, fp2_dbl_ip, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_mul_ip,
-    fp2_neg, fp2_neg_ip, fp2_select, fp2_set_one, fp2_set_zero, fp2_sqr, fp2_sqr_ip, fp2_sub,
-    fp2_sub_ip, Fp2,
+    fp2_add, fp2_add_ip, fp2_dbl_ip, fp2_is_equal, fp2_is_zero, fp2_mul, fp2_mul_ip, fp2_neg,
+    fp2_neg_ip, fp2_select, fp2_sqr, fp2_sqr_ip, fp2_sub, fp2_sub_ip, Fp2,
 };
 
 mod theta_isogenies;
@@ -251,44 +249,79 @@ pub fn couple_jac_to_xz(p: &mut ThetaCouplePoint, xyp: &ThetaCoupleJacPoint) {
 }
 
 /// Pack two bases (P,Q,P−Q) on E₁, E₂ into a kernel triple on E₁ × E₂.
-pub fn copy_bases_to_kernel(ker: &mut ThetaKernelCouplePoints, b1: &EcBasis, b2: &EcBasis) {
-    copy_point(&mut ker.t1.p1, &b1.p);
-    copy_point(&mut ker.t2.p1, &b1.q);
-    copy_point(&mut ker.t1m2.p1, &b1.pmq);
-
-    copy_point(&mut ker.t1.p2, &b2.p);
-    copy_point(&mut ker.t2.p2, &b2.q);
-    copy_point(&mut ker.t1m2.p2, &b2.pmq);
+impl ThetaKernelCouplePoints {
+    /// Pack two bases (P,Q,P−Q) on E₁, E₂ into a kernel triple on E₁ × E₂.
+    pub fn from_bases(b1: &EcBasis, b2: &EcBasis) -> Self {
+        Self {
+            t1: ThetaCouplePoint { p1: b1.p, p2: b2.p },
+            t2: ThetaCouplePoint { p1: b1.q, p2: b2.q },
+            t1m2: ThetaCouplePoint {
+                p1: b1.pmq,
+                p2: b2.pmq,
+            },
+        }
+    }
 }
 
 /// Debug helper: tests both components of a couple point have order exactly 2ᵗ.
-pub fn test_couple_point_order_twof(t: &ThetaCouplePoint, e: &ThetaCoupleCurve, tw: i32) -> u32 {
-    test_point_order_twof(&t.p1, &e.e1, tw) & test_point_order_twof(&t.p2, &e.e2, tw)
+pub fn test_couple_point_order_twof(t: &ThetaCouplePoint, e: &ThetaCoupleCurve, tw: i32) -> bool {
+    test_point_order_twof(&t.p1, &e.e1, tw) && test_point_order_twof(&t.p2, &e.e2, tw)
 }
 
 // ===========================================================================
 // Theta structure primitives (theta_structure.{h,c})
 // ===========================================================================
 
-/// Hadamard transform: (x,y,z,t) ↦ (x+y+z+t, x−y+z−t, x+y−z−t, x−y−z+t).
+use core::ops::Index;
+
+impl Index<usize> for ThetaPoint {
+    type Output = Fp2;
+    #[inline]
+    fn index(&self, i: usize) -> &Fp2 {
+        [&self.x, &self.y, &self.z, &self.t][i & 3]
+    }
+}
+
+impl ThetaPoint {
+    /// Hadamard transform: (x,y,z,t) ↦ (x+y+z+t, x−y+z−t, x+y−z−t, x−y−z+t).
+    #[inline]
+    #[must_use]
+    pub fn hadamard(&self) -> Self {
+        let mut out = *self;
+        hadamard_ip(&mut out);
+        out
+    }
+
+    /// Coordinate-wise squaring.
+    #[inline]
+    #[must_use]
+    pub fn squared(&self) -> Self {
+        let mut out = *self;
+        pointwise_square_ip(&mut out);
+        out
+    }
+
+    /// Square coordinates then apply the Hadamard transform.
+    #[inline]
+    #[must_use]
+    pub fn to_squared_theta(&self) -> Self {
+        let mut out = *self;
+        to_squared_theta_ip(&mut out);
+        out
+    }
+}
+
 #[inline]
 pub fn hadamard(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    *out = *in_;
-    hadamard_ip(out);
+    *out = in_.hadamard();
 }
-
-/// Coordinate-wise squaring.
 #[inline]
 pub fn pointwise_square(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    *out = *in_;
-    pointwise_square_ip(out);
+    *out = in_.squared();
 }
-
-/// Square coordinates then apply the Hadamard transform.
 #[inline]
 pub fn to_squared_theta(out: &mut ThetaPoint, in_: &ThetaPoint) {
-    *out = *in_;
-    to_squared_theta_ip(out);
+    *out = in_.to_squared_theta();
 }
 
 /// In-place Hadamard. The transform reads all inputs into locals before
@@ -406,15 +439,14 @@ pub fn is_product_theta_point(p: &ThetaPoint) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gf::{fp2_set_one, fp2_set_small};
 
     fn tp(x: u64, y: u64, z: u64, t: u64) -> ThetaPoint {
-        let mut p = ThetaPoint::default();
-        fp2_set_small(&mut p.x, x);
-        fp2_set_small(&mut p.y, y);
-        fp2_set_small(&mut p.z, z);
-        fp2_set_small(&mut p.t, t);
-        p
+        ThetaPoint {
+            x: Fp2::from_small(x),
+            y: Fp2::from_small(y),
+            z: Fp2::from_small(z),
+            t: Fp2::from_small(t),
+        }
     }
 
     #[test]
@@ -449,8 +481,7 @@ mod tests {
         let p = tp(1, 1, 1, 1);
         let mut out = ThetaPoint::default();
         to_squared_theta(&mut out, &p);
-        let mut four = Fp2::default();
-        fp2_set_small(&mut four, 4);
+        let four = Fp2::from_small(4);
         assert_eq!(fp2_is_equal(&out.x, &four), 0xFFFFFFFF);
         assert_eq!(fp2_is_zero(&out.y), 0xFFFFFFFF);
         assert_eq!(fp2_is_zero(&out.z), 0xFFFFFFFF);
@@ -458,18 +489,15 @@ mod tests {
     }
 
     #[test]
-    fn copy_bases_to_kernel_layout() {
-        let mut one = Fp2::default();
-        fp2_set_one(&mut one);
-        let p = EcPoint { x: one, z: one };
-        let mut b1 = EcBasis::default();
-        b1.p = p;
-        b1.q = p;
-        b1.pmq = p;
+    fn from_bases_layout() {
+        let p = EcPoint {
+            x: Fp2::ONE,
+            z: Fp2::ONE,
+        };
+        let b1 = EcBasis { p, q: p, pmq: p };
         let b2 = EcBasis::default();
-        let mut ker = ThetaKernelCouplePoints::default();
-        copy_bases_to_kernel(&mut ker, &b1, &b2);
-        assert_eq!(fp2_is_equal(&ker.t1.p1.x, &one), 0xFFFFFFFF);
+        let ker = ThetaKernelCouplePoints::from_bases(&b1, &b2);
+        assert_eq!(fp2_is_equal(&ker.t1.p1.x, &Fp2::ONE), 0xFFFFFFFF);
         assert_eq!(fp2_is_zero(&ker.t1.p2.x), 0xFFFFFFFF);
     }
 }

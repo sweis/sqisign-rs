@@ -56,7 +56,7 @@ pub fn ibz_const_three() -> &'static Ibz {
 pub fn ibz_rand_interval(rand: &mut Ibz, a: &Ibz, b: &Ibz) -> i32 {
     let mut bmina = ibz_new();
     ibz_sub(&mut bmina, b, a);
-    if ibz_is_zero(&bmina) != 0 {
+    if ibz_is_zero(&bmina) {
         ibz_copy(rand, a);
         return 1;
     }
@@ -143,17 +143,17 @@ pub fn ibz_rand_interval_bits(rand: &mut Ibz, m: u32) -> i32 {
 // ---------------------------------------------------------------------------
 // Tonelli–Shanks modular square root. Backend-agnostic.
 
-pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> i32 {
+pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> bool {
     debug_assert!(ibz_probab_prime(p, 30) != 0);
 
     let mut amod = ibz_new();
     ibz_mod(&mut amod, a, p);
-    if ibz_is_zero(&amod) != 0 {
+    if ibz_is_zero(&amod) {
         ibz_set(sqrt, 0);
         // C falls through; legendre(0,p)=0 so it returns 0.
     }
     if ibz_legendre(&amod, p) != 1 {
-        return 0;
+        return false;
     }
 
     let mut pm1 = ibz_new();
@@ -174,7 +174,7 @@ pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> i32 {
         ibz_div_2exp(&mut e, &pm1, 2);
         let mut t = ibz_new();
         ibz_pow_mod(&mut t, &amod, &e, p);
-        if ibz_is_one(&t) != 0 {
+        if ibz_is_one(&t) {
             ibz_add(&mut e, p, ibz_const_three());
             let ee = e.clone();
             ibz_div_2exp(&mut e, &ee, 3);
@@ -239,7 +239,7 @@ pub fn ibz_sqrt_mod_p(sqrt: &mut Ibz, a: &Ibz, p: &Ibz) -> i32 {
         }
         ibz_copy(sqrt, &x);
     }
-    1
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -304,14 +304,14 @@ mod tests {
 
     #[test]
     fn predicates() {
-        assert_eq!(ibz_is_zero(&z(0)), 1);
-        assert_eq!(ibz_is_one(&z(1)), 1);
-        assert_eq!(ibz_is_even(&z(6)), 1);
-        assert_eq!(ibz_is_odd(&z(7)), 1);
+        assert!(ibz_is_zero(&z(0)));
+        assert!(ibz_is_one(&z(1)));
+        assert!(ibz_is_even(&z(6)));
+        assert!(ibz_is_odd(&z(7)));
         assert_eq!(ibz_cmp(&z(5), &z(3)), 1);
         assert_eq!(ibz_cmp_int32(&z(-2), -2), 0);
-        assert_eq!(ibz_divides(&z(12), &z(4)), 1);
-        assert_eq!(ibz_divides(&z(12), &z(5)), 0);
+        assert!(ibz_divides(&z(12), &z(4)));
+        assert!(!ibz_divides(&z(12), &z(5)));
     }
 
     #[test]
@@ -368,9 +368,9 @@ mod tests {
     #[test]
     fn sqrt_perfect() {
         let mut s = ibz_new();
-        assert_eq!(ibz_sqrt(&mut s, &z(144)), 1);
+        assert!(ibz_sqrt(&mut s, &z(144)));
         assert_eq!(ibz_get(&s), 12);
-        assert_eq!(ibz_sqrt(&mut s, &z(145)), 0);
+        assert!(!ibz_sqrt(&mut s, &z(145)));
         ibz_sqrt_floor(&mut s, &z(145));
         assert_eq!(ibz_get(&s), 12);
     }
@@ -379,12 +379,12 @@ mod tests {
     fn sqrt_mod_p_all_branches() {
         let mut s = ibz_new();
         for &(a, p) in &[(2i64, 7i64), (3, 13), (10, 13), (2, 17), (8, 41)] {
-            assert_eq!(ibz_sqrt_mod_p(&mut s, &z(a), &z(p)), 1, "a={a} p={p}");
+            assert!(ibz_sqrt_mod_p(&mut s, &z(a), &z(p)), "a={a} p={p}");
             let mut s2 = ibz_new();
             ibz_mul(&mut s2, &s, &s);
             assert_eq!(ibz_mod_ui(&s2, p as u64), a as u64, "a={a} p={p}");
         }
-        assert_eq!(ibz_sqrt_mod_p(&mut s, &z(3), &z(7)), 0);
+        assert!(!ibz_sqrt_mod_p(&mut s, &z(3), &z(7)));
     }
 
     #[test]

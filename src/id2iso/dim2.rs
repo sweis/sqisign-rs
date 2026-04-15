@@ -55,14 +55,14 @@ fn fixed_degree_isogeny_impl(
     ibz_pow(&mut two_pow, ibz_const_two(), length);
     ibz_copy(&mut tmp, u);
     debug_assert!(ibz_cmp(&two_pow, &tmp) > 0);
-    debug_assert!(ibz_is_even(&tmp) == 0);
+    debug_assert!(!ibz_is_even(&tmp));
 
     // theta has norm u·(2^length − u).
     let t = tmp.clone();
     ibz_sub(&mut tmp, &two_pow, &t);
     let t = tmp.clone();
     ibz_mul(&mut tmp, &t, u);
-    debug_assert!(ibz_is_even(&tmp) == 0);
+    debug_assert!(!ibz_is_even(&tmp));
 
     let ri_params = QuatRepresentIntegerParams {
         primality_test_iterations: super::quat_represent_integer_params().primality_test_iterations,
@@ -77,7 +77,7 @@ fn fixed_degree_isogeny_impl(
     }
 
     let ret = quat_represent_integer(&mut theta, &tmp, 1, &ri_params);
-    debug_assert!(ibz_is_even(&tmp) == 0);
+    debug_assert!(!ibz_is_even(&tmp));
     if ret == 0 {
         #[cfg(debug_assertions)]
         eprintln!(
@@ -103,9 +103,9 @@ fn fixed_degree_isogeny_impl(
         let mut test_norm = Ibz::default();
         let mut test_denom = Ibz::default();
         quat_alg_norm(&mut test_norm, &mut test_denom, &theta, quatalg_pinfty());
-        debug_assert!(ibz_is_one(&test_denom) != 0);
+        debug_assert!(ibz_is_one(&test_denom));
         debug_assert!(ibz_cmp(&test_norm, &tmp) == 0);
-        debug_assert!(ibz_is_even(&tmp) == 0);
+        debug_assert!(!ibz_is_even(&tmp));
         debug_assert!(
             quat_lattice_contains(
                 None,
@@ -116,7 +116,11 @@ fn fixed_degree_isogeny_impl(
     }
 
     let mut b0_two = curves_with_endomorphisms()[index_alternate_order].basis_even;
-    debug_assert!(test_basis_order_twof(&b0_two, &e0, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &b0_two,
+        &e0,
+        TORSION_EVEN_POWER as i32
+    ));
     let s = b0_two;
     ec_dbl_iter_basis(
         &mut b0_two,
@@ -124,7 +128,11 @@ fn fixed_degree_isogeny_impl(
         &s,
         &mut e0,
     );
-    debug_assert!(test_basis_order_twof(&b0_two, &e0, (length + HD_EXTRA_TORSION) as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &b0_two,
+        &e0,
+        (length + HD_EXTRA_TORSION) as i32
+    ));
 
     // theta ← theta · u⁻¹ mod 2^{length+2}
     let tp = two_pow.clone();
@@ -134,7 +142,7 @@ fn fixed_degree_isogeny_impl(
     ibz_copy(&mut tmp, u);
     let t = tmp.clone();
     ibz_invmod(&mut tmp, &t, &two_pow);
-    debug_assert!(ibz_is_even(&tmp) == 0);
+    debug_assert!(!ibz_is_even(&tmp));
     for i in 0..4 {
         let c = theta.coord[i].clone();
         ibz_mul(&mut theta.coord[i], &c, &tmp);
@@ -148,16 +156,16 @@ fn fixed_degree_isogeny_impl(
         &theta,
         (length + HD_EXTRA_TORSION) as i32,
     );
-    debug_assert!(
-        test_basis_order_twof(&b0_two_theta, &e0, (length + HD_EXTRA_TORSION) as i32) != 0
-    );
+    debug_assert!(test_basis_order_twof(
+        &b0_two_theta,
+        &e0,
+        (length + HD_EXTRA_TORSION) as i32
+    ));
 
     let mut e00 = ThetaCoupleCurve { e1: e0, e2: e0 };
-    let mut dim_two_ker = ThetaKernelCouplePoints::default();
-    copy_bases_to_kernel(&mut dim_two_ker, &b0_two, &b0_two_theta);
+    let dim_two_ker = ThetaKernelCouplePoints::from_bases(&b0_two, &b0_two_theta);
 
-    let ret = theta_chain_compute_and_eval(length, &mut e00, &dim_two_ker, true, e34, p12);
-    if ret == 0 {
+    if !theta_chain_compute_and_eval(length, &mut e00, &dim_two_ker, true, e34, p12) {
         return 0;
     }
     debug_assert!(length > 0);
@@ -309,7 +317,7 @@ fn enumerate_hypercube(
                         quat_qf_eval(&mut norm, gram, &point);
                         let n = norm.clone();
                         ibz_div(&mut norm, &mut remain, &n, adjusted_norm);
-                        debug_assert!(ibz_is_zero(&remain) != 0);
+                        debug_assert!(ibz_is_zero(&remain));
 
                         if ibz_mod_ui(&norm, 2) == 1 {
                             ibz_set(&mut vecs[count][0], x);
@@ -365,7 +373,7 @@ fn find_uv_from_lists(
             let mut cmp = ibz_cmp(v, &quotients[i2]);
             while found == 0 && cmp < 0 {
                 if number_sum_square > 0 {
-                    found = ibz_cornacchia_prime(av, bv, ibz_const_one(), v);
+                    found = ibz_cornacchia_prime(av, bv, ibz_const_one(), v) as i32;
                 } else if number_sum_square == 0 {
                     found = 1;
                 }
@@ -377,10 +385,10 @@ fn find_uv_from_lists(
                     debug_assert!(ibz_cmp(u, ibz_const_zero()) > 0);
                     let uv = u.clone();
                     ibz_div(u, &mut remain, &uv, &small_norms1[i1]);
-                    debug_assert!(ibz_is_zero(&remain) != 0);
+                    debug_assert!(ibz_is_zero(&remain));
                     found = i32::from(found != 0 && ibz_get(u) != 0 && ibz_get(v) != 0);
                     if number_sum_square == 2 {
-                        found = ibz_cornacchia_prime(au, bu, ibz_const_one(), u);
+                        found = ibz_cornacchia_prime(au, bu, ibz_const_one(), u) as i32;
                     }
                 }
                 if found == 0 {
@@ -620,7 +628,7 @@ pub fn find_uv(
                     let mut nd = Ibz::default();
                     let mut chk = Ibz::default();
                     quat_alg_norm(&mut nrm, &mut nd, beta1, quatalg_pinfty());
-                    debug_assert!(ibz_is_one(&nd) != 0);
+                    debug_assert!(ibz_is_one(&nd));
                     ibz_mul(&mut chk, d1, &ideal[0].norm);
                     if j1 > 0 {
                         let c = chk.clone();
@@ -628,7 +636,7 @@ pub fn find_uv(
                     }
                     debug_assert!(ibz_cmp(&chk, &nrm) == 0);
                     quat_alg_norm(&mut nrm, &mut nd, beta2, quatalg_pinfty());
-                    debug_assert!(ibz_is_one(&nd) != 0);
+                    debug_assert!(ibz_is_one(&nd));
                     ibz_mul(&mut chk, d2, &ideal[0].norm);
                     if j2 > 0 {
                         let c = chk.clone();
@@ -689,7 +697,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     if ret == 0 {
         return 0;
     }
-    debug_assert!(ibz_is_odd(d1) != 0 && ibz_is_odd(d2) != 0);
+    debug_assert!(ibz_is_odd(d1) && ibz_is_odd(d2));
 
     ibz_gcd(&mut tmp, u, v);
     debug_assert!(ibz_cmp(&tmp, ibz_const_zero()) != 0);
@@ -751,9 +759,9 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
         p1: bas1.pmq,
         p2: EcPoint::default(),
     };
-    ec_point_init(&mut pushed[0].p2);
-    ec_point_init(&mut pushed[1].p2);
-    ec_point_init(&mut pushed[2].p2);
+    pushed[0].p2 = EcPoint::IDENTITY;
+    pushed[1].p2 = EcPoint::IDENTITY;
+    pushed[2].p2 = EcPoint::IDENTITY;
 
     let ret = fixed_degree_isogeny_and_eval(
         &mut idealu,
@@ -766,12 +774,16 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     if ret == 0 {
         return 0;
     }
-    debug_assert!(
-        test_point_order_twof(&pushed[0].p1, &fu_codomain.e1, TORSION_EVEN_POWER as i32) != 0
-    );
-    debug_assert!(
-        test_point_order_twof(&pushed[0].p2, &fu_codomain.e2, TORSION_EVEN_POWER as i32) != 0
-    );
+    debug_assert!(test_point_order_twof(
+        &pushed[0].p1,
+        &fu_codomain.e1,
+        TORSION_EVEN_POWER as i32
+    ));
+    debug_assert!(test_point_order_twof(
+        &pushed[0].p2,
+        &fu_codomain.e2,
+        TORSION_EVEN_POWER as i32
+    ));
 
     bas_u.p = pushed[0].p1;
     bas_u.q = pushed[1].p1;
@@ -794,9 +806,9 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
         p1: bas2.pmq,
         p2: EcPoint::default(),
     };
-    ec_point_init(&mut pushed[0].p2);
-    ec_point_init(&mut pushed[1].p2);
-    ec_point_init(&mut pushed[2].p2);
+    pushed[0].p2 = EcPoint::IDENTITY;
+    pushed[1].p2 = EcPoint::IDENTITY;
+    pushed[2].p2 = EcPoint::IDENTITY;
 
     let ret = fixed_degree_isogeny_and_eval(
         &mut idealv,
@@ -809,12 +821,16 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     if ret == 0 {
         return 0;
     }
-    debug_assert!(
-        test_point_order_twof(&pushed[0].p1, &fv_codomain.e1, TORSION_EVEN_POWER as i32) != 0
-    );
-    debug_assert!(
-        test_point_order_twof(&pushed[0].p2, &fv_codomain.e2, TORSION_EVEN_POWER as i32) != 0
-    );
+    debug_assert!(test_point_order_twof(
+        &pushed[0].p1,
+        &fv_codomain.e1,
+        TORSION_EVEN_POWER as i32
+    ));
+    debug_assert!(test_point_order_twof(
+        &pushed[0].p2,
+        &fv_codomain.e2,
+        TORSION_EVEN_POWER as i32
+    ));
 
     bas2.p = pushed[0].p1;
     bas2.q = pushed[1].p1;
@@ -845,7 +861,11 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
         &theta,
         TORSION_EVEN_POWER as i32,
     );
-    debug_assert!(test_basis_order_twof(&bas2, &fv_codomain.e1, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_basis_order_twof(
+        &bas2,
+        &fv_codomain.e1,
+        TORSION_EVEN_POWER as i32
+    ));
 
     ker.t1.p2 = bas2.p;
     ker.t2.p2 = bas2.q;
@@ -860,43 +880,52 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     let s = ker.t1m2;
     double_couple_point_iter(&mut ker.t1m2, dbl_n, &s, &e01);
 
-    debug_assert!(test_point_order_twof(&ker.t1.p1, &e01.e1, exp) != 0);
-    debug_assert!(test_point_order_twof(&ker.t1m2.p2, &e01.e2, exp) != 0);
-    debug_assert!(ibz_is_odd(u) != 0);
-    debug_assert!(test_basis_order_twof(&bas_u, &e01.e1, TORSION_EVEN_POWER as i32) != 0);
+    debug_assert!(test_point_order_twof(&ker.t1.p1, &e01.e1, exp));
+    debug_assert!(test_point_order_twof(&ker.t1m2.p2, &e01.e2, exp));
+    debug_assert!(ibz_is_odd(u));
+    debug_assert!(test_basis_order_twof(
+        &bas_u,
+        &e01.e1,
+        TORSION_EVEN_POWER as i32
+    ));
 
     pushed[0].p1 = bas_u.p;
     pushed[1].p1 = bas_u.q;
     pushed[2].p1 = bas_u.pmq;
-    ec_point_init(&mut pushed[0].p2);
-    ec_point_init(&mut pushed[1].p2);
-    ec_point_init(&mut pushed[2].p2);
+    pushed[0].p2 = EcPoint::IDENTITY;
+    pushed[1].p2 = EcPoint::IDENTITY;
+    pushed[2].p2 = EcPoint::IDENTITY;
 
     let mut theta_codomain = ThetaCoupleCurve::default();
-    let ret = theta_chain_compute_and_eval_randomized(
+    if !theta_chain_compute_and_eval_randomized(
         exp as u32,
         &mut e01,
         &ker,
         false,
         &mut theta_codomain,
         &mut pushed,
-    );
-    if ret == 0 {
+    ) {
         return 0;
     }
 
     let t1 = pushed[0];
     let t2 = pushed[1];
     let t1m2 = pushed[2];
-    debug_assert!(
-        test_point_order_twof(&t1.p2, &theta_codomain.e2, TORSION_EVEN_POWER as i32) != 0
-    );
-    debug_assert!(
-        test_point_order_twof(&t1.p1, &theta_codomain.e1, TORSION_EVEN_POWER as i32) != 0
-    );
-    debug_assert!(
-        test_point_order_twof(&t1m2.p2, &theta_codomain.e2, TORSION_EVEN_POWER as i32) != 0
-    );
+    debug_assert!(test_point_order_twof(
+        &t1.p2,
+        &theta_codomain.e2,
+        TORSION_EVEN_POWER as i32
+    ));
+    debug_assert!(test_point_order_twof(
+        &t1.p1,
+        &theta_codomain.e1,
+        TORSION_EVEN_POWER as i32
+    ));
+    debug_assert!(test_point_order_twof(
+        &t1m2.p2,
+        &theta_codomain.e2,
+        TORSION_EVEN_POWER as i32
+    ));
 
     basis.p = t1.p1;
     basis.q = t2.p1;

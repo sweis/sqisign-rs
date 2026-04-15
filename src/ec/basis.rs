@@ -44,15 +44,15 @@ fn difference_point(pq: &mut EcPoint, p: &EcPoint, q: &EcPoint, curve: &EcCurve)
     fp2_dbl_ip(&mut t0);
     fp2_add_ip(&mut bxz, &t0);
 
-    fp_copy(&mut t0.re, &curve.c.re);
+    t0.re = curve.c.re;
     fp_neg(&mut t0.im, &curve.c.im);
     fp2_sqr_ip(&mut t0);
     fp2_mul_ip(&mut t0, &curve.c);
-    fp_copy(&mut t1.re, &p.z.re);
+    t1.re = p.z.re;
     fp_neg(&mut t1.im, &p.z.im);
     fp2_sqr_ip(&mut t1);
     fp2_mul_ip(&mut t0, &t1);
-    fp_copy(&mut t1.re, &q.z.re);
+    t1.re = q.z.re;
     fp_neg(&mut t1.im, &q.z.im);
     fp2_sqr_ip(&mut t1);
     fp2_mul_ip(&mut t0, &t1);
@@ -65,7 +65,7 @@ fn difference_point(pq: &mut EcPoint, p: &EcPoint, q: &EcPoint, curve: &EcCurve)
     fp2_sub_ip(&mut t0, &t1);
     fp2_sqrt(&mut t0);
     fp2_add(&mut pq.x, &bxz, &t0);
-    fp2_copy(&mut pq.z, &bzz);
+    pq.z = bzz;
 }
 
 /// Lift an x-only basis to a Jacobian pair, assuming (A:C)=(A:1) and P=(X:1).
@@ -74,14 +74,14 @@ pub fn lift_basis_normalized(
     q: &mut JacPoint,
     b: &mut EcBasis,
     e: &EcCurve,
-) -> u32 {
+) -> bool {
     debug_assert!(fp2_is_one(&b.p.z) != 0);
     debug_assert!(fp2_is_one(&e.c) != 0);
 
-    fp2_copy(&mut p.x, &b.p.x);
-    fp2_copy(&mut q.x, &b.q.x);
-    fp2_copy(&mut q.z, &b.q.z);
-    fp2_set_one(&mut p.z);
+    p.x = b.p.x;
+    q.x = b.q.x;
+    q.z = b.q.z;
+    p.z = Fp2::ONE;
     let px = p.x;
     let ret = ec_recover_y(&mut p.y, &px, e);
 
@@ -119,20 +119,20 @@ pub fn lift_basis_normalized(
     fp2_mul(&mut q.y, &qy, &v1);
     let qx = q.x;
     fp2_mul(&mut q.x, &qx, &qz);
-    ret
+    ret != 0
 }
 
 /// Lift an x-only basis to a Jacobian pair, normalizing first.
-/// Returns 0 if any input projective coordinate is zero (point at infinity);
-/// otherwise the batched inverse would silently zero `e.a`.
-pub fn lift_basis(p: &mut JacPoint, q: &mut JacPoint, b: &mut EcBasis, e: &mut EcCurve) -> u32 {
+/// Returns `false` if any input projective coordinate is zero (point at
+/// infinity), since the batched inverse would otherwise silently zero `e.a`.
+pub fn lift_basis(p: &mut JacPoint, q: &mut JacPoint, b: &mut EcBasis, e: &mut EcCurve) -> bool {
     if (fp2_is_zero(&b.p.z) | fp2_is_zero(&e.c)) != 0 {
-        return 0;
+        return false;
     }
     let mut inverses = [b.p.z, e.c];
     fp2_batched_inv(&mut inverses);
-    fp2_set_one(&mut b.p.z);
-    fp2_set_one(&mut e.c);
+    b.p.z = Fp2::ONE;
+    e.c = Fp2::ONE;
     let bx = b.p.x;
     fp2_mul(&mut b.p.x, &bx, &inverses[0]);
     let ea = e.a;
@@ -141,7 +141,7 @@ pub fn lift_basis(p: &mut JacPoint, q: &mut JacPoint, b: &mut EcBasis, e: &mut E
 }
 
 /// On-curve test for an affine x (assumes C=1).
-fn is_on_curve(x: &Fp2, curve: &EcCurve) -> u32 {
+fn is_on_curve(x: &Fp2, curve: &EcCurve) -> bool {
     debug_assert!(fp2_is_one(&curve.c) != 0);
     let mut t0 = Fp2::default();
     fp2_add(&mut t0, x, &curve.a);
@@ -149,7 +149,7 @@ fn is_on_curve(x: &Fp2, curve: &EcCurve) -> u32 {
     let s = t0;
     fp2_add_one(&mut t0, &s);
     fp2_mul_ip(&mut t0, x);
-    fp2_is_square(&t0)
+    fp2_is_square(&t0) != 0
 }
 
 /// Clear odd cofactor and excess 2-power so that P has order exactly 2ᶠ.
@@ -180,10 +180,8 @@ const BASIS_SEARCH_CAP: u16 = 256;
 /// within `BASIS_SEARCH_CAP` candidates (adversarial A).
 fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
     let mut n: u16 = start as u16;
-    let mut b = Fp::default();
-    let mut tmp = Fp::default();
-    let mut z = Fp2::default();
-    let mut t0 = Fp2::default();
+    let mut z;
+    let mut t0;
     let mut t1 = Fp2::default();
 
     let cap = n.saturating_add(BASIS_SEARCH_CAP);
@@ -193,16 +191,16 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
             if n >= cap {
                 return None;
             }
-            fp_set_small(&mut tmp, (n as u64) * (n as u64) + 1);
-            qr_b = fp_is_square(&tmp) != 0;
+            qr_b = fp_is_square(&Fp::from_small((n as u64) * (n as u64) + 1)) != 0;
             n += 1;
         }
 
-        fp_set_small(&mut b, (n - 1) as u64);
-        fp2_set_zero(&mut t0);
-        fp2_set_one(&mut z);
-        fp_copy(&mut z.im, &b);
-        fp_copy(&mut t0.im, &b);
+        let b = Fp::from_small((n - 1) as u64);
+        z = Fp2 { re: Fp::ONE, im: b };
+        t0 = Fp2 {
+            re: Fp::ZERO,
+            im: b,
+        };
 
         fp2_sqr(&mut t1, &curve.a);
         fp2_mul_ip(&mut t0, &t1);
@@ -213,7 +211,7 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
         }
     }
 
-    fp2_copy(x, &z);
+    *x = z;
     fp2_inv(x);
     fp2_mul_ip(x, &curve.a);
     fp2_neg_ip(x);
@@ -231,12 +229,12 @@ fn find_nqr_factor(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
 fn find_na_x_coord(x: &mut Fp2, curve: &EcCurve, start: u8) -> Option<u8> {
     let mut n: u16 = start as u16;
     if n == 1 {
-        fp2_copy(x, &curve.a);
+        *x = curve.a;
     } else {
         fp2_mul_small(x, &curve.a, n as u32);
     }
     let cap = n.saturating_add(BASIS_SEARCH_CAP);
-    while is_on_curve(x, curve) == 0 {
+    while !is_on_curve(x, curve) {
         if n >= cap {
             return None;
         }
@@ -251,10 +249,10 @@ fn ec_basis_e0_2f(pq2: &mut EcBasis, curve: &EcCurve, f: i32) {
     debug_assert!(fp2_is_zero(&curve.a) != 0);
     let mut p = EcPoint::default();
     let mut q = EcPoint::default();
-    fp2_copy(&mut p.x, &BASIS_E0_PX);
-    fp2_copy(&mut q.x, &BASIS_E0_QX);
-    fp2_set_one(&mut p.z);
-    fp2_set_one(&mut q.z);
+    p.x = BASIS_E0_PX;
+    q.x = BASIS_E0_QX;
+    p.z = Fp2::ONE;
+    q.z = Fp2::ONE;
 
     for _ in 0..(TORSION_EVEN_POWER as i32 - f) {
         let (sp, sq) = (p, q);
@@ -290,11 +288,11 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
     // with probability > 1 − 2⁻²⁵⁶. If it ever fails the curve is degenerate.
     .expect("basis search failed on honest curve");
 
-    fp2_set_one(&mut p.z);
+    p.z = Fp2::ONE;
     fp2_add(&mut q.x, &curve.a, &p.x);
     let qx = q.x;
     fp2_neg(&mut q.x, &qx);
-    fp2_set_one(&mut q.z);
+    q.z = Fp2::ONE;
 
     clear_cofactor_for_maximal_even_order(&mut p, curve, f);
     clear_cofactor_for_maximal_even_order(&mut q, curve, f);
@@ -308,18 +306,14 @@ pub fn ec_curve_to_basis_2f_to_hint(pq2: &mut EcBasis, curve: &mut EcCurve, f: i
 }
 
 /// Recompute the same E[2ᶠ] basis from a previously-returned hint.
-/// Returns 1 on success, 0 if debug-mode validation fails.
-pub fn ec_curve_to_basis_2f_from_hint(
-    pq2: &mut EcBasis,
-    curve: &mut EcCurve,
-    f: i32,
-    hint: u8,
-) -> i32 {
+/// Returns `None` if hint validation fails or the search cap is reached.
+pub fn ec_curve_to_basis_2f_from_hint(curve: &mut EcCurve, f: i32, hint: u8) -> Option<EcBasis> {
     ec_normalize_curve_and_a24(curve);
 
+    let mut pq2 = EcBasis::default();
     if fp2_is_zero(&curve.a) != 0 {
-        ec_basis_e0_2f(pq2, curve, f);
-        return 1;
+        ec_basis_e0_2f(&mut pq2, curve, f);
+        return Some(pq2);
     }
 
     let hint_a = (hint & 1) != 0;
@@ -329,38 +323,31 @@ pub fn ec_curve_to_basis_2f_from_hint(
     let mut q = EcPoint::default();
 
     if hint_p == 0 {
-        let ok = if hint_a {
-            find_nqr_factor(&mut p.x, curve, 128)
+        if hint_a {
+            find_nqr_factor(&mut p.x, curve, 128)?;
         } else {
-            find_na_x_coord(&mut p.x, curve, 128)
-        };
-        if ok.is_none() {
-            return 0;
+            find_na_x_coord(&mut p.x, curve, 128)?;
         }
     } else if !hint_a {
         fp2_mul_small(&mut p.x, &curve.a, hint_p as u32);
     } else {
-        fp_set_one(&mut p.x.re);
-        fp_set_small(&mut p.x.im, hint_p as u64);
+        p.x.re = Fp::ONE;
+        p.x.im = Fp::from_small(hint_p as u64);
         fp2_inv(&mut p.x);
         fp2_mul_ip(&mut p.x, &curve.a);
         fp2_neg_ip(&mut p.x);
     }
-    fp2_set_one(&mut p.z);
+    p.z = Fp2::ONE;
 
     #[cfg(debug_assertions)]
-    {
-        let mut passed = is_on_curve(&p.x, curve) != 0;
-        passed &= fp2_is_square(&p.x) == 0;
-        if !passed {
-            return 0;
-        }
+    if !is_on_curve(&p.x, curve) || fp2_is_square(&p.x) != 0 {
+        return None;
     }
 
     fp2_add(&mut q.x, &curve.a, &p.x);
     let qx = q.x;
     fp2_neg(&mut q.x, &qx);
-    fp2_set_one(&mut q.z);
+    q.z = Fp2::ONE;
 
     clear_cofactor_for_maximal_even_order(&mut p, curve, f);
     clear_cofactor_for_maximal_even_order(&mut q, curve, f);
@@ -370,11 +357,9 @@ pub fn ec_curve_to_basis_2f_from_hint(
     pq2.pmq = q;
 
     #[cfg(debug_assertions)]
-    {
-        if test_basis_order_twof(pq2, curve, f) == 0 {
-            return 0;
-        }
+    if !test_basis_order_twof(&pq2, curve, f) {
+        return None;
     }
 
-    1
+    Some(pq2)
 }

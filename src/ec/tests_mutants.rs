@@ -8,8 +8,7 @@ use super::*;
 use crate::precomp::TORSION_EVEN_POWER;
 
 fn e0_normalized() -> EcCurve {
-    let mut e = EcCurve::default();
-    ec_curve_init(&mut e);
+    let mut e = EcCurve::e0();
     ec_curve_normalize_a24(&mut e);
     e
 }
@@ -17,21 +16,17 @@ fn e0_normalized() -> EcCurve {
 #[test]
 fn validity_predicates() {
     let e = e0_normalized();
-    let mut basis = EcBasis::default();
     let mut e1 = e;
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e1, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e1, TORSION_EVEN_POWER as i32, 0).unwrap();
     let p = basis.p;
 
-    let mut zero = EcPoint::default();
-    assert_ne!(ec_has_zero_coordinate(&zero), 0);
-    ec_point_init(&mut zero);
-    assert_ne!(ec_has_zero_coordinate(&zero), 0);
+    assert_ne!(ec_has_zero_coordinate(&EcPoint::default()), 0);
+    assert_ne!(ec_has_zero_coordinate(&EcPoint::IDENTITY), 0);
     assert_eq!(ec_has_zero_coordinate(&p), 0);
 
     assert_ne!(ec_is_equal(&p, &p), 0);
     let mut scaled = p;
-    let mut three = Fp2::default();
-    fp2_set_small(&mut three, 3);
+    let three = Fp2::from_small(3);
     let (sx, sz) = (scaled.x, scaled.z);
     fp2_mul(&mut scaled.x, &sx, &three);
     fp2_mul(&mut scaled.z, &sz, &three);
@@ -39,19 +34,15 @@ fn validity_predicates() {
     assert_eq!(ec_is_equal(&p, &basis.q), 0);
     assert_ne!(ec_is_equal(&EcPoint::default(), &EcPoint::default()), 0);
 
-    let mut a = Fp2::default();
-    assert_eq!(ec_curve_verify_a(&a), 1);
-    fp2_set_small(&mut a, 2);
-    assert_eq!(ec_curve_verify_a(&a), 0);
+    assert!(ec_curve_verify_a(&Fp2::ZERO));
+    let mut a = Fp2::from_small(2);
+    assert!(!ec_curve_verify_a(&a));
     let s = a;
     fp2_neg(&mut a, &s);
-    assert_eq!(ec_curve_verify_a(&a), 0);
-    fp2_set_small(&mut a, 6);
-    let mut e2 = EcCurve::default();
-    assert_eq!(ec_curve_init_from_a(&mut e2, &a), 1);
+    assert!(!ec_curve_verify_a(&a));
+    assert!(ec_curve_init_from_a(&Fp2::from_small(6)).is_some());
 
-    let mut copy = EcBasis::default();
-    copy_basis(&mut copy, &basis);
+    let copy = basis;
     assert_ne!(ec_is_equal(&copy.p, &basis.p), 0);
     assert_ne!(ec_is_equal(&copy.q, &basis.q), 0);
     assert_ne!(ec_is_equal(&copy.pmq, &basis.pmq), 0);
@@ -60,8 +51,7 @@ fn validity_predicates() {
 #[test]
 fn torsion_predicates() {
     let mut e = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, 0).unwrap();
 
     assert_eq!(ec_is_two_torsion(&basis.p, &e), 0);
     assert_eq!(ec_is_four_torsion(&basis.p, &e), 0);
@@ -84,35 +74,31 @@ fn torsion_predicates() {
 #[test]
 fn biscalar_mul_kbits1() {
     let mut e = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, 0).unwrap();
     let mut b2 = EcBasis::default();
     ec_dbl_iter_basis(&mut b2, TORSION_EVEN_POWER as i32 - 1, &basis, &mut e);
 
-    let mut r = EcPoint::default();
-    assert_eq!(ec_biscalar_mul(&mut r, &[0u64], &[0u64], 1, &b2, &e), 1);
+    let r = ec_biscalar_mul(&[0u64], &[0u64], 1, &b2, &e).unwrap();
     assert_ne!(ec_is_zero(&r), 0);
-    assert_eq!(ec_biscalar_mul(&mut r, &[1u64], &[0u64], 1, &b2, &e), 1);
+    let r = ec_biscalar_mul(&[1u64], &[0u64], 1, &b2, &e).unwrap();
     assert_ne!(ec_is_equal(&r, &b2.p), 0);
-    assert_eq!(ec_biscalar_mul(&mut r, &[0u64], &[1u64], 1, &b2, &e), 1);
+    let r = ec_biscalar_mul(&[0u64], &[1u64], 1, &b2, &e).unwrap();
     assert_ne!(ec_is_equal(&r, &b2.q), 0);
-    assert_eq!(ec_biscalar_mul(&mut r, &[1u64], &[1u64], 1, &b2, &e), 1);
+    let r = ec_biscalar_mul(&[1u64], &[1u64], 1, &b2, &e).unwrap();
     assert_ne!(ec_is_equal(&r, &b2.pmq), 0);
 
-    assert_eq!(ec_biscalar_mul(&mut r, &[0u64], &[0u64], 1, &basis, &e), 0);
+    assert!(ec_biscalar_mul(&[0u64], &[0u64], 1, &basis, &e).is_none());
     let mut deg = b2;
     deg.pmq.z = Fp2::default();
-    assert_eq!(ec_biscalar_mul(&mut r, &[0u64], &[0u64], 1, &deg, &e), 0);
+    assert!(ec_biscalar_mul(&[0u64], &[0u64], 1, &deg, &e).is_none());
 }
 
 #[test]
 fn dbl_iter_normalize_threshold() {
     let mut e1 = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e1, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e1, TORSION_EVEN_POWER as i32, 0).unwrap();
 
-    let mut e2 = EcCurve::default();
-    ec_curve_init(&mut e2);
+    let mut e2 = EcCurve::e0();
     assert!(!e2.is_a24_computed_and_normalized);
 
     let mut r1 = EcPoint::default();
@@ -124,8 +110,7 @@ fn dbl_iter_normalize_threshold() {
     assert_ne!(ec_is_equal(&r1, &r2), 0);
 
     let mut r3 = EcPoint::default();
-    let mut e3 = EcCurve::default();
-    ec_curve_init(&mut e3);
+    let mut e3 = EcCurve::e0();
     ec_mul(&mut r3, &[1u64 << 51], 52, &basis.p, &mut e3);
     assert_ne!(ec_is_equal(&r1, &r3), 0);
 }
@@ -133,24 +118,18 @@ fn dbl_iter_normalize_threshold() {
 #[test]
 fn jac_predicates_and_init() {
     let mut e = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, 0).unwrap();
     let mut jp = JacPoint::default();
     let mut jq = JacPoint::default();
     let mut bcopy = basis;
     lift_basis(&mut jp, &mut jq, &mut bcopy, &mut e);
 
-    assert_ne!(jac_is_equal(&jp, &jp), 0);
-    assert_eq!(jac_is_equal(&jp, &jq), 0);
-    let mut neg_p = jp;
-    let py = neg_p.y;
-    fp2_neg(&mut neg_p.y, &py);
-    assert_eq!(jac_is_equal(&jp, &neg_p), 0);
+    assert!(jac_is_equal(&jp, &jp));
+    assert!(!jac_is_equal(&jp, &jq));
+    assert!(!jac_is_equal(&jp, &-jp));
 
-    let mut id = jp;
-    jac_init(&mut id);
-    let mut idx = EcPoint::default();
-    jac_to_xz(&mut idx, &id);
+    let id = JacPoint::IDENTITY;
+    let idx = EcPoint::from(id);
     assert_ne!(fp2_is_one(&idx.x), 0);
     assert_ne!(fp2_is_zero(&idx.z), 0);
 
@@ -174,8 +153,7 @@ fn jac_predicates_and_init() {
 #[test]
 fn singular_isogeny_consistency() {
     let mut e = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, 0).unwrap();
 
     let mut b24 = EcPoint::default();
     let mut kps = EcKps2::default();
@@ -192,27 +170,23 @@ fn singular_isogeny_consistency() {
 #[test]
 #[cfg(debug_assertions)]
 fn basis_from_bad_hint_rejected() {
-    let mut e = EcCurve::default();
-    ec_curve_init(&mut e);
-    fp2_set_small(&mut e.a, 6);
+    let mut e = EcCurve::e0();
+    e.a = Fp2::from_small(6);
     ec_curve_normalize_a24(&mut e);
     let mut basis = EcBasis::default();
     let valid = ec_curve_to_basis_2f_to_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32);
     let bad = valid ^ 1;
-    let ok = ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, bad);
-    assert_eq!(ok, 0);
+    assert!(ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, bad).is_none());
 }
 
 #[test]
 fn xdbladd_nonnormalized_a24() {
     let mut e = e0_normalized();
-    let mut basis = EcBasis::default();
-    ec_curve_to_basis_2f_from_hint(&mut basis, &mut e, TORSION_EVEN_POWER as i32, 0);
+    let basis = ec_curve_to_basis_2f_from_hint(&mut e, TORSION_EVEN_POWER as i32, 0).unwrap();
 
     let mut a24_unnorm = EcPoint::default();
     ac_to_a24(&mut a24_unnorm, &e);
-    let mut three = Fp2::default();
-    fp2_set_small(&mut three, 3);
+    let three = Fp2::from_small(3);
     let (ax, az) = (a24_unnorm.x, a24_unnorm.z);
     fp2_mul(&mut a24_unnorm.x, &ax, &three);
     fp2_mul(&mut a24_unnorm.z, &az, &three);

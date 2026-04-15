@@ -3,16 +3,37 @@
 
 use super::{AddComponents, EcCurve, EcPoint, JacPoint};
 use crate::gf::*;
+use core::ops::Neg;
 
-/// Initialize as the identity (0:1:0).
-pub fn jac_init(p: &mut JacPoint) {
-    fp2_set_zero(&mut p.x);
-    fp2_set_one(&mut p.y);
-    fp2_set_zero(&mut p.z);
+impl JacPoint {
+    /// The Jacobian identity (0:1:0).
+    pub const IDENTITY: Self = Self {
+        x: Fp2::ZERO,
+        y: Fp2::ONE,
+        z: Fp2::ZERO,
+    };
+}
+
+impl Neg for JacPoint {
+    type Output = Self;
+    #[inline]
+    fn neg(mut self) -> Self {
+        fp2_neg_ip(&mut self.y);
+        self
+    }
+}
+
+impl From<JacPoint> for EcPoint {
+    /// Drop Y to convert (X:Y:Z) → (X:Z²), fixing up (0:1:0) → (1:0).
+    fn from(j: JacPoint) -> Self {
+        let mut p = EcPoint::default();
+        jac_to_xz(&mut p, &j);
+        p
+    }
 }
 
 /// Projective equality on Jacobian (X:Y:Z) ↔ (X/Z², Y/Z³).
-pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> u32 {
+pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> bool {
     let mut t0 = Fp2::default();
     let mut t1 = Fp2::default();
     let mut t2 = Fp2::default();
@@ -30,28 +51,24 @@ pub fn jac_is_equal(p: &JacPoint, q: &JacPoint) -> u32 {
     fp2_mul_ip(&mut t1, &q.y);
     fp2_sub_ip(&mut t0, &t1);
 
-    fp2_is_zero(&t0) & fp2_is_zero(&t2)
+    (fp2_is_zero(&t0) & fp2_is_zero(&t2)) != 0
 }
 
 /// Drop Y to convert (X:Y:Z) → (X:Z²), fixing up (0:1:0) → (1:0).
 pub fn jac_to_xz(p: &mut EcPoint, xy: &JacPoint) {
-    fp2_copy(&mut p.x, &xy.x);
-    fp2_copy(&mut p.z, &xy.z);
+    p.x = xy.x;
+    p.z = xy.z;
     fp2_sqr_ip(&mut p.z);
 
-    let mut one = Fp2::default();
-    fp2_set_one(&mut one);
     let c1 = fp2_is_zero(&p.x);
     let c2 = fp2_is_zero(&p.z);
     let px = p.x;
-    fp2_select(&mut p.x, &px, &one, c1 & c2);
+    fp2_select(&mut p.x, &px, &Fp2::ONE, c1 & c2);
 }
 
 /// Convert Montgomery-Jacobian → short-Weierstrass modified-Jacobian (X:Y:Z:T=a·Z⁴).
 pub fn jac_to_ws(q: &mut JacPoint, t: &mut Fp2, ao3: &mut Fp2, p: &JacPoint, curve: &EcCurve) {
     let mut a = Fp2::default();
-    let mut one = Fp::default();
-    fp_set_one(&mut one);
     if fp2_is_zero(&curve.a) == 0 {
         fp_div3(&mut ao3.re, &curve.a.re);
         fp_div3(&mut ao3.im, &curve.a.im);
@@ -64,19 +81,19 @@ pub fn jac_to_ws(q: &mut JacPoint, t: &mut Fp2, ao3: &mut Fp2, p: &JacPoint, cur
         fp2_sqr(t, &st);
         fp2_mul(&mut a, ao3, &curve.a);
         let are = a.re;
-        fp_sub(&mut a.re, &one, &are);
+        fp_sub(&mut a.re, &Fp::ONE, &are);
         let aim = a.im;
         fp_neg(&mut a.im, &aim);
         let st = *t;
         fp2_mul(t, &st, &a);
     } else {
-        fp2_copy(&mut q.x, &p.x);
+        q.x = p.x;
         fp2_sqr(t, &p.z);
         let st = *t;
         fp2_sqr(t, &st);
     }
-    fp2_copy(&mut q.y, &p.y);
-    fp2_copy(&mut q.z, &p.z);
+    q.y = p.y;
+    q.z = p.z;
 }
 
 /// Inverse of [`jac_to_ws`].
@@ -87,15 +104,8 @@ pub fn jac_from_ws(q: &mut JacPoint, p: &JacPoint, ao3: &Fp2, curve: &EcCurve) {
         fp2_mul_ip(&mut t, ao3);
         fp2_sub(&mut q.x, &p.x, &t);
     }
-    fp2_copy(&mut q.y, &p.y);
-    fp2_copy(&mut q.z, &p.z);
-}
-
-#[inline]
-pub fn jac_neg(q: &mut JacPoint, p: &JacPoint) {
-    fp2_copy(&mut q.x, &p.x);
-    fp2_neg(&mut q.y, &p.y);
-    fp2_copy(&mut q.z, &p.z);
+    q.y = p.y;
+    q.z = p.z;
 }
 
 /// Jacobian doubling on a Montgomery curve. Cost 6M + 6S.

@@ -29,7 +29,7 @@ pub fn quat_lattice_bound_parallelogram(
         ibz_div(&mut boxv[i], &mut rem, &t, &denom);
         let t = boxv[i].clone();
         ibz_sqrt_floor(&mut boxv[i], &t);
-        trivial &= ibz_is_zero(&boxv[i]);
+        trivial &= ibz_is_zero(&boxv[i]) as i32;
     }
 
     let uc0 = u.clone();
@@ -41,7 +41,7 @@ pub fn quat_lattice_bound_parallelogram(
         debug_assert!(inv != 0);
         let mut a = Ibz::default();
         ibz_abs(&mut a, &denom);
-        debug_assert!(ibz_is_one(&a) != 0);
+        debug_assert!(ibz_is_one(&a));
     }
     let _ = inv;
     (trivial == 0) as i32
@@ -77,7 +77,7 @@ pub fn quat_lattice_sample_from_ball(
     let mut cnt = 0u32;
     loop {
         for i in 0..4 {
-            if ibz_is_zero(&boxv[i]) != 0 {
+            if ibz_is_zero(&boxv[i]) {
                 ibz_copy(&mut x[i], ibz_const_zero());
             } else {
                 ibz_add(&mut tmp, &boxv[i], &boxv[i]);
@@ -99,7 +99,7 @@ pub fn quat_lattice_sample_from_ball(
                 eprintln!("Lattice sampling rejected {} times", cnt - 1);
             }
         }
-        if ibz_is_zero(&tmp) == 0 && ibz_cmp(&tmp, &rad) <= 0 {
+        if !ibz_is_zero(&tmp) && ibz_cmp(&tmp, &rad) <= 0 {
             break;
         }
     }

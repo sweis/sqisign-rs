@@ -66,7 +66,7 @@ pub fn quat_represent_integer(
     non_diag: i32,
     params: &QuatRepresentIntegerParams,
 ) -> i32 {
-    if ibz_is_even(n_gamma) != 0 {
+    if ibz_is_even(n_gamma) {
         return 0;
     }
     let mut found = 0i32;
@@ -149,7 +149,7 @@ pub fn quat_represent_integer(
 
         if ibz_probab_prime(&cornacchia_target, params.primality_test_iterations) != 0 {
             let (mut c0, mut c1) = (Ibz::default(), Ibz::default());
-            found = ibz_cornacchia_prime(&mut c0, &mut c1, &q, &cornacchia_target);
+            found = ibz_cornacchia_prime(&mut c0, &mut c1, &q, &cornacchia_target) as i32;
             coeffs[0] = c0;
             coeffs[1] = c1;
         } else {
@@ -174,7 +174,7 @@ pub fn quat_represent_integer(
                 let mut nn = Ibz::default();
                 let mut nd = Ibz::default();
                 quat_alg_norm(&mut nn, &mut nd, gamma, params.algebra);
-                debug_assert!(ibz_is_one(&nd) != 0);
+                debug_assert!(ibz_is_one(&nd));
                 debug_assert!(ibz_cmp(&nn, &adjusted_n_gamma) == 0);
                 debug_assert!(quat_lattice_contains(None, &params.order.order, gamma) != 0);
             }
@@ -220,16 +220,16 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
                 ibz_rand_interval(&mut gen.coord[i], ibz_const_zero(), &n_temp);
             }
             quat_alg_norm(&mut n_temp, &mut norm_d, &gen, params.algebra);
-            debug_assert!(ibz_is_one(&norm_d) != 0);
+            debug_assert!(ibz_is_one(&norm_d));
             ibz_neg(&mut disc, &n_temp);
             let d = disc.clone();
             ibz_mod(&mut disc, &d, norm);
-            found = ibz_sqrt_mod_p(&mut gen.coord[0], &disc, norm);
-            found = (found != 0 && quat_alg_elem_is_zero(&gen) == 0) as i32;
+            found = (ibz_sqrt_mod_p(&mut gen.coord[0], &disc, norm)
+                && quat_alg_elem_is_zero(&gen) == 0) as i32;
         }
     } else {
         let pc = prime_cofactor.expect("prime_cofactor required when !is_prime");
-        debug_assert!(ibz_is_zero(norm) == 0);
+        debug_assert!(!ibz_is_zero(norm));
         ibz_mul(&mut n_temp, pc, norm);
         found = quat_represent_integer(&mut gen, &n_temp, 0, params);
         let _ = (found != 0 && quat_alg_elem_is_zero(&gen) == 0) as i32;
@@ -241,9 +241,9 @@ pub fn quat_sampling_random_ideal_o0_given_norm(
             ibz_rand_interval(&mut gen_rerand.coord[i], ibz_const_one(), norm);
         }
         quat_alg_norm(&mut n_temp, &mut norm_d, &gen_rerand, params.algebra);
-        debug_assert!(ibz_is_one(&norm_d) != 0);
+        debug_assert!(ibz_is_one(&norm_d));
         ibz_gcd(&mut disc, &n_temp, norm);
-        found = (ibz_is_one(&disc) != 0 && quat_alg_elem_is_zero(&gen_rerand) == 0) as i32;
+        found = (ibz_is_one(&disc) && quat_alg_elem_is_zero(&gen_rerand) == 0) as i32;
     }
 
     let g = gen.clone();
@@ -264,10 +264,10 @@ pub fn quat_change_to_o0_basis(vec: &mut IbzVec4, el: &QuatAlgElem) {
     ibz_sub(&mut vec[0], &el.coord[0], &el.coord[3]);
     ibz_sub(&mut vec[1], &el.coord[1], &el.coord[2]);
 
-    debug_assert!(ibz_divides(&vec[0], &el.denom) != 0);
-    debug_assert!(ibz_divides(&vec[1], &el.denom) != 0);
-    debug_assert!(ibz_divides(&vec[2], &el.denom) != 0);
-    debug_assert!(ibz_divides(&vec[3], &el.denom) != 0);
+    debug_assert!(ibz_divides(&vec[0], &el.denom));
+    debug_assert!(ibz_divides(&vec[1], &el.denom));
+    debug_assert!(ibz_divides(&vec[2], &el.denom));
+    debug_assert!(ibz_divides(&vec[3], &el.denom));
 
     for i in 0..4 {
         let t = vec[i].clone();

@@ -146,8 +146,8 @@ pub fn ibz_mod_ui(n: &Ibz, d: u64) -> u64 {
 }
 
 #[inline]
-pub fn ibz_divides(a: &Ibz, b: &Ibz) -> i32 {
-    a.divisible_by(b) as i32
+pub fn ibz_divides(a: &Ibz, b: &Ibz) -> bool {
+    a.divisible_by(b)
 }
 
 #[inline]
@@ -190,12 +190,12 @@ pub fn ibz_cmp(a: &Ibz, b: &Ibz) -> i32 {
     }
 }
 #[inline]
-pub fn ibz_is_zero(x: &Ibz) -> i32 {
-    (*x == Integer::ZERO) as i32
+pub fn ibz_is_zero(x: &Ibz) -> bool {
+    *x == Integer::ZERO
 }
 #[inline]
-pub fn ibz_is_one(x: &Ibz) -> i32 {
-    (*x == Integer::ONE) as i32
+pub fn ibz_is_one(x: &Ibz) -> bool {
+    *x == Integer::ONE
 }
 #[inline]
 pub fn ibz_cmp_int32(x: &Ibz, y: i32) -> i32 {
@@ -206,12 +206,12 @@ pub fn ibz_cmp_int32(x: &Ibz, y: i32) -> i32 {
     }
 }
 #[inline]
-pub fn ibz_is_even(x: &Ibz) -> i32 {
-    x.even() as i32
+pub fn ibz_is_even(x: &Ibz) -> bool {
+    x.even()
 }
 #[inline]
-pub fn ibz_is_odd(x: &Ibz) -> i32 {
-    x.odd() as i32
+pub fn ibz_is_odd(x: &Ibz) -> bool {
+    x.odd()
 }
 
 pub fn ibz_convert_to_str(i: &Ibz, base: i32) -> Option<String> {
@@ -384,17 +384,16 @@ pub fn ibz_legendre(a: &Ibz, p: &Ibz) -> i32 {
     a.legendre_symbol(p) as i32
 }
 
-pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> i32 {
+pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> bool {
     if ibz_is_negative(a) {
-        return 0;
+        return false;
     }
     let r = a.unsigned_abs_ref().floor_sqrt();
-    if &r * &r == *a.unsigned_abs_ref() {
+    let exact = &r * &r == *a.unsigned_abs_ref();
+    if exact {
         *sqrt = Integer::from(r);
-        1
-    } else {
-        0
     }
+    exact
 }
 
 #[inline]

@@ -36,6 +36,19 @@ impl Default for Fp {
     }
 }
 
+impl Fp {
+    pub const ZERO: Self = ZERO;
+    pub const ONE: Self = ONE;
+    pub const MINUS_ONE: Self = MINUS_ONE;
+
+    #[inline]
+    pub fn from_small(val: Digit) -> Self {
+        let mut x = Self::ZERO;
+        modint(val as i32, &mut x.0);
+        x
+    }
+}
+
 impl fmt::Debug for Fp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf = [0u8; FP_ENCODED_BYTES];
@@ -177,19 +190,6 @@ fn modis0(a: &[u64; NLIMBS]) -> i32 {
 }
 
 #[inline]
-fn modzer(a: &mut [u64; NLIMBS]) {
-    *a = [0u64; NLIMBS];
-}
-
-#[inline]
-fn modone(a: &mut [u64; NLIMBS]) {
-    *a = [0u64; NLIMBS];
-    a[0] = 1;
-    let t = *a;
-    nres(&t, a);
-}
-
-#[inline]
 fn modint(x: i32, a: &mut [u64; NLIMBS]) {
     *a = [0u64; NLIMBS];
     a[0] = x as u64;
@@ -286,23 +286,8 @@ fn modcmp(a: &[u64; NLIMBS], b: &[u64; NLIMBS]) -> i32 {
 // ===========================================================================
 
 #[inline]
-pub fn fp_set_small(x: &mut Fp, val: Digit) {
-    modint(val as i32, &mut x.0);
-}
-
-#[inline]
 pub fn fp_mul_small(x: &mut Fp, a: &Fp, val: u32) {
     modmli(&a.0, val as i32, &mut x.0);
-}
-
-#[inline]
-pub fn fp_set_zero(x: &mut Fp) {
-    modzer(&mut x.0);
-}
-
-#[inline]
-pub fn fp_set_one(x: &mut Fp) {
-    modone(&mut x.0);
 }
 
 #[inline]
@@ -313,11 +298,6 @@ pub fn fp_is_equal(a: &Fp, b: &Fp) -> u32 {
 #[inline]
 pub fn fp_is_zero(a: &Fp) -> u32 {
     (modis0(&a.0) as u32).wrapping_neg()
-}
-
-#[inline]
-pub fn fp_copy(out: &mut Fp, a: &Fp) {
-    out.0 = a.0;
 }
 
 #[inline]
@@ -460,7 +440,7 @@ pub fn fp_decode(d: &mut Fp, src: &[u8]) -> u32 {
 
 /// Decode an arbitrary-length little-endian byte string and reduce mod p.
 pub fn fp_decode_reduce(d: &mut Fp, src: &[u8]) {
-    fp_set_zero(d);
+    *d = Fp::ZERO;
     let mut len = src.len();
     if len == 0 {
         return;
@@ -515,8 +495,7 @@ mod tests {
 
     #[test]
     fn one_constant_matches_set_one() {
-        let mut a = Fp::default();
-        fp_set_one(&mut a);
+        let a = Fp::ONE;
         assert_eq!(fp_is_equal(&a, &ONE), 0xFFFF_FFFF);
     }
 
@@ -527,8 +506,7 @@ mod tests {
             let a = fp_random(&mut prng);
             let mut b = Fp::default();
             fp_add(&mut b, &a, &ONE);
-            let mut c = Fp::default();
-            fp_set_zero(&mut c);
+            let c = Fp::ZERO;
 
             assert_ne!(fp_is_equal(&a, &a), 0);
             assert_eq!(fp_is_equal(&a, &b), 0);
@@ -546,8 +524,7 @@ mod tests {
             let val = (prng.next() as u32) & 0x7FFF_FFFF;
             let mut b = Fp::default();
             fp_mul_small(&mut b, &a, val);
-            let mut c = Fp::default();
-            fp_set_small(&mut c, val as u64);
+            let c = Fp::from_small(val as u64);
             let mut d = Fp::default();
             fp_mul(&mut d, &a, &c);
             assert_ne!(fp_is_equal(&b, &d), 0);
@@ -577,17 +554,15 @@ mod tests {
 
     #[test]
     fn set_small() {
-        let mut a = Fp::default();
-        fp_set_one(&mut a);
+        let a = Fp::ONE;
         let mut b = Fp::default();
         fp_add(&mut b, &a, &a);
-        let mut c = Fp::default();
-        fp_set_small(&mut c, 2);
+        let mut c = Fp::from_small(2);
         assert_ne!(fp_is_equal(&b, &c), 0);
 
         let b2 = b;
         fp_add(&mut b, &b2, &b2);
-        fp_set_small(&mut c, 4);
+        c = Fp::from_small(4);
         assert_ne!(fp_is_equal(&b, &c), 0);
     }
 
@@ -763,18 +738,16 @@ mod tests {
     fn golden_c_vectors() {
         let mut enc = [0u8; FP_ENCODED_BYTES];
 
-        let mut a = Fp::default();
-        fp_set_one(&mut a);
+        let mut a = Fp::ONE;
         fp_encode(&mut enc, &a);
         assert_hex(
             &enc,
             "0100000000000000000000000000000000000000000000000000000000000000",
         );
 
-        let mut b = Fp::default();
         let mut c = Fp::default();
-        fp_set_small(&mut a, 5);
-        fp_set_small(&mut b, 7);
+        a = Fp::from_small(5);
+        let mut b = Fp::from_small(7);
         fp_mul(&mut c, &a, &b);
         fp_encode(&mut enc, &c);
         assert_hex(
@@ -789,7 +762,7 @@ mod tests {
             "9224499224499224499224499224499224499224499224499224499224499201",
         );
 
-        fp_set_small(&mut a, 12345);
+        a = Fp::from_small(12345);
         fp_sqr(&mut b, &a);
         fp_sqrt(&mut b);
         fp_encode(&mut enc, &b);
@@ -819,8 +792,7 @@ mod tests {
 
     #[test]
     fn precomp_fp_constants_match() {
-        let mut neg1 = Fp::default();
-        fp_set_one(&mut neg1);
+        let mut neg1 = Fp::ONE;
         let one = neg1;
         fp_neg(&mut neg1, &one);
         assert_eq!(

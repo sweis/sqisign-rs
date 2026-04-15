@@ -186,13 +186,13 @@ pub fn ibz_mod_ui(n: &Ibz, d: u64) -> u64 {
 }
 
 #[inline]
-pub fn ibz_divides(a: &Ibz, b: &Ibz) -> i32 {
+pub fn ibz_divides(a: &Ibz, b: &Ibz) -> bool {
     if bool::from(b.is_zero()) {
-        return bool::from(a.is_zero()) as i32;
+        return bool::from(a.is_zero());
     }
     let nz = NonZero::new(*b).unwrap();
     let (_, r) = a.checked_div_rem_vartime(&nz);
-    bool::from(r.is_zero()) as i32
+    bool::from(r.is_zero())
 }
 
 /// Non-modular `out = x^e`. The only callers in the signing path raise
@@ -299,24 +299,24 @@ pub fn ibz_cmp(a: &Ibz, b: &Ibz) -> i32 {
     }
 }
 #[inline]
-pub fn ibz_is_zero(x: &Ibz) -> i32 {
-    bool::from(x.is_zero()) as i32
+pub fn ibz_is_zero(x: &Ibz) -> bool {
+    bool::from(x.is_zero())
 }
 #[inline]
-pub fn ibz_is_one(x: &Ibz) -> i32 {
-    (x.cmp_vartime(&Ibz::ONE) == Ordering::Equal) as i32
+pub fn ibz_is_one(x: &Ibz) -> bool {
+    x.cmp_vartime(&Ibz::ONE) == Ordering::Equal
 }
 #[inline]
 pub fn ibz_cmp_int32(x: &Ibz, y: i32) -> i32 {
     ibz_cmp(x, &Int::from_i64(i64::from(y)))
 }
 #[inline]
-pub fn ibz_is_even(x: &Ibz) -> i32 {
-    (!x.abs().bit_vartime(0)) as i32
+pub fn ibz_is_even(x: &Ibz) -> bool {
+    !x.abs().bit_vartime(0)
 }
 #[inline]
-pub fn ibz_is_odd(x: &Ibz) -> i32 {
-    x.abs().bit_vartime(0) as i32
+pub fn ibz_is_odd(x: &Ibz) -> bool {
+    x.abs().bit_vartime(0)
 }
 
 pub fn ibz_convert_to_str(i: &Ibz, base: i32) -> Option<String> {
@@ -596,17 +596,16 @@ pub fn ibz_legendre(a: &Ibz, p: &Ibz) -> i32 {
     jacobi_to_i32(a.jacobi_symbol_vartime(&odd))
 }
 
-pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> i32 {
+pub fn ibz_sqrt(sqrt: &mut Ibz, a: &Ibz) -> bool {
     if neg(a) {
-        return 0;
+        return false;
     }
     let r = a.abs().floor_sqrt_vartime();
-    if r.wrapping_mul(&r) == a.abs() {
+    let exact = r.wrapping_mul(&r) == a.abs();
+    if exact {
         *sqrt = from_abs_sign(r, false);
-        1
-    } else {
-        0
     }
+    exact
 }
 
 #[inline]

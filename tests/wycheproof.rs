@@ -16,7 +16,7 @@ use sqisign_rs::params::{CRYPTO_ALGNAME, CRYPTO_BYTES, CRYPTO_PUBLICKEYBYTES};
 use sqisign_rs::precomp::{
     FP2_ENCODED_BYTES, FP_ENCODED_BYTES, SECURITY_BITS, SQISIGN_RESPONSE_LENGTH,
 };
-use sqisign_rs::verification::{signature_from_bytes, signature_to_bytes, Signature};
+use sqisign_rs::verification::Signature;
 
 use std::fs;
 use std::path::PathBuf;
@@ -710,13 +710,10 @@ fn wycheproof_malleability() {
     // 7a. Re-encoding a valid signature must be byte-identical.
     let kats = load_kats(10);
     for (i, k) in kats.iter().enumerate() {
-        let mut sig = Signature::default();
-        signature_from_bytes(&mut sig, &k.sm[..CRYPTO_BYTES]);
-        let mut roundtrip = vec![0u8; CRYPTO_BYTES];
-        signature_to_bytes(&mut roundtrip, &sig);
+        let sig = Signature::try_from(&k.sm[..CRYPTO_BYTES]).unwrap();
         assert_eq!(
-            roundtrip,
-            k.sm[..CRYPTO_BYTES],
+            &sig.to_bytes()[..],
+            &k.sm[..CRYPTO_BYTES],
             "signature encoding is not canonical (KAT {i})"
         );
     }
