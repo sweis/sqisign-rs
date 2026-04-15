@@ -947,7 +947,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
     let t = tmp.clone();
     ibz_mod(&mut tmp, &t, torsion_plus_2power());
     ibz_to_digits(&mut digit_d, &tmp);
-    let mut test_pow = w0.pow_vartime(&digit_d);
+    let test_pow = w0.pow_vartime(&digit_d);
 
     if w1 != test_pow {
         basis.p = t1.p2;
@@ -965,8 +965,7 @@ pub fn dim2id2iso_ideal_to_isogeny_clapotis(
                 &basis.pmq,
                 &mut codomain_tmp2,
             );
-            test_pow = w0.pow_vartime(&digit_d);
-            debug_assert!(test_pow == w1);
+            debug_assert!(w0.pow_vartime(&digit_d) == w1);
         }
     }
 
