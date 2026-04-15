@@ -45,5 +45,14 @@ pub mod fp;
 
 pub mod fp2;
 
+// Standalone AVX-512 IFMA prototype (lvl1 only); not wired into `Fp`.
+#[cfg(all(
+    feature = "lvl1",
+    target_arch = "x86_64",
+    target_feature = "avx512ifma",
+    target_feature = "avx512f"
+))]
+pub mod fp_lvl1_ifma;
+
 pub use fp::*;
 pub use fp2::*;

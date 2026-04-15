@@ -162,6 +162,28 @@ impl Fp {
     pub fn mul_sub(a: &Self, b: &Self, c: &Self, d: &Self) -> Self {
         Fp(FpInner::difference_of_products(&a.0, &b.0, &c.0, &d.0))
     }
+    /// `(re, im)` of the GF(p²) product `a × b`, reading both operands as
+    /// the `Fp2` memory layout (`[re.limbs, im.limbs]`). Zero-copy on asm.
+    #[cfg(gf5_248_asm)]
+    #[inline]
+    pub fn fp2_mul_kernel(a: &[u64; 8], b: &[u64; 8]) -> (Self, Self) {
+        let (re, im) = FpInner::fp2_mul_kernel(a, b);
+        (Fp(FpInner(re)), Fp(FpInner(im)))
+    }
+    /// `(a+b, a−b)`, both fully reduced. Shares loads/reduction in one asm
+    /// block on the fast backend.
+    #[inline]
+    pub fn butterfly(a: &Self, b: &Self) -> (Self, Self) {
+        let (s, d) = FpInner::butterfly(&a.0, &b.0);
+        (Fp(s), Fp(d))
+    }
+    /// `(a+b, a−b)` with both outputs < 2²⁵² (one reduction round). Safe as
+    /// `Mul`/`.square()` operands; **not** as `mul_add`/`mul_sub` operands.
+    #[inline]
+    pub fn butterfly_lazy(a: &Self, b: &Self) -> (Self, Self) {
+        let (s, d) = FpInner::butterfly_lazy(&a.0, &b.0);
+        (Fp(s), Fp(d))
+    }
     /// `a + b` without conditional reduction; result may exceed 2²⁵¹ but is a
     /// valid `Mul`/`mul_add`/`mul_sub` operand. Used by `Fp2::square`.
     #[inline]
@@ -347,6 +369,44 @@ mod tests {
             let mut m = x.0;
             m.set_square_via_mul();
             assert_eq!(s.encode(), m.encode());
+        }
+    }
+
+    /// `butterfly`/`butterfly_lazy` must equal `(a+b, a−b)` (the lazy form
+    /// after `fp_mul`/`fp_sqr`, which renormalises).
+    #[test]
+    fn butterfly_matches_add_sub() {
+        let mut prng = Prng(0xB07F_EFFE);
+        for _ in 0..100_000 {
+            let a = prng.fp();
+            let b = prng.fp();
+            let (s, d) = Fp::butterfly(&a, &b);
+            assert_eq!(s.encode(), (a + b).encode());
+            assert_eq!(d.encode(), (a - b).encode());
+            // Lazy outputs may not be fully reduced, but mul/sqr must absorb
+            // them: (a±b)·1 = a±b, (a±b)² = (a±b)·(a±b).
+            let (sl, dl) = Fp::butterfly_lazy(&a, &b);
+            assert_eq!((sl * Fp::ONE).encode(), (a + b).encode());
+            assert_eq!((dl * Fp::ONE).encode(), (a - b).encode());
+            assert_eq!(sl.square().encode(), (s * s).encode());
+            assert_eq!(dl.square().encode(), (d * d).encode());
+        }
+        // Edge cases.
+        let m = Fp::MINUS_ONE;
+        for &(a, b) in &[
+            (Fp::ZERO, Fp::ZERO),
+            (Fp::ZERO, m),
+            (m, Fp::ZERO),
+            (m, m),
+            (Fp::ONE, m),
+            (m, Fp::ONE),
+        ] {
+            let (s, d) = Fp::butterfly(&a, &b);
+            assert_eq!(s.encode(), (a + b).encode());
+            assert_eq!(d.encode(), (a - b).encode());
+            let (sl, dl) = Fp::butterfly_lazy(&a, &b);
+            assert_eq!((sl * Fp::ONE).encode(), (a + b).encode());
+            assert_eq!((dl * Fp::ONE).encode(), (a - b).encode());
         }
     }
 

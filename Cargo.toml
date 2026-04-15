@@ -100,6 +100,11 @@ name = "bench_fp_asm"
 harness = false
 required-features = ["lvl1"]
 
+[[bench]]
+name = "bench_fp_ifma"
+harness = false
+required-features = ["lvl1"]
+
 [profile.release]
 lto = true
 codegen-units = 1

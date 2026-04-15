@@ -88,6 +88,22 @@ impl Fp2 {
         self.im.neg_ip();
     }
 
+    /// `(a+b, a−b)`, both fully reduced.
+    #[inline]
+    pub fn butterfly(a: &Self, b: &Self) -> (Self, Self) {
+        let (sr, dr) = Fp::butterfly(&a.re, &b.re);
+        let (si, di) = Fp::butterfly(&a.im, &b.im);
+        (Self { re: sr, im: si }, Self { re: dr, im: di })
+    }
+
+    /// `(a+b, a−b)` with relaxed bound; safe only as `Mul`/`square` operands.
+    #[inline]
+    pub fn butterfly_lazy(a: &Self, b: &Self) -> (Self, Self) {
+        let (sr, dr) = Fp::butterfly_lazy(&a.re, &b.re);
+        let (si, di) = Fp::butterfly_lazy(&a.im, &b.im);
+        (Self { re: sr, im: si }, Self { re: dr, im: di })
+    }
+
     #[inline]
     #[must_use]
     pub fn half(self) -> Self {

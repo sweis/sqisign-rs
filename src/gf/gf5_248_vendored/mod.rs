@@ -865,10 +865,94 @@ impl GF5_248 {
         [d0, d1, d2, d3]
     }
 
+    /// One conditional `−p` round: subtract `p` iff bit 251 is set. Used by
+    /// `set_add`/`set_sub` and the butterfly variants.
+    #[inline(always)]
+    fn cond_sub_p(d0: u64, d1: u64, d2: u64, d3: u64) -> (u64, u64, u64, u64) {
+        let f = d3 >> 59;
+        let m = f.wrapping_neg();
+        let (d0, cc) = subborrow_u64(d0, m, 0);
+        let (d1, cc) = subborrow_u64(d1, m, cc);
+        let (d2, cc) = subborrow_u64(d2, m, cc);
+        let (d3, _) = subborrow_u64(d3, Self::MODULUS[3] & m, cc);
+        (d0, d1, d2, d3)
+    }
+
+    /// Butterfly: `(a+b, a−b)`, both fully reduced. One body so the loads of
+    /// `a`/`b` are shared; LLVM emits ADC chains directly so no asm needed.
+    #[inline(always)]
+    pub fn butterfly(a: &Self, b: &Self) -> (Self, Self) {
+        let (a0, a1, a2, a3) = (a.0[0], a.0[1], a.0[2], a.0[3]);
+        let (b0, b1, b2, b3) = (b.0[0], b.0[1], b.0[2], b.0[3]);
+        // sum = a+b
+        let (s0, cc) = addcarry_u64(a0, b0, 0);
+        let (s1, cc) = addcarry_u64(a1, b1, cc);
+        let (s2, cc) = addcarry_u64(a2, b2, cc);
+        let (s3, _) = addcarry_u64(a3, b3, cc);
+        let (s0, s1, s2, s3) = Self::cond_sub_p(s0, s1, s2, s3);
+        let (s0, s1, s2, s3) = Self::cond_sub_p(s0, s1, s2, s3);
+        // diff = a−b; cond-add 2p on borrow, then one cond-sub-p
+        let (d0, cc) = subborrow_u64(a0, b0, 0);
+        let (d1, cc) = subborrow_u64(a1, b1, cc);
+        let (d2, cc) = subborrow_u64(a2, b2, cc);
+        let (d3, cc) = subborrow_u64(a3, b3, cc);
+        let m = (cc as u64).wrapping_neg();
+        let (d0, cc) = addcarry_u64(d0, m & Self::MOD_X2[0], 0);
+        let (d1, cc) = addcarry_u64(d1, m, cc);
+        let (d2, cc) = addcarry_u64(d2, m, cc);
+        let (d3, _) = addcarry_u64(d3, m & Self::MOD_X2[3], cc);
+        let (d0, d1, d2, d3) = Self::cond_sub_p(d0, d1, d2, d3);
+        (Self([s0, s1, s2, s3]), Self([d0, d1, d2, d3]))
+    }
+
+    /// Lazy butterfly: `(a+b, a−b)` with both outputs < 2²⁵² (one reduction
+    /// round each). Safe as `set_mul`/`set_square` operands; **not** as
+    /// `sum_of_products` operands.
+    #[inline(always)]
+    pub fn butterfly_lazy(a: &Self, b: &Self) -> (Self, Self) {
+        let (a0, a1, a2, a3) = (a.0[0], a.0[1], a.0[2], a.0[3]);
+        let (b0, b1, b2, b3) = (b.0[0], b.0[1], b.0[2], b.0[3]);
+        let (s0, cc) = addcarry_u64(a0, b0, 0);
+        let (s1, cc) = addcarry_u64(a1, b1, cc);
+        let (s2, cc) = addcarry_u64(a2, b2, cc);
+        let (s3, _) = addcarry_u64(a3, b3, cc);
+        let (s0, s1, s2, s3) = Self::cond_sub_p(s0, s1, s2, s3);
+        let (d0, cc) = subborrow_u64(a0, b0, 0);
+        let (d1, cc) = subborrow_u64(a1, b1, cc);
+        let (d2, cc) = subborrow_u64(a2, b2, cc);
+        let (d3, cc) = subborrow_u64(a3, b3, cc);
+        let m = (cc as u64).wrapping_neg();
+        let (d0, cc) = addcarry_u64(d0, m & Self::MOD_X2[0], 0);
+        let (d1, cc) = addcarry_u64(d1, m, cc);
+        let (d2, cc) = addcarry_u64(d2, m, cc);
+        let (d3, _) = addcarry_u64(d3, m & Self::MOD_X2[3], cc);
+        (Self([s0, s1, s2, s3]), Self([d0, d1, d2, d3]))
+    }
+
     /// `[a₀,a₁,a₂,a₃, b₀,b₁,b₂,b₃]` for the contiguous-pair asm kernels.
     #[inline(always)]
     fn pair(a: &Self, b: &[u64; 4]) -> [u64; 8] {
         [a.0[0], a.0[1], a.0[2], a.0[3], b[0], b[1], b[2], b[3]]
+    }
+
+    /// `(re, im)` of `a × b` over GF(p²), where `a = [a.re, a.im]` and
+    /// `b = [b.re, b.im]` are passed as the `Fp2` memory layout (8 contiguous
+    /// limbs each). Zero-copy: the asm reads `a`/`b` in place; only the
+    /// `[2p − b.im, b.re]` scratch is materialised.
+    #[cfg(gf5_248_asm)]
+    #[inline(always)]
+    pub fn fp2_mul_kernel(a: &[u64; 8], b: &[u64; 8]) -> ([u64; 4], [u64; 4]) {
+        // im = a.re·b.im + a.im·b.re — kernel(A,B) = A.lo·B.hi + A.hi·B.lo,
+        // so kernel(a, b) directly.
+        let mut im = [0u64; 4];
+        inline_asm::fp_sumprod(&mut im, a, b);
+        // re = a.re·b.re − a.im·b.im — kernel(a, [2p−b.im, b.re]).
+        let bim: &[u64; 4] = (&b[4..8]).try_into().unwrap();
+        let nb = Self::raw_2p_minus(bim);
+        let bb = [nb[0], nb[1], nb[2], nb[3], b[0], b[1], b[2], b[3]];
+        let mut re = [0u64; 4];
+        inline_asm::fp_sumprod(&mut re, a, &bb);
+        (re, im)
     }
 
     #[cfg(gf5_248_asm)]
