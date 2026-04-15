@@ -494,6 +494,61 @@ mod tests {
     }
 
     #[test]
+    fn xgcd_large_shared_2power() {
+        // Regression for crypto-bigint 0.7.3 Int::xgcd returning cofactors that
+        // violate x·a + y·b = g when both inputs share many factors of 2 and one
+        // retains further 2-adic valuation after the common factor is stripped.
+        // This (a, b) pair is the first such failure on the lvl5 KAT-0 sign path.
+        // Expected (g, u, v) cross-checked against GMP.
+        let cases: &[[&str; 5]] = &[[
+            "2b71e2eca88b979b99f02f43c3943a5dbc721867d9b31abb6d4d229daed7b7c3b191011db9392b02fea7949f8b515b48821baf757aa0403667b98ed498e51677bf5c200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "-58dde594a80333f07fd55619762b9934333d6355a9e267af12a1df307dca306cf768b536710c406a102961b8c9c22cda4cb56738f8538f69abba8d3271738715ce9abe5b25daa4879d564817816ed2c0c32cee315194e8d985396fe05b429784295d28f7a47b311a6b59fd820f293c83e65e2b3ce67d26ecbe1803013c621b9c4000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "56e3c5d951172f3733e05e87872874bb78e430cfb3663576da9a453b5daf6f876322023b72725605fd4f293f16a2b69104375eeaf540806ccf731da931ca2cef7eb84000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "-35639cf1c0c82d6c95cc776c83629e3057e99a4ef3e999d40a66162321d6e28291339b8c918ce4806123a6647b034a2528f89aec823901813bf07f2b1d3b",
+            "-1a19c5d203e44ca3ff4cc272e504d41d47e041390c390a20269eeec6cc9e69c4f3f7fcd739dcb1417995ee964916b511c0eff13698289ceebf96fbc1c6b71",
+        ]];
+        for [a, b, eg, eu, ev] in cases {
+            let from = |h: &str| {
+                let (n, body) = h.strip_prefix('-').map_or((false, h), |rest| (true, rest));
+                let mut x = ibz_new();
+                ibz_set_from_str(&mut x, body, 16);
+                if n {
+                    let t = x.clone();
+                    ibz_neg(&mut x, &t);
+                }
+                x
+            };
+            let (a, b, eg, eu, ev) = (from(a), from(b), from(eg), from(eu), from(ev));
+            let (mut g, mut u, mut v) = (ibz_new(), ibz_new(), ibz_new());
+            ibz_xgcd(&mut g, &mut u, &mut v, &a, &b);
+            assert_eq!(ibz_cmp(&g, &eg), 0, "g");
+            // u·a + v·b == g (the load-bearing check).
+            let mut s = ibz_new();
+            let mut t = ibz_new();
+            ibz_mul(&mut s, &u, &a);
+            ibz_mul(&mut t, &v, &b);
+            let sc = s.clone();
+            ibz_add(&mut s, &sc, &t);
+            assert_eq!(ibz_cmp(&s, &g), 0, "identity u·a+v·b=g");
+            // GMP-convention values.
+            assert_eq!(
+                ibz_cmp(&u, &eu),
+                0,
+                "u got={} want={}",
+                ibz_convert_to_str(&u, 16).unwrap(),
+                ibz_convert_to_str(&eu, 16).unwrap()
+            );
+            assert_eq!(
+                ibz_cmp(&v, &ev),
+                0,
+                "v got={} want={}",
+                ibz_convert_to_str(&v, 16).unwrap(),
+                ibz_convert_to_str(&ev, 16).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn set_from_str_rejects_empty() {
         let mut i = ibz_new();
         assert_eq!(ibz_set_from_str(&mut i, "", 10), 0);

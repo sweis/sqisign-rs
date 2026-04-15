@@ -37,14 +37,6 @@ jobs:
       matrix:
         level: [lvl1, lvl3, lvl5]
         backend: [sign, gmp, cryptobigint]
-        exclude:
-          # TODO: lvl5/cryptobigint kat_sign produces a non-matching sm
-          # (keygen is byte-exact; sign diverges). Separate from the stack
-          # overflow — surfaced once RUST_MIN_STACK was raised. Investigate
-          # IBZ_LIMBS=512 overflow or backend-specific divergence in the
-          # sign path before re-enabling.
-          - level: lvl5
-            backend: cryptobigint
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -58,7 +50,8 @@ jobs:
         run: cargo build --release --no-default-features --features ${{ matrix.level }},${{ matrix.backend }}
       - name: Test
         env:
-          KAT_SIGN_LIMIT: ${{ matrix.backend == 'cryptobigint' && '2' || '10' }}
+          # cryptobigint sign is ~400-1500x slower; lvl5 is ~5 min/vector.
+          KAT_SIGN_LIMIT: ${{ matrix.backend == 'cryptobigint' && (matrix.level == 'lvl5' && '1' || '2') || '10' }}
           # cryptobigint Ibz is 4KB at lvl5 (IBZ_LIMBS=512); deep
           # quaternion/id2iso call chains overflow the 2MB default test
           # thread stack. Bump to 16MB for that backend.

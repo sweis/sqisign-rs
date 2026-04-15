@@ -484,9 +484,16 @@ pub fn ibz_gcd(gcd: &mut Ibz, a: &Ibz, b: &Ibz) {
 
 /// Extended GCD with the `mpz_gcdext` cofactor convention (`|u| ≤ |b/(2g)|`,
 /// `|v| ≤ |a/(2g)|`, plus sign rules). `crypto-bigint`'s binary xgcd does not
-/// guarantee this convention, so we normalise afterwards. The HNF caller
-/// already re-normalises in `ibz_xgcd_with_u_not_0`, but other callers
-/// (e.g. tests) expect the GMP convention directly.
+/// guarantee this convention, so we normalise afterwards.
+///
+/// `crypto-bigint` 0.7.3's `Int::xgcd` returns cofactors `(x, y)` that do not
+/// satisfy `x·a + y·b = g` when both inputs share a large power of two and one
+/// retains further 2-adic valuation after the common factor is stripped (the
+/// `binxgcd_nz` even-rhs matrix fix-up is incorrect in that case). The `gcd`,
+/// `lhs_on_gcd`, and `rhs_on_gcd` fields *are* correct. We therefore re-derive
+/// the cofactors from a second xgcd on the coprime pair `(a/g, b/g)`, where
+/// the bug does not trigger and the resulting `(u', v')` also satisfy
+/// `u'·a + v'·b = g`.
 pub fn ibz_xgcd(gcd: &mut Ibz, u: &mut Ibz, v: &mut Ibz, a: &Ibz, b: &Ibz) {
     let out = a.xgcd(b);
     *gcd = from_abs_sign(out.gcd, false);
@@ -508,31 +515,55 @@ pub fn ibz_xgcd(gcd: &mut Ibz, u: &mut Ibz, v: &mut Ibz, a: &Ibz, b: &Ibz) {
         *v = if neg(b) { Ibz::MINUS_ONE } else { Ibz::ONE };
         return;
     }
-    // General case: GMP picks the (u,v) with |u| ≤ |b|/(2g). All Bézout pairs
-    // differ by multiples of (b/g, −a/g), so reduce crypto-bigint's u to the
-    // centred residue mod |b/g|, then derive v from the identity.
+    // General case. Re-derive cofactors on the coprime pair (a/g, b/g) to
+    // sidestep the upstream bug; see the doc comment above. The resulting
+    // (x', y') satisfy x'·a + y'·b = g and have |x'| < |b/g|, |y'| < |a/g|.
+    let co = out.lhs_on_gcd.xgcd(&out.rhs_on_gcd);
+    debug_assert!(co.gcd == Ubz::ONE);
+    let (x0, y0) = (co.x, co.y);
+
+    // Normalise to GMP's convention: u is the centred residue of x' mod |b/g|.
     let bog = out.rhs_on_gcd.abs(); // |b/g|, ≥ 2 here.
     let bog_i = from_abs_sign(bog, false);
     let mut q_ = Ibz::ZERO;
     let mut r = Ibz::ZERO;
-    ibz_div_floor(&mut q_, &mut r, &out.x, &bog_i);
+    ibz_div_floor(&mut q_, &mut r, &x0, &bog_i);
     // r ∈ [0, |b/g|); centre to (−|b|/2g, |b|/2g].
     let half = from_abs_sign(bog.shr_vartime(1), false);
     if r.cmp_vartime(&half) == Ordering::Greater {
         r = r.wrapping_sub(&bog_i);
     }
     // GMP edge case: when |b| = 2g (so |b/g| = 2, half = 1, r ∈ {0,1}),
-    // mpz_gcdext picks u = sgn(a). Our centring can only yield 0 or 1 here.
+    // mpz_gcdext picks u = sgn(a). With u = ±1 the direct identity is safe.
     if bog == Ubz::from_u64(2) {
-        r = if neg(a) { Ibz::MINUS_ONE } else { Ibz::ONE };
+        *u = if neg(a) { Ibz::MINUS_ONE } else { Ibz::ONE };
+        let num = gcd.wrapping_sub(&u.wrapping_mul(a)); // |u·a| = |a|, no overflow.
+        let nz_b = NonZero::new(*b).unwrap();
+        let (vv, rr) = num.checked_div_rem_vartime(&nz_b);
+        debug_assert!(bool::from(rr.is_zero()));
+        *v = vv.expect("xgcd norm");
+        return;
     }
     *u = r;
-    // v = (g − u·a) / b  (exact since u·a + v·b = g).
-    let num = gcd.wrapping_sub(&u.wrapping_mul(a));
-    let nz_b = NonZero::new(*b).unwrap();
-    let (vv, rr) = num.checked_div_rem_vartime(&nz_b);
-    debug_assert!(bool::from(rr.is_zero()));
-    *v = vv.expect("xgcd norm");
+    // Derive v via the cofactor shift instead of v = (g − u·a)/b, since
+    // |u·a| can reach ~|a|·|b|/(2g) and overflow IBZ_LIMBS (observed at lvl5
+    // in HNF intermediates). With u = x' − K·(b/g) we have v = y' + K·(a/g).
+    let delta = x0.wrapping_sub(u);
+    let nz_bog = NonZero::new(out.rhs_on_gcd).expect("b/g != 0");
+    let (k, kr) = delta.checked_div_rem_vartime(&nz_bog);
+    debug_assert!(bool::from(kr.is_zero()));
+    let k = k.expect("xgcd K");
+    let mut shift = Ibz::ZERO;
+    ibz_mul(&mut shift, &k, &out.lhs_on_gcd);
+    *v = y0.wrapping_add(&shift);
+    #[cfg(debug_assertions)]
+    {
+        let sum = u.wrapping_mul(a).wrapping_add(&v.wrapping_mul(b));
+        debug_assert!(
+            sum.cmp_vartime(gcd) == Ordering::Equal,
+            "xgcd identity broken"
+        );
+    }
 }
 
 pub fn ibz_invmod(inv: &mut Ibz, a: &Ibz, m: &Ibz) -> i32 {

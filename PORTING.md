@@ -177,7 +177,15 @@ modular reduction):
 | lvl3 | 381 | 19 182 | 384 | 1.28× |
 | lvl5 | 505 | 25 530 | 512 | 1.28× |
 
-`ibz_mul`/`ibz_add` carry `debug_assert!` headroom checks. `ibz_xgcd` normalises
-crypto-bigint's Bézout cofactors to GMP's centred convention so HNF is
-bit-identical. `ibz_div_floor` is hand-rolled to work around a remainder-sign
-bug in `crypto-bigint` 0.7's `checked_div_rem_floor`.
+`ibz_mul`/`ibz_add` carry `debug_assert!` headroom checks. `ibz_div_floor` is
+hand-rolled to work around a remainder-sign bug in `crypto-bigint` 0.7's
+`checked_div_rem_floor`. `ibz_xgcd` works around two issues to keep HNF
+bit-identical with GMP: (1) crypto-bigint's binary xgcd uses a different
+cofactor convention, so we re-centre to GMP's `|u| ≤ |b|/(2g)`; (2) more
+seriously, `Int::xgcd` in 0.7.3 returns `(x, y)` that violate `x·a + y·b = g`
+when both inputs share a large power of two and one retains further 2-adic
+valuation after the common factor is stripped — only hit on the lvl5 sign path.
+The `gcd`, `lhs_on_gcd`, `rhs_on_gcd` fields are correct, so we re-derive the
+cofactors from a second xgcd on the coprime pair `(a/g, b/g)`. Regression test
+`xgcd_large_shared_2power`. The overflow-free `v` derivation also avoids the
+~50 K-bit `u·a` intermediate that the naïve `(g − u·a)/b` would need at lvl5.
