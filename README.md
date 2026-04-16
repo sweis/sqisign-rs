@@ -60,7 +60,7 @@ release, min-of-N:
 | lvl1 | `gf-portable` | malachite | 3.16 ms | 22.8 ms | 53.6 ms |
 | lvl1 | C reference (`broadwell`) | gmp | 1.54 ms | **13.3 ms** | **31.6 ms** |
 | lvl1 | C reference (`ref`)¹ | gmp | 2.50 ms | 42.9 ms | 89.6 ms |
-| lvl3 | `gf-portable` | malachite | TBD | TBD | TBD |
+| lvl3 | `gf-portable` | malachite | 9.24 ms | 65.6 ms | 145 ms |
 | lvl5 | `gf-portable` | malachite | TBD | TBD | TBD |
 
 `asm + AVX-512 IFMA` with malachite is the default; build with
