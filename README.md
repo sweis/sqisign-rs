@@ -13,8 +13,53 @@ and validated against the official NIST KAT test vectors.
 
 ## Status
 
-Performance is at parity with the C `ref` build on identical workloads. See [PORTING.md](PORTING.md) 
-for C-vs-spec discrepancies found during the port, security hardening notes, and mutation-testing results.
+See [PORTING.md](PORTING.md) for C-vs-spec discrepancies found during the
+port, security hardening notes, and mutation-testing results.
+
+## Backends
+
+There are two pluggable backend axes; both default to the fastest option
+available on the build target.
+
+**GF(p)/GF(p²) field arithmetic** (verification hot path; lvl1 only):
+
+- *default* — vendored saturated 4-limb Montgomery with x86_64 inline asm
+  (`MULX`/`ADCX`/`ADOX` for `fp_mul`/`fp_sqr` and a fused sum/diff-of-products
+  kernel for `Fp2::mul`). On CPUs with AVX-512 IFMA, the theta-isogeny inner
+  loop additionally runs in batched 8-way radix-2⁵² SoA. Requires
+  `RUSTFLAGS="-C target-cpu=native"` (or at minimum
+  `-C target-feature=+adx,+bmi2`); without it the build script falls back to
+  a portable intrinsics path with a warning.
+- `gf-portable` — opt-out to the in-tree unsaturated 5-limb modarith
+  reference (the readable Rust-only implementation). lvl3/lvl5 always use
+  this backend.
+
+**Arbitrary-precision integers** (signing only; verification has no bigint
+dependency):
+
+- *default* (`sign` feature) — [`malachite`](https://crates.io/crates/malachite-nz),
+  pure Rust.
+- `gmp` — GMP via [`rug`](https://crates.io/crates/rug). ~5% faster signing;
+  requires `libgmp`.
+- `cryptobigint` — [`crypto-bigint`](https://crates.io/crates/crypto-bigint)
+  fixed-precision. ~400× slower (every integer is sized to the worst-case
+  HNF intermediate); provided for users who want a minimal dependency set.
+
+## Performance
+
+lvl1 on Intel Xeon Platinum 8488C (Sapphire Rapids), KAT-0, min-of-N:
+
+| GF backend | RUSTFLAGS | verify | keygen | sign |
+|---|---|---|---|---|
+| asm + AVX-512 IFMA (default) | `-C target-cpu=native` | **1.45 ms** | 15.9 ms | 39.2 ms |
+| asm only | `-C target-feature=+adx,+bmi2` | 1.57 ms | 16.9 ms | 40.8 ms |
+| `gf-portable` (Rust-only) | — | 3.15 ms | 22.8 ms | 53.5 ms |
+| C reference (`ref` build) | — | 2.50 ms | 16.9 ms | 40.0 ms |
+| C reference (`broadwell` build) | — | 1.56 ms | — | — |
+
+Bigint backend affects keygen/sign only: GMP is ~5% faster than malachite,
+crypto-bigint is ~400× slower. See [`BENCH_HISTORY.csv`](BENCH_HISTORY.csv)
+and `tools/perf/README.md` for the controlled instruction-count comparison.
 
 ## Building
 
@@ -24,20 +69,15 @@ Requires Rust 1.75+ (stable). Enable the pre-commit hook (rustfmt + clippy):
 git config core.hooksPath .githooks
 ```
 
-The signing path uses arbitrary-precision
-integers; the default backend is [`malachite`](https://crates.io/crates/malachite-nz)
-(pure Rust, no C dependency).
-
-At lvl1 the default GF(p) backend is a vendored saturated 4-limb Montgomery
-implementation with hand-written x86_64 BMI2/ADX inline asm for `mul`/`sqr`;
-build with `RUSTFLAGS="-C target-cpu=native"` to enable the asm path.
-
 ```sh
 # Full build (keygen + sign + verify)
 RUSTFLAGS="-C target-cpu=native" cargo build --release --features lvl1,sign
 
-# Opt-in GMP backend via rug (requires libgmp)
-cargo build --release --features lvl1,gmp
+# Opt-in GMP bigint backend (requires libgmp)
+RUSTFLAGS="-C target-cpu=native" cargo build --release --features lvl1,gmp
+
+# Pure-Rust reference (no asm, no GMP)
+cargo build --release --no-default-features --features lvl1,gf-portable,sign
 
 # Verification only (no bigint dependency at all)
 cargo build --release --no-default-features --features lvl1
@@ -95,22 +135,12 @@ cargo run --release --features lvl1,sign --example sign_verify
 
 ## Feature flags
 
-- `lvl1` / `lvl3` / `lvl5` — select the security level (mutually exclusive;
-  exactly one must be enabled).
-- `sign` — enable key generation and signing using the pure-Rust `malachite`
-  bigint backend. Without this flag the crate builds verification only,
-  matching the C reference's `ENABLE_SIGN=OFF` mode.
-- `gmp` — use GMP (via `rug`) instead of `malachite` for the bigint backend.
-  Slightly faster (~5% on sign); requires libgmp.
-- `cryptobigint` — use [`crypto-bigint`](https://crates.io/crates/crypto-bigint)
-  as a fixed-precision bigint backend. Much slower (~400× on sign) since every
-  integer is sized to the worst-case HNF intermediate; provided for users who
-  want a minimal, audited dependency set.
-- `gf-portable` — opt out of the vendored 4-limb Montgomery GF backend at lvl1
-  and use the in-tree unsaturated modarith reference instead. lvl3/lvl5 always
-  use modarith.
-- `bench-internals` — exposes DRBG snapshot/restore for deterministic benchmark
-  replays. Do not enable in production.
+- `lvl1` / `lvl3` / `lvl5` — security level (mutually exclusive).
+- `sign` — enable keygen and signing (default bigint: malachite). Without
+  this flag the crate is verification-only.
+- `gmp` / `cryptobigint` / `gf-portable` — see [Backends](#backends).
+- `bench-internals` — exposes DRBG snapshot/restore for deterministic
+  benchmark replays. Do not enable in production.
 
 ## Benchmarking
 
