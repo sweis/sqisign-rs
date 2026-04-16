@@ -1,4 +1,4 @@
-# sqisign-rs
+# sqisign-rs: SQISign Rust  implementation
 
 [![CI](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml)
 
