@@ -47,19 +47,24 @@ dependency):
 
 ## Performance
 
-lvl1 on Intel Xeon Platinum 8488C (Sapphire Rapids), KAT-0, min-of-N:
+lvl1 on Intel Xeon Platinum 8488C (Sapphire Rapids), KAT-0, release, min-of-N:
 
-| GF backend | RUSTFLAGS | verify | keygen | sign |
+| GF backend | bigint | verify | keygen | sign |
 |---|---|---|---|---|
-| asm + AVX-512 IFMA (default) | `-C target-cpu=native` | **1.45 ms** | 15.9 ms | 39.2 ms |
-| asm only | `-C target-feature=+adx,+bmi2` | 1.57 ms | 16.9 ms | 40.8 ms |
-| `gf-portable` (Rust-only) | — | 3.15 ms | 22.8 ms | 53.5 ms |
-| C reference (`ref` build) | — | 2.50 ms | 16.9 ms | 40.0 ms |
-| C reference (`broadwell` build) | — | 1.56 ms | — | — |
+| asm + AVX-512 IFMA | gmp | **1.46 ms** | **13.8 ms** | **33.8 ms** |
+| asm + AVX-512 IFMA | malachite | 1.44 ms | 15.9 ms | 39.3 ms |
+| asm (BMI2/ADX) | gmp | 1.64 ms | 16.0 ms | 36.5 ms |
+| asm (BMI2/ADX) | malachite | 1.54 ms | 16.5 ms | 39.7 ms |
+| `gf-portable` | gmp | 3.20 ms | 23.0 ms | 50.6 ms |
+| `gf-portable` | malachite | 3.16 ms | 22.8 ms | 53.6 ms |
+| C reference (`broadwell`) | (gmp) | 1.56 ms | — | — |
+| C reference (`ref`) | (gmp) | 2.50 ms | 16.9 ms | 40.0 ms |
 
-Bigint backend affects keygen/sign only: GMP is ~5% faster than malachite,
-crypto-bigint is ~400× slower. See [`BENCH_HISTORY.csv`](BENCH_HISTORY.csv)
-and `tools/perf/README.md` for the controlled instruction-count comparison.
+`asm + AVX-512 IFMA` with malachite is the default; build with
+`RUSTFLAGS="-C target-cpu=native"`. The GF backend determines verify time;
+the bigint backend determines the keygen/sign delta. See
+[`BENCH_HISTORY.csv`](BENCH_HISTORY.csv) and `tools/perf/README.md` for the
+controlled instruction-count comparison.
 
 ## Building
 
