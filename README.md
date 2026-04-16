@@ -47,24 +47,31 @@ dependency):
 
 ## Performance
 
-lvl1 on Intel Xeon Platinum 8488C (Sapphire Rapids), KAT-0, release, min-of-N:
+Intel Xeon Platinum 8488C (Sapphire Rapids), KAT-0 deterministic workload,
+release, min-of-N:
 
-| GF backend | bigint | verify | keygen | sign |
-|---|---|---|---|---|
-| asm + AVX-512 IFMA | gmp | **1.46 ms** | **13.8 ms** | **33.8 ms** |
-| asm + AVX-512 IFMA | malachite | 1.44 ms | 15.9 ms | 39.3 ms |
-| asm (BMI2/ADX) | gmp | 1.64 ms | 16.0 ms | 36.5 ms |
-| asm (BMI2/ADX) | malachite | 1.54 ms | 16.5 ms | 39.7 ms |
-| `gf-portable` | gmp | 3.20 ms | 23.0 ms | 50.6 ms |
-| `gf-portable` | malachite | 3.16 ms | 22.8 ms | 53.6 ms |
-| C reference (`broadwell`) | (gmp) | 1.56 ms | — | — |
-| C reference (`ref`) | (gmp) | 2.50 ms | 16.9 ms | 40.0 ms |
+| level | GF backend | bigint | verify | keygen | sign |
+|---|---|---|---|---|---|
+| lvl1 | asm + AVX-512 IFMA | gmp | 1.46 ms | 13.8 ms | 33.8 ms |
+| lvl1 | asm + AVX-512 IFMA | malachite | **1.44 ms** | 15.9 ms | 39.3 ms |
+| lvl1 | asm (BMI2/ADX) | gmp | 1.64 ms | 16.0 ms | 36.5 ms |
+| lvl1 | asm (BMI2/ADX) | malachite | 1.54 ms | 16.5 ms | 39.7 ms |
+| lvl1 | `gf-portable` | gmp | 3.20 ms | 23.0 ms | 50.6 ms |
+| lvl1 | `gf-portable` | malachite | 3.16 ms | 22.8 ms | 53.6 ms |
+| lvl1 | C reference (`broadwell`) | gmp | 1.54 ms | **13.3 ms** | **31.6 ms** |
+| lvl1 | C reference (`ref`)¹ | gmp | 2.50 ms | 42.9 ms | 89.6 ms |
+| lvl3 | `gf-portable` | malachite | TBD | TBD | TBD |
+| lvl5 | `gf-portable` | malachite | TBD | TBD | TBD |
 
 `asm + AVX-512 IFMA` with malachite is the default; build with
 `RUSTFLAGS="-C target-cpu=native"`. The GF backend determines verify time;
 the bigint backend determines the keygen/sign delta. See
 [`BENCH_HISTORY.csv`](BENCH_HISTORY.csv) and `tools/perf/README.md` for the
 controlled instruction-count comparison.
+
+¹ C `ref` uses bitsliced software AES for the DRBG (~52% of keygen). C
+`broadwell` and all Rust rows use AES-NI, making `broadwell` the
+apples-to-apples C comparison.
 
 ## Building
 
