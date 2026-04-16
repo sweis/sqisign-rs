@@ -3,12 +3,12 @@
 [![CI](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/sweis/sqisign-rs/actions/workflows/ci.yml)
 
 A Rust implementation of [SQIsign](https://sqisign.org/), a post-quantum
-digital signature scheme based on isogenies of supersingular elliptic curves.
+digital signature scheme based on isogenies of supersingular elliptic curves. 
 
 Ported from the [C reference implementation](https://github.com/SQIsign/the-sqisign)
-and validated against the official NIST KAT test vectors.
+and validated against the official NIST KAT test vectors by [Claude Code](https://claude.ai/).
 
-> **Warning:** SQIsign is a NIST PQC Round 2 candidate and `sqisign-rs` is AI generated. It
+> **Warning:** SQIsign is a NIST PQC Round 2 candidate . It
 > has not been independently audited. Do not use in production.
 
 ## Status
