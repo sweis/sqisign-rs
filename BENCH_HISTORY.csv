@@ -62,3 +62,12 @@ C-broadwell,2026-04-15T21:35:00Z,verify=19.72M-instr/5.28M-cyc,keygen=-,sign=-,h
 # (3) outline GF5_248::set_n_square (loop, not 1988-MULX unroll in exp_3div4).
 # Result: 4054M instr / 1196M cyc / 1.6M L1i-miss. Gap to C-bw: 1.19× → 1.14× cycles.
 144f8b0+dirty+native,2026-04-15T23:40:00Z,verify=1.570ms,keygen=16.641ms,sign=40.853ms,asm-hotspots (RUSTFLAGS=-Ctarget-cpu=native)
+16924d6,2026-04-15T23:52:47Z,verify=1.573ms,keygen=16.945ms,sign=40.767ms,verify-asm-opts-final
+8a60dec+dirty,2026-04-16T01:53:37Z,verify=1.454ms,keygen=15.888ms,sign=39.159ms,ifma-theta
+# IFMA theta integration, same-load A/B (200x verify KAT-0, perf-stat):
+#   baseline 8a60dec: 4,054M instr / 1,383M cyc
+#   ifma-theta:       3,135M instr / 1,167M cyc   (-22.7% instr, -15.6% cyc)
+# Per-call IFMA (pointwise_square only) was a net loss (75ns vs 65ns scalar);
+# the win comes from keeping the point in radix-52 SoA across the whole
+# double_iter loop and theta_isogeny_eval, with bit-shuffle-only conversion
+# via the x16 R64/R52 domain bridge.

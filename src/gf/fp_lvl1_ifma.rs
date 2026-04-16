@@ -265,6 +265,261 @@ impl Default for FpIfma8 {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Radix-64 ↔ radix-52 SoA bridge.
+//
+// The production `Fp` (GF5_248) holds y in [0, 2²⁵¹) with y ≡ x·2²⁵⁶ mod p.
+// Bit-splitting y to radix-52 gives the same integer; an IFMA mul then yields
+// `a·b·2⁻²⁶⁰` instead of the desired `a·b·2⁻²⁵⁶`. We correct by left-shifting
+// one operand by 4 bits *before* the bit-split (so the product gains a 2⁴
+// factor). With both inputs < 2²⁵² (the `add_noreduce` bound), the shifted
+// operand is < 2²⁵⁶ so its limb-4 stays < 2⁴⁸, and `fp_mul_ifma8`'s output is
+// then < `2²⁵²·2²⁵⁶/2²⁶⁰ + p` < 2²⁵¹ — back in `GF5_248`'s representable
+// range after bit-join.
+// ---------------------------------------------------------------------------
+
+/// 8×4 u64 AoS → 4× zmm SoA (lane k of `out[i]` = `e[k][i]`).
+#[inline(always)]
+unsafe fn transpose_8x4(e: &[[u64; 4]; 8]) -> [__m512i; 4] {
+    let r0 = _mm512_loadu_si512(e[0].as_ptr().cast()); // e0 e1
+    let r1 = _mm512_loadu_si512(e[2].as_ptr().cast()); // e2 e3
+    let r2 = _mm512_loadu_si512(e[4].as_ptr().cast()); // e4 e5
+    let r3 = _mm512_loadu_si512(e[6].as_ptr().cast()); // e6 e7
+                                                       // Interleave 64-bit lanes within 128-bit pairs.
+    let a0 = _mm512_unpacklo_epi64(r0, r1); // e0.0 e2.0 e0.2 e2.2 e1.0 e3.0 e1.2 e3.2
+    let a1 = _mm512_unpackhi_epi64(r0, r1); // e0.1 e2.1 e0.3 e2.3 e1.1 e3.1 e1.3 e3.3
+    let a2 = _mm512_unpacklo_epi64(r2, r3);
+    let a3 = _mm512_unpackhi_epi64(r2, r3);
+    // Gather all limb-0 lanes etc. with explicit 16-way permutes.
+    static IDX_LO: [u64; 8] = [0, 4, 1, 5, 8, 12, 9, 13];
+    static IDX_HI: [u64; 8] = [2, 6, 3, 7, 10, 14, 11, 15];
+    let lo = _mm512_loadu_si512(IDX_LO.as_ptr().cast());
+    let hi = _mm512_loadu_si512(IDX_HI.as_ptr().cast());
+    [
+        _mm512_permutex2var_epi64(a0, lo, a2),
+        _mm512_permutex2var_epi64(a1, lo, a3),
+        _mm512_permutex2var_epi64(a0, hi, a2),
+        _mm512_permutex2var_epi64(a1, hi, a3),
+    ]
+}
+
+/// Bit-split eight 4×64-bit integers into SoA radix-2⁵². No arithmetic.
+#[inline(always)]
+fn pack_u64x4(e: &[[u64; 4]; 8]) -> FpIfma8 {
+    unsafe {
+        let m = _mm512_set1_epi64(MASK52 as i64);
+        let [w0, w1, w2, w3] = transpose_8x4(e);
+        FpIfma8 {
+            limbs: [
+                _mm512_and_si512(w0, m),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<52>(w0), _mm512_slli_epi64::<12>(w1)),
+                    m,
+                ),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<40>(w1), _mm512_slli_epi64::<24>(w2)),
+                    m,
+                ),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<28>(w2), _mm512_slli_epi64::<36>(w3)),
+                    m,
+                ),
+                _mm512_srli_epi64::<16>(w3),
+            ],
+        }
+    }
+}
+
+/// As `pack_u64x4`, but pre-shift each integer left by 4 bits (the R₆₄/R₅₂
+/// domain-correction factor). Inputs must be < 2²⁵².
+#[inline(always)]
+fn pack_u64x4_x16(e: &[[u64; 4]; 8]) -> FpIfma8 {
+    unsafe {
+        let m = _mm512_set1_epi64(MASK52 as i64);
+        let [w0, w1, w2, w3] = transpose_8x4(e);
+        FpIfma8 {
+            limbs: [
+                _mm512_and_si512(_mm512_slli_epi64::<4>(w0), m),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<48>(w0), _mm512_slli_epi64::<16>(w1)),
+                    m,
+                ),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<36>(w1), _mm512_slli_epi64::<28>(w2)),
+                    m,
+                ),
+                _mm512_and_si512(
+                    _mm512_or_si512(_mm512_srli_epi64::<24>(w2), _mm512_slli_epi64::<40>(w3)),
+                    m,
+                ),
+                _mm512_srli_epi64::<12>(w3),
+            ],
+        }
+    }
+}
+
+/// Carry-propagate, fold to < 2²⁵¹, bit-join SoA radix-2⁵² → eight 4×64-bit
+/// integers (each a valid `GF5_248` representative).
+#[inline]
+fn unpack_u64x4(mut a: FpIfma8) -> [[u64; 4]; 8] {
+    unsafe {
+        let mask = _mm512_set1_epi64(MASK52 as i64);
+        let mut c = _mm512_setzero_si512();
+        for i in 0..5 {
+            let t = _mm512_add_epi64(a.limbs[i], c);
+            a.limbs[i] = _mm512_and_si512(t, mask);
+            c = _mm512_srli_epi64::<52>(t);
+        }
+        debug_assert_eq!(_mm512_reduce_or_epi64(c), 0);
+    }
+    let mut buf = [[0u64; 8]; 5];
+    for i in 0..5 {
+        unsafe { _mm512_storeu_si512(buf[i].as_mut_ptr().cast(), a.limbs[i]) };
+    }
+    let mut out = [[0u64; 4]; 8];
+    for k in 0..8 {
+        out[k] = join_and_reduce(buf[0][k], buf[1][k], buf[2][k], buf[3][k], buf[4][k]);
+    }
+    out
+}
+
+/// Bit-join five radix-2⁵² limbs (each < 2⁵²) into 4×64, partial-reduced
+/// to < 2²⁵¹ via 5·2²⁴⁸ ≡ 1. Input integer is Σ bᵢ·2⁵²ⁱ < 2²⁶⁰.
+#[inline(always)]
+fn join_and_reduce(b0: u64, mut b1: u64, mut b2: u64, mut b3: u64, b4: u64) -> [u64; 4] {
+    // h = bits ≥248 (limb-4 bits ≥40). h < 2¹²; ⌊h/5⌋ < 820 (10 bits).
+    let h = b4 >> 40;
+    let quo = (h * 0xCCCD) >> 18;
+    let rem = h - 5 * quo;
+    let l0 = b0 + quo; // < 2⁵² + 2¹⁰
+    b1 += l0 >> 52;
+    b2 += b1 >> 52;
+    b3 += b2 >> 52;
+    // b3>>52 (≤ 1) carries into limb 4's place (bit 208).
+    let l4 = (b4 & 0xFF_FFFF_FFFF) + (rem << 40) + (b3 >> 52); // < 6·2⁴⁰ < 2⁴³
+    let w = [
+        (l0 & MASK52) | (b1 & MASK52) << 52,
+        (b1 & MASK52) >> 12 | (b2 & MASK52) << 40,
+        (b2 & MASK52) >> 24 | (b3 & MASK52) << 28,
+        (b3 & MASK52) >> 36 | l4 << 16,
+    ];
+    debug_assert!(w[3] >> 59 == 0, "ifma8 unpack: still ≥ 2²⁵¹");
+    w
+}
+
+/// `r[k] ← a[k]·b[k]·2⁻²⁵⁶ mod p` for k=0..8, where `a[k]`, `b[k]` are
+/// radix-64 integers in [0, 2²⁵²). Each output is in [0, 2²⁵¹), i.e. a valid
+/// `GF5_248` representative, so this composes with the production `Fp` ops
+/// without further reduction.
+#[inline(never)]
+pub fn fp_mul8_u64x4(a: &[[u64; 4]; 8], b: &[[u64; 4]; 8]) -> [[u64; 4]; 8] {
+    let r = fp_mul_ifma8(&pack_u64x4(a), &pack_u64x4_x16(b));
+    unpack_u64x4(r)
+}
+
+// ---------------------------------------------------------------------------
+// SoA-resident pipeline: stay in radix-52 across many muls.
+//
+// `fp_mul_ifma8` is Montgomery wrt R₅₂ = 2²⁶⁰; the asm `Fp` is wrt R₆₄ = 2²⁵⁶.
+// `fp_mul8_r64(a,b) := 16·(a·b·R₅₂⁻¹) = a·b·R₆₄⁻¹` keeps SoA values in the
+// R₆₄ domain so they compose freely and convert losslessly to `GF5_248` at
+// the boundary.
+// ---------------------------------------------------------------------------
+
+/// `a·b·2⁻²⁵⁶ mod p` per lane. Inputs must have limbs < 2⁵²; output limbs
+/// are *lazy* (limb 0 < 2⁵² + 2¹⁴, limb 4 < 2⁵² + 2⁴⁴, others < 2⁵²) and
+/// must be normalised before being fed back into another `fp_mul_ifma8`.
+#[inline]
+pub fn fp_mul8_r64(a: &FpIfma8, b: &FpIfma8) -> FpIfma8 {
+    let mut r = fp_mul_ifma8(a, b);
+    unsafe {
+        let m = _mm512_set1_epi64(MASK52 as i64);
+        let mut prev_hi = _mm512_setzero_si512();
+        for i in 0..5 {
+            let lo = _mm512_and_si512(_mm512_slli_epi64::<4>(r.limbs[i]), m);
+            let hi = _mm512_srli_epi64::<48>(r.limbs[i]);
+            r.limbs[i] = _mm512_or_si512(lo, prev_hi);
+            prev_hi = hi;
+        }
+        let fold_lo = _mm512_set1_epi64(TWO_260_MOD_P_LO as i64);
+        let fold_l4 = _mm512_set1_epi64(TWO_260_MOD_P_LIMB4 as i64);
+        r.limbs[0] = _mm512_madd52lo_epu64(r.limbs[0], prev_hi, fold_lo);
+        r.limbs[4] = _mm512_madd52lo_epu64(r.limbs[4], prev_hi, fold_l4);
+    }
+    r
+}
+
+/// Signed-limb carry-propagate so every limb ends in [0, 2⁵²). Accepts
+/// limbs in roughly [−2⁵⁶, 2⁵⁶] with non-negative integer value per lane.
+#[inline(always)]
+pub fn normalize_signed8(a: &mut FpIfma8) {
+    unsafe {
+        let m = _mm512_set1_epi64(MASK52 as i64);
+        let fold_lo = _mm512_set1_epi64(TWO_260_MOD_P_LO as i64);
+        let fold_l4 = _mm512_set1_epi64(TWO_260_MOD_P_LIMB4 as i64);
+        // Pass 1: |c| ≲ 16; pass 2: |c| ≤ 1; pass 3 settles limb0/4 (since
+        // the integer value is ≥ 0 the third fold's c = 0).
+        for _ in 0..3 {
+            let mut c = _mm512_setzero_si512();
+            for i in 0..5 {
+                let t = _mm512_add_epi64(a.limbs[i], c);
+                a.limbs[i] = _mm512_and_si512(t, m);
+                c = _mm512_srai_epi64::<52>(t);
+            }
+            a.limbs[0] = _mm512_add_epi64(a.limbs[0], _mm512_mullo_epi64(c, fold_lo));
+            a.limbs[4] = _mm512_add_epi64(a.limbs[4], _mm512_mullo_epi64(c, fold_l4));
+        }
+        let t = a.limbs[0];
+        a.limbs[0] = _mm512_and_si512(t, m);
+        a.limbs[1] = _mm512_add_epi64(a.limbs[1], _mm512_srli_epi64::<52>(t));
+        #[cfg(debug_assertions)]
+        for i in 0..5 {
+            let mut s = [0u64; 8];
+            _mm512_storeu_si512(s.as_mut_ptr().cast(), a.limbs[i]);
+            for &v in &s {
+                assert!(v < (1u64 << 52), "normalize_signed8: limb {i} = {v:#x}");
+            }
+        }
+    }
+}
+
+/// Permute lanes by a fixed index table.
+#[inline(always)]
+pub fn permute8(a: &FpIfma8, idx: &[u64; 8]) -> FpIfma8 {
+    unsafe {
+        let iv = _mm512_loadu_si512(idx.as_ptr().cast());
+        FpIfma8 {
+            limbs: a.limbs.map(|l| _mm512_permutexvar_epi64(iv, l)),
+        }
+    }
+}
+
+/// Pack eight `GF5_248`-layout limbs (4×64 each) into SoA radix-2⁵².
+#[inline(always)]
+pub fn pack8(e: &[[u64; 4]; 8]) -> FpIfma8 {
+    pack_u64x4(e)
+}
+
+/// Inverse of `pack8` (with partial reduce to < 2²⁵¹).
+#[inline(always)]
+pub fn unpack8(a: FpIfma8) -> [[u64; 4]; 8] {
+    unpack_u64x4(a)
+}
+
+/// As `fp_mul8_u64x4` but with a single shared SoA operand `a` against two
+/// different `b`'s — saves one pack when computing `a∘b₁` and `a∘b₂`.
+#[inline]
+pub fn fp_mul8_u64x4_shared_a(
+    a: &[[u64; 4]; 8],
+    b1: &[[u64; 4]; 8],
+    b2: &[[u64; 4]; 8],
+) -> ([[u64; 4]; 8], [[u64; 4]; 8]) {
+    let pa = pack_u64x4(a);
+    let r1 = fp_mul_ifma8(&pa, &pack_u64x4_x16(b1));
+    let r2 = fp_mul_ifma8(&pa, &pack_u64x4_x16(b2));
+    (unpack_u64x4(r1), unpack_u64x4(r2))
+}
+
 impl FpIfma8 {
     /// Build from 8 single elements (test/bench only; the real win needs callers
     /// to keep data in SoA form across operations).
@@ -444,7 +699,7 @@ pub const R2_52: FpIfma = FpIfma([
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gf::Fp;
+    use crate::gf::{Fp, FpInner};
     use crate::test_util::Prng;
 
     #[test]
@@ -495,6 +750,51 @@ mod tests {
             let bi = FpIfma::from_le_bytes_montgomery(&b.encode());
             let r = fp_mul_ifma(&ai, &bi);
             assert_eq!(r.encode(), want, "IFMA mul mismatch a={a:?} b={b:?}");
+        }
+    }
+
+    #[test]
+    fn mul8_u64x4_matches_fp() {
+        let mut prng = Prng(0x764);
+        let edges = [Fp::ZERO, Fp::ONE, Fp::MINUS_ONE, Fp::from_small(u64::MAX)];
+        for _ in 0..50_000 {
+            let mut a = [Fp::ZERO; 8];
+            let mut b = [Fp::ZERO; 8];
+            for k in 0..8 {
+                a[k] = if k < 4 { edges[k] } else { prng.fp() };
+                b[k] = if k < 4 { edges[3 - k] } else { prng.fp() };
+            }
+            let aw = a.map(|x| x.0 .0);
+            let bw = b.map(|x| x.0 .0);
+            let r = fp_mul8_u64x4(&aw, &bw);
+            for k in 0..8 {
+                assert_eq!(Fp(FpInner(r[k])), a[k] * b[k], "lane {k}");
+            }
+        }
+    }
+
+    #[test]
+    fn mul8_u64x4_noreduce_inputs() {
+        // Inputs from add_noreduce / sub_2p_noreduce can be up to ~2²⁵².
+        let mut prng = Prng(0x765);
+        for _ in 0..20_000 {
+            let mut aw = [[0u64; 4]; 8];
+            let mut bw = [[0u64; 4]; 8];
+            let mut a = [Fp::ZERO; 8];
+            let mut b = [Fp::ZERO; 8];
+            for k in 0..8 {
+                let (x, y, z, w) = (prng.fp(), prng.fp(), prng.fp(), prng.fp());
+                let an = Fp::add_noreduce(&x, &y);
+                let bn = Fp::sub_2p_noreduce(&z, &w);
+                aw[k] = an.0 .0;
+                bw[k] = bn.0 .0;
+                a[k] = x + y;
+                b[k] = z - w;
+            }
+            let r = fp_mul8_u64x4(&aw, &bw);
+            for k in 0..8 {
+                assert_eq!(Fp(FpInner(r[k])), a[k] * b[k], "lane {k}");
+            }
         }
     }
 

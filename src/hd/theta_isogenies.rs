@@ -673,16 +673,32 @@ fn theta_isogeny_compute_2(
 }
 
 fn theta_isogeny_eval(out: &mut ThetaPoint, phi: &ThetaIsogeny, p: &ThetaPoint) {
+    #[cfg(all(
+        feature = "lvl1",
+        not(feature = "lvl3"),
+        not(feature = "lvl5"),
+        not(feature = "gf-portable"),
+        target_arch = "x86_64",
+        target_feature = "avx512ifma",
+        target_feature = "avx512f"
+    ))]
+    if crate::gf::HAS_IFMA8 {
+        let pc = super::theta_ifma::ThetaSoa::from_tp(&phi.precomputation);
+        return super::theta_ifma::theta_isogeny_eval_soa(
+            out,
+            p,
+            &pc,
+            phi.hadamard_bool_1,
+            phi.hadamard_bool_2,
+        );
+    }
     if phi.hadamard_bool_1 {
         hadamard(out, p);
         to_squared_theta_ip(out);
     } else {
         to_squared_theta(out, p);
     }
-    out.x *= phi.precomputation.x;
-    out.y *= phi.precomputation.y;
-    out.z *= phi.precomputation.z;
-    out.t *= phi.precomputation.t;
+    pointwise_mul_ip(out, &phi.precomputation);
 
     if phi.hadamard_bool_2 {
         hadamard_ip(out);

@@ -45,7 +45,7 @@ pub mod fp;
 
 pub mod fp2;
 
-// Standalone AVX-512 IFMA prototype (lvl1 only); not wired into `Fp`.
+// AVX-512 IFMA batched 8-way `fp_mul` (lvl1, asm backend only).
 #[cfg(all(
     feature = "lvl1",
     target_arch = "x86_64",
@@ -53,6 +53,17 @@ pub mod fp2;
     target_feature = "avx512f"
 ))]
 pub mod fp_lvl1_ifma;
+
+/// True iff `fp_lvl1_ifma::fp_mul8_u64x4` is available and bridges to `Fp`.
+pub const HAS_IFMA8: bool = cfg!(all(
+    feature = "lvl1",
+    not(feature = "lvl3"),
+    not(feature = "lvl5"),
+    not(feature = "gf-portable"),
+    target_arch = "x86_64",
+    target_feature = "avx512ifma",
+    target_feature = "avx512f"
+));
 
 pub use fp::*;
 pub use fp2::*;

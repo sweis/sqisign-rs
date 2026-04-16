@@ -11,6 +11,8 @@ use crate::gf::Fp2;
 mod theta_isogenies;
 pub use theta_isogenies::*;
 
+mod theta_ifma;
+
 /// Extra two-power torsion above the kernel needed by the chain algorithm.
 pub const HD_EXTRA_TORSION: u32 = 2;
 
@@ -344,6 +346,15 @@ pub fn pointwise_square_ip(r: &mut ThetaPoint) {
     r.t.square_ip();
 }
 
+/// In-place coordinate-wise `r[k] *= c[k]`.
+#[inline]
+pub fn pointwise_mul_ip(r: &mut ThetaPoint, c: &ThetaPoint) {
+    r.x *= c.x;
+    r.y *= c.y;
+    r.z *= c.z;
+    r.t *= c.t;
+}
+
 /// In-place `to_squared_theta`.
 #[inline]
 pub fn to_squared_theta_ip(r: &mut ThetaPoint) {
@@ -380,29 +391,76 @@ pub fn theta_precomputation(a: &mut ThetaStructure) {
 /// out ← [2]·in on the theta structure A.
 pub fn double_point(out: &mut ThetaPoint, a: &mut ThetaStructure, in_: &ThetaPoint) {
     to_squared_theta(out, in_);
-    out.x.square_ip();
-    out.y.square_ip();
-    out.z.square_ip();
-    out.t.square_ip();
+    pointwise_square_ip(out);
 
     if !a.precomputation {
         theta_precomputation(a);
     }
-    out.x *= a.yzt0_d;
-    out.y *= a.xzt0_d;
-    out.z *= a.xyt0_d;
-    out.t *= a.xyz0_d;
-
+    pointwise_mul_ip(out, &a.precomp_d());
     hadamard_ip(out);
+    pointwise_mul_ip(out, &a.precomp());
+}
 
-    out.x *= a.yzt0;
-    out.y *= a.xzt0;
-    out.z *= a.xyt0;
-    out.t *= a.xyz0;
+impl ThetaStructure {
+    #[inline]
+    pub(super) fn precomp_d(&self) -> ThetaPoint {
+        ThetaPoint {
+            x: self.yzt0_d,
+            y: self.xzt0_d,
+            z: self.xyt0_d,
+            t: self.xyz0_d,
+        }
+    }
+    #[inline]
+    pub(super) fn precomp(&self) -> ThetaPoint {
+        ThetaPoint {
+            x: self.yzt0,
+            y: self.xzt0,
+            z: self.xyt0,
+            t: self.xyz0,
+        }
+    }
 }
 
 /// out ← [2ᵉˣᵖ]·in on the theta structure A.
 pub fn double_iter(out: &mut ThetaPoint, a: &mut ThetaStructure, in_: &ThetaPoint, exp: i32) {
+    #[cfg(all(
+        feature = "lvl1",
+        not(feature = "lvl3"),
+        not(feature = "lvl5"),
+        not(feature = "gf-portable"),
+        target_arch = "x86_64",
+        target_feature = "avx512ifma",
+        target_feature = "avx512f"
+    ))]
+    if crate::gf::HAS_IFMA8 && exp >= 1 {
+        if !a.precomputation {
+            theta_precomputation(a);
+        }
+        let pd = theta_ifma::ThetaSoa::from_tp(&a.precomp_d());
+        let pp = theta_ifma::ThetaSoa::from_tp(&a.precomp());
+        let mut s = theta_ifma::ThetaSoa::from_tp(in_);
+        for _ in 0..exp {
+            s.to_squared_theta_ip();
+            s.pointwise_square_ip();
+            s.pointwise_mul_ip(&pd);
+            s.hadamard_ip();
+            s.pointwise_mul_ip(&pp);
+        }
+        *out = s.to_tp();
+        return;
+    }
+    double_iter_scalar_ref(out, a, in_, exp);
+}
+
+/// Scalar reference for `double_iter` (also used as the non-IFMA path).
+#[inline]
+pub(super) fn double_iter_scalar_ref(
+    out: &mut ThetaPoint,
+    a: &mut ThetaStructure,
+    in_: &ThetaPoint,
+    exp: i32,
+) {
     if exp == 0 {
         *out = *in_;
     } else {
