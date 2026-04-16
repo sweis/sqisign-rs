@@ -7,8 +7,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Enables the BMI2/ADX inline-asm GF backend at lvl1.
-  RUSTFLAGS: -C target-cpu=native
+  # Enables the BMI2/ADX inline-asm GF backend at lvl1. Use explicit
+  # target-features rather than target-cpu=native: GitHub runners are
+  # heterogeneous and native can SIGILL rustc itself under LTO.
+  RUSTFLAGS: -C target-feature=+adx,+bmi2
 
 jobs:
   verify-only:
@@ -17,13 +19,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        features: [lvl1, lvl3, lvl5, "lvl1,gf-portable"]
+        include:
+          - { features: lvl1, key: lvl1 }
+          - { features: lvl3, key: lvl3 }
+          - { features: lvl5, key: lvl5 }
+          - { features: "lvl1,gf-portable", key: lvl1-portable }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.features }}
+          key: ${{ matrix.key }}
       - name: Build
         run: cargo build --release --no-default-features --features ${{ matrix.features }}
       - name: Test
